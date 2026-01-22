@@ -3,7 +3,21 @@ Configuration module for HTE App backend.
 Provides environment-driven configuration with sensible defaults.
 """
 import os
+import sys
 from pathlib import Path
+
+def get_data_root_path():
+    """Get the root path for data files, handling PyInstaller frozen mode."""
+    # Check environment variable first
+    if os.environ.get('DATA_ROOT_PATH'):
+        return os.environ.get('DATA_ROOT_PATH')
+    
+    # PyInstaller frozen mode - data files are in _MEIPASS
+    if getattr(sys, 'frozen', False):
+        return sys._MEIPASS
+    
+    # Normal mode - data files are in parent directory of backend
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 class Config:
     """Base configuration class with common settings."""
@@ -23,8 +37,8 @@ class Config:
     CORS_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
     CORS_HEADERS = ['Content-Type', 'Authorization']
     
-    # Data file paths
-    DATA_ROOT_PATH = os.environ.get('DATA_ROOT_PATH', os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    # Data file paths - using function to handle PyInstaller
+    DATA_ROOT_PATH = get_data_root_path()
     INVENTORY_PATH = os.path.join(DATA_ROOT_PATH, 'Inventory.xlsx')
     PRIVATE_INVENTORY_PATH = os.path.join(DATA_ROOT_PATH, 'Private_Inventory.xlsx')
     SOLVENT_PATH = os.path.join(DATA_ROOT_PATH, 'Solvent.xlsx')

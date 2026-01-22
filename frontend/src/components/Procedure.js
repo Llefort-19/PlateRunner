@@ -47,7 +47,7 @@ const Procedure = () => {
 
   const plateConfig = getPlateConfig(plateType);
   const { rows, columns } = plateConfig;
-  
+
   // Generate wells array
   const wells = [];
   for (let row of rows) {
@@ -59,10 +59,10 @@ const Procedure = () => {
   // Handle plate type switching with warning
   const handlePlateTypeSwitch = (newPlateType) => {
     if (newPlateType === plateType) return;
-    
+
     // Check if there are any dispensed materials
     const hasDispensedMaterials = procedure.some(wellData => wellData.materials.length > 0);
-    
+
     if (hasDispensedMaterials) {
       // Show warning modal
       setPendingPlateType(newPlateType);
@@ -80,7 +80,7 @@ const Procedure = () => {
     setAmount("");
     // Clear all procedure data
     setProcedure([]);
-    
+
     // Save the new plate type to context
     try {
       const contextResponse = await axios.get("/api/experiment/context");
@@ -112,6 +112,9 @@ const Procedure = () => {
     setPendingPlateType(null);
   };
 
+  // Track if this is the initial load to avoid setting plate type on refresh
+  const isInitialLoad = React.useRef(true);
+
   const loadProcedure = useCallback(async () => {
     try {
       // Make requests sequentially to avoid rate limiting
@@ -122,36 +125,40 @@ const Procedure = () => {
 
       // Only set plate type from context on initial load, not on every refresh
       const context = contextResponse.data || {};
-      if (context.plate_type && !procedure.length) {
+      if (context.plate_type && isInitialLoad.current) {
         console.log(`Setting plate type from context: ${context.plate_type}`);
         setPlateType(context.plate_type);
       }
     } catch (error) {
       console.error("Error loading procedure:", error);
     }
-  }, [procedure.length]);
+  }, []); // Remove procedure.length dependency to prevent re-creation
 
   const loadMaterials = useCallback(async () => {
-    try {
+    // Only show loading indicator if request takes longer than 150ms
+    // This prevents flash of loading state for fast requests
+    const loadingTimeout = setTimeout(() => {
       setMaterialsLoading(true);
+    }, 150);
+
+    try {
       const response = await axios.get("/api/experiment/materials");
       setMaterials(response.data || []);
     } catch (error) {
       console.error("Error loading materials:", error);
       setMaterials([]);
     } finally {
+      clearTimeout(loadingTimeout);
       setMaterialsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    // Load data sequentially with a small delay to avoid rate limiting
+    // Load data on mount - only run once
     const loadData = async () => {
-      await loadProcedure();
-      // Small delay before loading materials
-      setTimeout(() => {
-        loadMaterials();
-      }, 100);
+      // Load both in parallel to avoid sequential delays
+      await Promise.all([loadProcedure(), loadMaterials()]);
+      isInitialLoad.current = false;
     };
 
     loadData();
@@ -168,17 +175,14 @@ const Procedure = () => {
     return () => {
       window.removeEventListener('showHelp', handleHelpEvent);
     };
-  }, [loadProcedure, loadMaterials]);
+  }, []); // Empty dependency array - only run once on mount
 
-  // Refresh data when component becomes visible
+  // Refresh data when component becomes visible (e.g., when switching tabs back)
   useEffect(() => {
     const handleVisibilityChange = async () => {
       if (!document.hidden) {
-        await loadProcedure();
-        // Small delay before loading materials
-        setTimeout(() => {
-          loadMaterials();
-        }, 100);
+        // Refresh both in parallel
+        await Promise.all([loadProcedure(), loadMaterials()]);
       }
     };
 
@@ -210,7 +214,7 @@ const Procedure = () => {
 
   const consolidateMaterials = (materials) => {
     const consolidated = {};
-    
+
     materials.forEach((material) => {
       const key = material.name;
       if (consolidated[key]) {
@@ -221,7 +225,7 @@ const Procedure = () => {
         consolidated[key] = { ...material };
       }
     });
-    
+
     return Object.values(consolidated);
   };
 
@@ -234,22 +238,44 @@ const Procedure = () => {
     const name = (material.name || '').trim();
     const alias = (material.alias || '').trim();
     const cas = (material.cas || '').trim();
-    
+
     // Normalize Unicode characters to handle cases like H2​SO4​ vs H2SO4
     const normalizedName = name.normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '');
     const normalizedAlias = alias.normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '');
     const normalizedCas = cas.normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '');
-    
+
     // Create ID with consistent formatting
     const id = `${normalizedName}_${normalizedAlias}_${normalizedCas}`;
     return id;
+  };
+
+  // Helper function to create a name-based key for fallback matching
+  const getMaterialNameKey = (material) => {
+    const name = (material.name || '').trim().normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
+    const alias = (material.alias || '').trim().normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
+    return alias || name;
+  };
+
+  // Helper function to check if two materials match (with fallback to name/alias matching)
+  const materialsMatch = (material1, material2) => {
+    if (!material1 || !material2) return false;
+
+    // First try exact ID match
+    if (getMaterialId(material1) === getMaterialId(material2)) {
+      return true;
+    }
+
+    // Fallback: match by name key (alias or name)
+    const nameKey1 = getMaterialNameKey(material1);
+    const nameKey2 = getMaterialNameKey(material2);
+    return nameKey1 && nameKey2 && nameKey1 === nameKey2;
   };
 
   // Helper function to format numbers with 2 relevant decimal places
   const formatAmount = (amount) => {
     const num = parseFloat(amount);
     if (isNaN(num)) return amount;
-    
+
     // Handle different ranges to show 2 relevant decimal places
     if (num >= 10) {
       // For numbers >= 10, show no decimals if whole, otherwise 1 decimal
@@ -269,7 +295,7 @@ const Procedure = () => {
   const handleMaterialClick = (material) => {
     const clickedId = getMaterialId(material);
     const selectedId = selectedMaterial ? getMaterialId(selectedMaterial) : null;
-    
+
     // If clicking the same material, deselect it
     if (selectedMaterial && selectedId === clickedId) {
       setSelectedMaterial(null);
@@ -278,7 +304,7 @@ const Procedure = () => {
       // Otherwise, select the new material
       setSelectedMaterial(material);
       setAmount("");
-      
+
       // Set unit based on material role
       if (material.role === "Solvent") {
         setUnit("μL");
@@ -407,7 +433,7 @@ const Procedure = () => {
         existingIndex >= 0
           ? updatedProcedure[existingIndex]
           : { well: wellId, materials: [] };
-      
+
       // Add the new material entry and consolidate
       const updatedMaterials = consolidateMaterials([...wellData.materials, materialEntry]);
 
@@ -438,12 +464,10 @@ const Procedure = () => {
 
   const isSelectedMaterialInSelectedWells = () => {
     if (!selectedMaterial || selectedWells.length === 0) return false;
-    
-    const selectedId = getMaterialId(selectedMaterial);
-    
+
     return selectedWells.some((wellId) => {
       const wellData = getWellData(wellId);
-      return wellData.materials.some((m) => getMaterialId(m) === selectedId);
+      return wellData.materials.some((m) => materialsMatch(m, selectedMaterial));
     });
   };
 
@@ -460,13 +484,12 @@ const Procedure = () => {
       );
       if (existingIndex >= 0) {
         const wellData = updatedProcedure[existingIndex];
-        const selectedId = getMaterialId(selectedMaterial);
         const materialExists = wellData.materials.some(
-          (m) => getMaterialId(m) === selectedId,
+          (m) => materialsMatch(m, selectedMaterial),
         );
         if (materialExists) {
           const updatedMaterials = wellData.materials.filter(
-            (m) => getMaterialId(m) !== selectedId,
+            (m) => !materialsMatch(m, selectedMaterial),
           );
           updatedProcedure[existingIndex] = {
             ...wellData,
@@ -526,11 +549,10 @@ const Procedure = () => {
 
   const getWellColorCategory = (wellId) => {
     if (!selectedMaterial) return null;
-    
+
     const wellData = getWellData(wellId);
-    const selectedId = getMaterialId(selectedMaterial);
     const selectedMaterialInWell = wellData.materials.find(
-      (m) => getMaterialId(m) === selectedId,
+      (m) => materialsMatch(m, selectedMaterial),
     );
 
     if (!selectedMaterialInWell) return null;
@@ -538,7 +560,7 @@ const Procedure = () => {
     // Get all amounts for this material across all wells
     const allAmounts = procedure
       .flatMap(wellData => wellData.materials)
-      .filter(m => getMaterialId(m) === selectedId)
+      .filter(m => materialsMatch(m, selectedMaterial))
       .map(m => m.amount);
 
     if (allAmounts.length === 0) return null;
@@ -546,11 +568,11 @@ const Procedure = () => {
     // Sort amounts to find percentiles
     const sortedAmounts = [...allAmounts].sort((a, b) => a - b);
     const currentAmount = selectedMaterialInWell.amount;
-    
+
     // Count how many values are less than the current amount
     const valuesLessThan = sortedAmounts.filter(amount => amount < currentAmount).length;
     const percentile = valuesLessThan / (sortedAmounts.length - 1);
-    
+
     // Create discrete categories based on percentiles
     if (percentile <= 0.25) return 'low';      // Bottom 25%
     if (percentile <= 0.5) return 'medium';   // 25-50%
@@ -563,8 +585,8 @@ const Procedure = () => {
     const wellData = getWellData(wellId);
     const isSelected = selectedWells.includes(wellId);
     const hasContent = wellData.materials.length > 0;
-    const containsSelectedMaterial = selectedMaterial && 
-      wellData.materials.some((m) => getMaterialId(m) === getMaterialId(selectedMaterial));
+    const containsSelectedMaterial = selectedMaterial &&
+      wellData.materials.some((m) => materialsMatch(m, selectedMaterial));
 
     if (isSelected && containsSelectedMaterial) {
       // Well is both selected and contains the highlighted material
@@ -574,7 +596,7 @@ const Procedure = () => {
       className += " selected";
     } else if (hasContent) {
       className += " has-content";
-      
+
       // Highlight wells containing the selected material (but not selected)
       if (containsSelectedMaterial) {
         className += " highlighted-material";
@@ -591,9 +613,8 @@ const Procedure = () => {
     }
 
     const wellData = getWellData(wellId);
-    const selectedId = getMaterialId(selectedMaterial);
     const selectedMaterialInWell = wellData.materials.find(
-      (m) => getMaterialId(m) === selectedId,
+      (m) => materialsMatch(m, selectedMaterial),
     );
 
     if (!selectedMaterialInWell) {
@@ -611,10 +632,19 @@ const Procedure = () => {
 
   const calculateMaterialTotals = () => {
     const totals = {};
+    const nameKeyToMaterialId = new Map(); // Maps name keys to material IDs for fallback matching
+
+    // Helper function to create a name-based key for fallback matching
+    const createNameKey = (material) => {
+      const name = (material.name || '').trim().normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
+      const alias = (material.alias || '').trim().normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
+      return alias || name;
+    };
 
     // Initialize totals for all materials using unique identifiers
     materials.forEach((material) => {
       const materialId = getMaterialId(material);
+      const nameKey = createNameKey(material);
       totals[materialId] = {
         umol: 0,
         μL: 0,
@@ -623,43 +653,52 @@ const Procedure = () => {
         unit: "μmol", // default unit
         materialData: material, // Store reference to original material data
       };
+      // Store name key -> materialId mapping for fallback matching
+      if (nameKey && !nameKeyToMaterialId.has(nameKey)) {
+        nameKeyToMaterialId.set(nameKey, materialId);
+      }
     });
 
-    // Also initialize totals for materials found in procedure but not in materials list
-    // This handles imported experiments where procedure materials might not match materials list exactly
+    // Calculate totals from procedure data using fallback matching
     procedure.forEach((wellData) => {
       wellData.materials.forEach((material) => {
         const materialId = getMaterialId(material);
+        const nameKey = createNameKey(material);
 
-        // If this material ID doesn't exist in totals, create it
+        // Try to find a matching material ID - first by exact match, then by name key
+        let targetMaterialId = materialId;
         if (totals[materialId] === undefined) {
-          totals[materialId] = {
-            umol: 0,
-            μL: 0,
-            mg: 0,
-            hasMolecularWeight: !!material.molecular_weight, // Check if procedure material has molecular weight
-            unit: "μmol",
-            materialData: material, // Use procedure material data
-          };
+          // Fallback: try to find by name key
+          const fallbackId = nameKeyToMaterialId.get(nameKey);
+          if (fallbackId && totals[fallbackId] !== undefined) {
+            targetMaterialId = fallbackId;
+          } else {
+            // No match found, create new entry
+            totals[materialId] = {
+              umol: 0,
+              μL: 0,
+              mg: 0,
+              hasMolecularWeight: !!material.molecular_weight,
+              unit: "μmol",
+              materialData: material,
+            };
+            if (nameKey && !nameKeyToMaterialId.has(nameKey)) {
+              nameKeyToMaterialId.set(nameKey, materialId);
+            }
+          }
         }
-      });
-    });
 
-    // Calculate totals from procedure data
-    procedure.forEach((wellData) => {
-      wellData.materials.forEach((material) => {
-        const materialId = getMaterialId(material);
-
-        if (totals[materialId] !== undefined) {
+        // Now accumulate the totals
+        if (totals[targetMaterialId] !== undefined) {
           const unit = material.unit || "μmol";
           const amount = parseFloat(material.amount) || 0;
 
           if (unit === "μL") {
-            totals[materialId].μL += amount;
-            totals[materialId].unit = "μL";
+            totals[targetMaterialId].μL += amount;
+            totals[targetMaterialId].unit = "μL";
           } else {
-            totals[materialId].umol += amount;
-            totals[materialId].unit = "μmol";
+            totals[targetMaterialId].umol += amount;
+            totals[targetMaterialId].unit = "μmol";
           }
         }
       });
@@ -687,15 +726,8 @@ const Procedure = () => {
       });
     });
 
-    // Create a fallback matching system by name/alias only (ignore CAS)
-    // This handles cases where materials have same name but different/missing CAS
-    const createNameKey = (material) => {
-      const name = (material.name || '').trim().normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '');
-      const alias = (material.alias || '').trim().normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '');
-      // Use whichever is available - alias or name
-      const key = alias || name;
-      return key.toLowerCase();
-    };
+
+    // Use existing createNameKey function to match materials by name/alias for molecular weights
 
     // Create a map of name keys to molecular weights from materials list
     const nameToMolecularWeightMap = new Map();
@@ -728,7 +760,7 @@ const Procedure = () => {
       if (molecularWeight) {
         // Update hasMolecularWeight flag based on whether we have molecular weight data
         totals[materialId].hasMolecularWeight = true;
-        
+
         // Calculate mg only if we have umol amounts
         if (totals[materialId].umol > 0) {
           // Calculate mg: μmol * molecular_weight / 1000
@@ -746,22 +778,55 @@ const Procedure = () => {
   // Calculate material totals once outside of render
   const materialTotals = calculateMaterialTotals();
 
+  // Helper function to create a name-based key for fallback matching
+  const getNameKey = (material) => {
+    const name = (material.name || '').trim().normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
+    const alias = (material.alias || '').trim().normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
+    // Use alias if available, otherwise name
+    return alias || name;
+  };
+
   // Create a list of materials for display in design tab
   const allMaterialsForDisplay = () => {
     const materialMap = new Map();
+    const nameKeyMap = new Map(); // Maps name keys to material IDs for fallback matching
 
     // First, add all materials from the materials list (for selection in new experiments)
     materials.forEach((material, index) => {
       const materialId = getMaterialId(material);
+      const nameKey = getNameKey(material);
       materialMap.set(materialId, { ...material, index, fromMaterialsList: true });
+      // Store the name key -> materialId mapping for fallback matching
+      if (nameKey && !nameKeyMap.has(nameKey)) {
+        nameKeyMap.set(nameKey, materialId);
+      }
     });
 
     // Then, add materials from procedure that aren't in the materials list
+    // Use fallback matching by name/alias when exact ID match fails
     procedure.forEach((wellData) => {
       wellData.materials.forEach((material) => {
         const materialId = getMaterialId(material);
-        if (!materialMap.has(materialId)) {
-          materialMap.set(materialId, { ...material, fromMaterialsList: false });
+
+        // First, check if exact ID match exists
+        if (materialMap.has(materialId)) {
+          return; // Already in the map, skip
+        }
+
+        // Fallback: check if a material with the same name/alias exists
+        const nameKey = getNameKey(material);
+        const existingMaterialId = nameKeyMap.get(nameKey);
+
+        if (existingMaterialId && materialMap.has(existingMaterialId)) {
+          // Material with same name/alias already exists in materials list
+          // Skip adding this duplicate from procedure
+          return;
+        }
+
+        // No match found, add this procedure material
+        materialMap.set(materialId, { ...material, fromMaterialsList: false });
+        if (nameKey && !nameKeyMap.has(nameKey)) {
+          nameKeyMap.set(nameKey, materialId);
         }
       });
     });
@@ -792,13 +857,13 @@ const Procedure = () => {
                   <tr>
                     <td colSpan="3" style={{ textAlign: "center", padding: "20px", color: "var(--color-text-secondary)" }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
-                        <div style={{ 
-                          width: "16px", 
-                          height: "16px", 
-                          border: "2px solid var(--color-border)", 
-                          borderTop: "2px solid var(--color-primary)", 
-                          borderRadius: "50%", 
-                          animation: "spin 1s linear infinite" 
+                        <div style={{
+                          width: "16px",
+                          height: "16px",
+                          border: "2px solid var(--color-border)",
+                          borderTop: "2px solid var(--color-primary)",
+                          borderRadius: "50%",
+                          animation: "spin 1s linear infinite"
                         }}></div>
                         Loading materials...
                       </div>
@@ -969,14 +1034,14 @@ const Procedure = () => {
                     const well = `${row}${col}`;
                     const colorCategory = getWellColorCategory(well);
                     const isSelected = selectedWells.includes(well);
-                    
+
                     // Create color style only for non-selected wells that contain the material
                     const colorStyle = (colorCategory && !isSelected) ? {
                       backgroundColor: getCategoryColor(colorCategory),
                       color: 'white',
                       border: `2px solid ${getCategoryColor(colorCategory)}`
                     } : {};
-                    
+
                     return (
                       <div
                         key={`${well}-${selectedMaterial?.name || "none"}`}

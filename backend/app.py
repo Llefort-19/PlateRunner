@@ -3,16 +3,41 @@ Flask application factory for HTE App.
 Creates and configures the Flask application with proper error handling and logging.
 """
 import os
+import sys
 import logging
 from logging.handlers import RotatingFileHandler
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
 from config import get_config
 
+def get_base_path():
+    """Get the base path for the application (handles PyInstaller)."""
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable - use _MEIPASS for bundled files
+        return getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+    else:
+        # Running as script
+        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 def create_app(config_name=None):
     """Create and configure Flask application."""
-    app = Flask(__name__)
+    # For PyInstaller, bundled files are in sys._MEIPASS
+    if getattr(sys, 'frozen', False):
+        meipass = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+        static_folder = os.path.join(meipass, 'build')
+    else:
+        # Development mode - React build in frontend/build
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        static_folder = os.path.join(base_path, 'frontend', 'build')
+    
+    # Create Flask app with static folder configuration
+    if os.path.exists(static_folder):
+        app = Flask(__name__, 
+                    static_folder=static_folder,
+                    static_url_path='')
+    else:
+        app = Flask(__name__)
     
     # Load configuration
     config_class = get_config() if config_name is None else config_name
@@ -46,6 +71,26 @@ def create_app(config_name=None):
             app.logger.info("Inventory loaded successfully")
         except Exception as e:
             app.logger.warning(f"Failed to load inventory: {e}")
+    
+    # Add routes for serving React app (only if static folder exists)
+    if app.static_folder and os.path.exists(app.static_folder):
+        @app.route('/')
+        def serve_react():
+            """Serve React app."""
+            return send_from_directory(app.static_folder, 'index.html')
+        
+        @app.errorhandler(404)
+        def not_found_handler(e):
+            """Handle 404 by serving React app for client-side routing."""
+            # If it's an API request, return JSON error
+            if request.path.startswith('/api/'):
+                return jsonify({
+                    'error': 'Not Found',
+                    'message': 'The requested resource was not found',
+                    'status_code': 404
+                }), 404
+            # Otherwise serve React app for client-side routing
+            return send_from_directory(app.static_folder, 'index.html')
     
     return app
 
