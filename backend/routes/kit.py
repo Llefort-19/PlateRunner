@@ -55,17 +55,17 @@ def analyze_kit():
         if 'Design' not in excel_file.sheet_names:
             return jsonify({'error': 'No "Design" sheet found in the Excel file'}), 400
         
-        # Read the Materials sheet
+        # Read the Materials sheet using the excel_file object (not file stream which is consumed)
         try:
-            materials_df = pd.read_excel(file, sheet_name='Materials')
+            materials_df = pd.read_excel(excel_file, sheet_name='Materials')
             print(f"Materials sheet read successfully. Shape: {materials_df.shape}")
         except Exception as e:
             print(f"Error reading Materials sheet: {str(e)}")
             return jsonify({'error': f'Error reading Materials sheet: {str(e)}'}), 400
         
-        # Read the Design sheet
+        # Read the Design sheet using the excel_file object
         try:
-            design_df = pd.read_excel(file, sheet_name='Design')
+            design_df = pd.read_excel(excel_file, sheet_name='Design')
             print(f"Design sheet read successfully. Shape: {design_df.shape}")
         except Exception as e:
             print(f"Error reading Design sheet: {str(e)}")
@@ -103,9 +103,15 @@ def analyze_kit():
             # Only add if name or alias is not empty (allow materials with just alias)
             if (material.get('name') and material.get('name') != 'nan') or (material.get('alias') and material.get('alias') != 'nan'):
                 materials.append(material)
-                print(f"Added material: name='{material.get('name', '')}', alias='{material.get('alias', '')}'")
+                # Safe print - encode to ASCII with replacement for special chars
+                safe_name = material.get('name', '').encode('ascii', 'replace').decode('ascii')
+                safe_alias = material.get('alias', '').encode('ascii', 'replace').decode('ascii')
+                print(f"Added material: name='{safe_name}', alias='{safe_alias}'")
             else:
-                print(f"Skipped material: name='{material.get('name', '')}', alias='{material.get('alias', '')}' (both empty)")
+                # Safe print for skipped materials too
+                safe_name = str(material.get('name', '')).encode('ascii', 'replace').decode('ascii')
+                safe_alias = str(material.get('alias', '')).encode('ascii', 'replace').decode('ascii')
+                print(f"Skipped material: name='{safe_name}', alias='{safe_alias}' (both empty)")
         
         if not materials:
             return jsonify({'error': 'No valid materials found in the Materials sheet'}), 400
@@ -152,10 +158,13 @@ def analyze_kit():
                                 'unit': 'μmol'  # Default unit
                             })
                             if well in ['A1', 'A12', 'B1', 'B12']:  # Debug corner wells
-                                print(f"DEBUG: Well {well}: Added '{compound_name}' -> material '{material.get('alias', '')}'")
+                                safe_cname = compound_name.encode('ascii', 'replace').decode('ascii')
+                                safe_alias = material.get('alias', '').encode('ascii', 'replace').decode('ascii')
+                                print(f"DEBUG: Well {well}: Added '{safe_cname}' -> material '{safe_alias}'")
                         else:
                             if well in ['A1', 'A12', 'B1', 'B12']:  # Debug corner wells
-                                print(f"DEBUG: Well {well}: Compound '{compound_name}' NOT FOUND in materials")
+                                safe_cname = compound_name.encode('ascii', 'replace').decode('ascii')
+                                print(f"DEBUG: Well {well}: Compound '{safe_cname}' NOT FOUND in materials")
                 
                 col_index += 2  # Move to next compound pair
             

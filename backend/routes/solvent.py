@@ -6,6 +6,7 @@ import os
 import re
 import pandas as pd
 from flask import Blueprint, request, jsonify
+from config import get_config
 
 # Create blueprint
 solvent_bp = Blueprint('solvent', __name__, url_prefix='/api/solvent')
@@ -19,7 +20,8 @@ def search_solvents():
     bp_filter = request.args.get('bp_filter', '')
     tier_filter = request.args.get('tier_filter', '')
     
-    solvent_path = os.path.join(os.path.dirname(__file__), '..', '..', 'Solvent.xlsx')
+    config = get_config()
+    solvent_path = config.SOLVENT_PATH
     
     if not os.path.exists(solvent_path):
         return jsonify({'error': 'Solvent database not found'}), 404
@@ -118,7 +120,8 @@ def search_solvents():
 @solvent_bp.route('/tiers', methods=['GET'])
 def get_solvent_tiers():
     """Get all available solvent tiers from the database"""
-    solvent_path = os.path.join(os.path.dirname(__file__), '..', '..', 'Solvent.xlsx')
+    config = get_config()
+    solvent_path = config.SOLVENT_PATH
     
     if not os.path.exists(solvent_path):
         return jsonify({'error': 'Solvent database not found'}), 404
@@ -154,7 +157,8 @@ def get_solvent_tiers():
 @solvent_bp.route('/classes', methods=['GET'])
 def get_solvent_classes():
     """Get all available solvent classes from the database"""
-    solvent_path = os.path.join(os.path.dirname(__file__), '..', '..', 'Solvent.xlsx')
+    config = get_config()
+    solvent_path = config.SOLVENT_PATH
     
     if not os.path.exists(solvent_path):
         return jsonify({'error': 'Solvent database not found'}), 404

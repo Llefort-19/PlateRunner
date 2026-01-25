@@ -4,8 +4,13 @@
    Animations
    ===================================================== */
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* =====================================================
@@ -13,48 +18,104 @@
    ===================================================== */
 :root {
   /* Brand palette - Enhanced for desktop sophistication */
-  --color-primary: #1e40af; /* refined blue - main brand color */
-  --color-primary-hover: #1d4ed8; /* hover state */
-  --color-primary-light: #dbeafe; /* light blue background */
-  --color-secondary: #374151; /* sophisticated slate */
-  --color-accent: #10b981; /* emerald - accent color */
-  --color-accent-light: #a7f3d0; /* lighter accent for hover states */
+  --color-primary: #2563eb;
+  /* vibrant blue - main brand color */
+  --color-primary-hover: #1d4ed8;
+  /* hover state */
+  --color-primary-light: #dbeafe;
+  /* light blue background */
+  --color-secondary: #374151;
+  /* sophisticated slate */
+  --color-accent: #10b981;
+  /* emerald - accent color */
+  --color-accent-light: #a7f3d0;
+  /* lighter accent for hover states */
 
   /* UI neutrals - Modern desktop palette */
-  --color-background: #f9fafb; /* cooler light grey background */
-  --color-surface: #ffffff; /* pure white cards, modals */
-  --color-border: #e5e7eb; /* refined border */
-  --color-border-light: #f3f4f6; /* subtle separators */
-  --color-border-dark: #d1d5db; /* emphasis borders */
+  --color-background: #f9fafb;
+  /* cooler light grey background */
+  --color-surface: #ffffff;
+  /* pure white cards, modals */
+  --color-border: #e5e7eb;
+  /* refined border */
+  --color-border-light: #f3f4f6;
+  /* subtle separators */
+  --color-border-dark: #d1d5db;
+  /* emphasis borders */
   --color-overlay: rgba(0, 0, 0, 0.5);
 
   /* Text colors - Improved contrast and hierarchy */
-  --color-text-primary: #111827; /* darker main text */
-  --color-text-secondary: #6b7280; /* refined secondary text */
-  --color-text-muted: #9ca3af; /* refined muted text */
-  --color-text-light: #d1d5db; /* light text for captions */
-  --color-heading: #111827; /* strong headings */
+  --color-text-primary: #111827;
+  /* darker main text */
+  --color-text-secondary: #6b7280;
+  /* refined secondary text */
+  --color-text-muted: #9ca3af;
+  /* refined muted text */
+  --color-text-light: #d1d5db;
+  /* light text for captions */
+  --color-heading: #111827;
+  /* strong headings */
 
   /* Semantic states - Modern color palette */
-  --color-success: #059669; /* modern green */
-  --color-success-light: #ecfdf5; /* light green background */
-  --color-success-border: #a7f3d0; /* light green border */
-  --color-success-text: #065f46; /* dark green text */
+  /* Button base - enforce homogeneity */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    /* 14px standard */
+    font-weight: 500;
+    /* Consistent weight */
+    line-height: 1.5;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: none;
+    /* Prevent accidental caps */
+    letter-spacing: normal;
+  }
 
-  --color-danger: #dc2626; /* modern red */
-  --color-danger-light: #fef2f2; /* light red background */
-  --color-danger-border: #fecaca; /* light red border */
-  --color-danger-text: #991b1b; /* dark red text */
+  /* modern green */
+  /* Semantic states - Modern color palette */
+  --color-success: #059669;
+  /* Emerald 600 - Standard for success buttons */
+  --color-success-hover: #047857;
+  /* Emerald 700 */
+  --color-success-light: #ecfdf5;
+  --color-success-border: #a7f3d0;
+  --color-success-text: #065f46;
 
-  --color-warning: #d97706; /* modern amber */
-  --color-warning-light: #fffbeb; /* light amber background */
-  --color-warning-border: #fed7aa; /* light amber border */
-  --color-warning-text: #92400e; /* dark amber text */
+  --color-danger: #e11d48;
+  /* Rose 600 - More vibrant red */
+  --color-danger-hover: #be123c;
+  --color-danger-light: #fff1f2;
+  --color-danger-border: #fecdd3;
+  --color-danger-text: #9f1239;
 
-  --color-info: #0891b2; /* modern cyan */
-  --color-info-light: #f0fdfa; /* light cyan background */
-  --color-info-border: #a7f3d0; /* light cyan border */
-  --color-info-text: #134e4a; /* dark cyan text */
+  --color-warning: #d97706;
+  /* Amber 600 */
+  --color-warning-hover: #b45309;
+  --color-warning-light: #fffbeb;
+  --color-warning-border: #fde68a;
+  --color-warning-text: #92400e;
+  /* modern amber */
+  --color-warning-light: #fffbeb;
+  /* light amber background */
+  --color-warning-border: #fed7aa;
+  /* light amber border */
+  --color-warning-text: #92400e;
+  /* dark amber text */
+
+  --color-info: #0891b2;
+  /* modern cyan */
+  --color-info-light: #f0fdfa;
+  /* light cyan background */
+  --color-info-border: #a7f3d0;
+  /* light cyan border */
+  --color-info-text: #134e4a;
+  /* dark cyan text */
 
   /* Interactive states */
   --color-hover: color-mix(in srgb, var(--color-primary) 5%, transparent);
@@ -67,7 +128,7 @@
   --color-heatmap-yellow: #ffffbf;
   --color-heatmap-orange: #fdae61;
   --color-heatmap-red: #d7191c;
-  
+
   --color-heatmap-green-light: #ffffd9;
   --color-heatmap-green-1: #edf8b1;
   --color-heatmap-green-2: #c7e9b4;
@@ -76,54 +137,89 @@
 
   /* Well plate colors - Unified with brand */
   --color-well-empty: #f8f9fa;
-  --color-well-low: #4CAF50; /* Green - low amounts */
-  --color-well-medium: #FF9800; /* Orange - medium amounts */
-  --color-well-high: #F44336; /* Red - high amounts */
-  --color-well-very-high: #9C27B0; /* Purple - very high amounts */
-  --color-well-default: #2196F3; /* Blue - default */
+  --color-well-low: #4CAF50;
+  /* Green - low amounts */
+  --color-well-medium: #FF9800;
+  /* Orange - medium amounts */
+  --color-well-high: #F44336;
+  /* Red - high amounts */
+  --color-well-very-high: #9C27B0;
+  /* Purple - very high amounts */
+  --color-well-default: #2196F3;
+  /* Blue - default */
 
   /* Kit quadrant colors - cyan and green tones for 96-well plate placement */
-  --color-quadrant-1: #d1ecf1; /* Light cyan (info-light) */
-  --color-quadrant-2: #d4edda; /* Light green (success-light) */
-  --color-quadrant-3: #c7e9b4; /* Light mint green (heatmap-green-2) */
-  --color-quadrant-4: #abd9e9; /* Light teal cyan (heatmap-cyan) */
+  --color-quadrant-1: #d1ecf1;
+  /* Light cyan (info-light) */
+  --color-quadrant-2: #d4edda;
+  /* Light green (success-light) */
+  --color-quadrant-3: #c7e9b4;
+  /* Light mint green (heatmap-green-2) */
+  --color-quadrant-4: #abd9e9;
+  /* Light teal cyan (heatmap-cyan) */
 
   /* Modern sizing & radius - 8px grid system */
-  --radius-xs: 0.125rem; /* 2px */
-  --radius-sm: 0.375rem; /* 6px */
-  --radius-md: 0.5rem; /* 8px */
-  --radius-lg: 0.75rem; /* 12px */
-  --radius-xl: 1rem; /* 16px */
+  --radius-xs: 0.125rem;
+  /* 2px */
+  --radius-sm: 0.375rem;
+  /* 6px */
+  --radius-md: 0.5rem;
+  /* 8px */
+  --radius-lg: 0.75rem;
+  /* 12px */
+  --radius-xl: 1rem;
+  /* 16px */
 
   /* Enhanced shadows - more refined depth */
   --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1),
+  0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1),
+  0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1),
+  0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1),
+  0 8px 10px -6px rgb(0 0 0 / 0.1);
 
   /* Typography scale - improved hierarchy */
   --font-base: 16px;
-  --h1: 2.25rem; /* 36px */
-  --h2: 1.875rem; /* 30px */
-  --h3: 1.5rem; /* 24px */
-  --h4: 1.25rem; /* 20px */
-  --text-lg: 1.125rem; /* 18px */
-  --text-base: 1rem; /* 16px */
-  --text-sm: 0.875rem; /* 14px */
-  --text-xs: 0.75rem; /* 12px */
+  --h1: 2.25rem;
+  /* 36px */
+  --h2: 1.875rem;
+  /* 30px */
+  --h3: 1.5rem;
+  /* 24px */
+  --h4: 1.25rem;
+  /* 20px */
+  --text-lg: 1.125rem;
+  /* 18px */
+  --text-base: 1rem;
+  /* 16px */
+  --text-sm: 0.875rem;
+  /* 14px */
+  --text-xs: 0.75rem;
+  /* 12px */
 
   /* Spacing tokens - 8px grid system */
   --space-0: 0;
-  --space-1: 0.25rem; /* 4px */
-  --space-2: 0.5rem; /* 8px */
-  --space-3: 0.75rem; /* 12px */
-  --space-4: 1rem; /* 16px */
-  --space-6: 1.5rem; /* 24px */
-  --space-8: 2rem; /* 32px */
-  --space-12: 3rem; /* 48px */
-  --space-16: 4rem; /* 64px */
-  --space-20: 5rem; /* 80px */
+  --space-1: 0.25rem;
+  /* 4px */
+  --space-2: 0.5rem;
+  /* 8px */
+  --space-3: 0.75rem;
+  /* 12px */
+  --space-4: 1rem;
+  /* 16px */
+  --space-6: 1.5rem;
+  /* 24px */
+  --space-8: 2rem;
+  /* 32px */
+  --space-12: 3rem;
+  /* 48px */
+  --space-16: 4rem;
+  /* 64px */
+  --space-20: 5rem;
+  /* 80px */
 
   /* Breakpoints */
   --breakpoint-sm: 576px;
@@ -132,8 +228,10 @@
   --breakpoint-xl: 1200px;
 
   /* Header tokens */
-  --header-height: 72px; /* +8px breathing room */
-  --nav-font-size: 1.125rem; /* 18px */
+  --header-height: 72px;
+  /* +8px breathing room */
+  --nav-font-size: 1.125rem;
+  /* 18px */
   --nav-hover-bg: color-mix(in srgb, var(--color-primary) 5%, transparent);
   --nav-underline: 3px solid var(--color-primary);
 }
@@ -178,24 +276,19 @@
 html {
   font-size: var(--font-base);
 }
+
 body {
   margin: 0;
-  font-family:
-    "Inter",
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    "Helvetica Neue",
-    Arial,
-    sans-serif;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
   background: var(--color-background);
   color: var(--color-text-primary);
-  line-height: 1.6;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
+/* =====================================================
+   Typography System - Standardized
+   ===================================================== */
 h1,
 h2,
 h3,
@@ -203,27 +296,70 @@ h4,
 h5,
 h6 {
   color: var(--color-heading);
-  margin: 0 0 0.75rem 0;
+  font-weight: 600;
+  margin: 0 0 1rem 0;
   line-height: 1.25;
 }
 
 h1 {
-  font-size: var(--h1);
+  font-size: 1.875rem;
+  letter-spacing: -0.025em;
 }
+
+/* 30px */
 h2 {
-  font-size: var(--h2);
+  font-size: 1.5rem;
+  letter-spacing: -0.025em;
 }
+
+/* 24px */
 h3 {
-  font-size: var(--h3);
+  font-size: 1.25rem;
 }
+
+/* 20px */
 h4 {
-  font-size: var(--h4);
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
+}
+
+/* Section Headers */
+h5 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+h6 {
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 p {
   margin-top: 0;
   margin-bottom: 1rem;
   color: var(--color-text-secondary);
+  font-size: 1rem;
+}
+
+/* Standard Label Style */
+label,
+.form-label {
+  display: block;
+  font-size: 0.875rem;
+  /* 14px */
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+/* Small text helper */
+small,
+.text-sm {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
 }
 
 /* Links */
@@ -231,6 +367,7 @@ a {
   color: var(--color-primary);
   text-decoration: none;
 }
+
 a:hover {
   text-decoration: underline;
 }
@@ -250,108 +387,186 @@ a:hover {
    ===================================================== */
 
 /* =====================================================
-   Modern Clean Header Design
+   Modern Clean Header Design - Single Row Layout
    ===================================================== */
 
 /* Main Header Container */
 .clean-header {
-  background: var(--color-surface);
-  border-bottom: 1px solid #e5e7eb;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  background: #0f172a;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid #1e293b;
   position: sticky;
   top: 0;
   z-index: 1000;
+  transition: all 0.3s ease;
 }
 
-/* Flexbox Layout Container - No wrap to prevent button disappearing */
-.header-flex-container {
+/* Single Row Layout: Logo | Navigation | Actions */
+.header-single-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 64px;
+  height: 72px;
+  /* Increased from 64px */
   padding: 0 1.5rem;
-  max-width: 1400px;
+  max-width: 1920px;
   margin: 0 auto;
-  gap: 1rem;
+  gap: 1.5rem;
 }
 
-/* Brand Section (Logo Only) */
+/* Brand Section (Logo) */
 .header-brand {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  min-width: 0;
+  background: white;
+  padding: 6px 14px;
+  /* Increased padding */
+  border-radius: 10px;
+  /* Slightly larger radius */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .brand-logo {
-  height: 48px;
+  height: 36px;
+  /* Increased from 32px */
   width: auto;
   object-fit: contain;
 }
 
-/* Navigation Pills Container */
+/* Navigation Pills Container - Center */
 .header-navigation {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
-  flex: 1;
   justify-content: center;
+  gap: 0.75rem;
+  /* Increased gap */
+  flex: 1;
   min-width: 0;
   overflow-x: auto;
-  overflow-y: visible;
   padding: 0.25rem 0;
-  margin: 0 0.5rem;
-  
+
   /* Hide scrollbar but keep functionality */
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE/Edge */
-  -webkit-overflow-scrolling: touch; /* iOS smooth scrolling */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 .header-navigation::-webkit-scrollbar {
-  display: none; /* Chrome/Safari */
+  display: none;
+}
+
+/* Action Buttons - Compact Icon Style */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  /* Increased gap */
+  flex-shrink: 0;
+  min-height: 48px;
+  /* Ensure container allows buttons to be full size */
+}
+
+.action-btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  /* Enforce size */
+  min-height: 48px;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  /* Circular */
+  background: white;
+  color: #1e293b;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+  /* Prevent shrinking */
+}
+
+.action-btn-icon:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.action-btn-icon:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #e2e8f0;
+}
+
+.action-btn-icon svg {
+  flex-shrink: 0;
+  width: 24px;
+  /* Increased from 20px */
+  height: 24px;
+}
+
+/* Warning style (Reset) */
+.action-btn-icon.action-btn-warning:hover:not(:disabled) {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+/* Danger style (Exit) */
+.action-btn-icon.action-btn-danger {
+  /* For solid buttons, danger is red text/icon on white, or soft red bg on hover */
+  color: #dc2626;
+}
+
+.action-btn-icon.action-btn-danger:hover:not(:disabled) {
+  background: #fef2f2;
+  color: #b91c1c;
 }
 
 /* Navigation Pills - Modern Design */
+
 .nav-pill {
-  padding: var(--space-3) var(--space-4);
+  padding: 0.625rem 1.5rem;
+  /* Larger padding */
   border: 1px solid transparent;
-  border-radius: var(--radius-xl); /* Perfect pill shape */
-  font-size: var(--text-sm);
+  border-radius: 100px;
+  /* Full pill shape */
+  font-size: 1.125rem;
+  /* 18px */
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
   position: relative;
-  
-  /* Inactive state - refined modern look */
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-  border-color: var(--color-border);
-  box-shadow: var(--shadow-xs);
+
+  /* Inactive state - Dark Header Version */
+  background: transparent;
+  color: #cbd5e1;
+  /* Slate-300 for better contrast on dark */
 }
 
 .nav-pill:hover:not(.active) {
-  background: var(--color-background);
-  color: var(--color-text-primary);
-  border-color: var(--color-border-dark);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
 }
 
 .nav-pill.active {
   background: var(--color-primary);
+  /* New vibrant blue */
   color: white;
   font-weight: 600;
-  border-color: var(--color-primary);
-  box-shadow: var(--shadow-md);
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+  /* Blue shadow glow */
 }
 
 .nav-pill.active:hover {
   background: var(--color-primary-hover);
-  border-color: var(--color-primary-hover);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.5);
 }
 
 /* Focus ring for accessibility */
@@ -364,17 +579,18 @@ a:hover {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: 0.375rem;
   flex-shrink: 0;
+  flex-wrap: nowrap;
   min-width: 0;
 }
 
 .action-btn {
-  height: 36px;
-  padding: 0 var(--space-3);
+  height: 30px;
+  padding: 0 0.625rem;
   border: none;
   border-radius: var(--radius-lg);
-  font-size: var(--text-sm);
+  font-size: 0.8125rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -384,7 +600,7 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  
+
   /* Standard styling for all action buttons */
   background: var(--color-primary-light);
   color: var(--color-primary);
@@ -421,136 +637,175 @@ a:hover {
   animation: resetPulse 0.3s ease-in-out;
 }
 
+/* Exit button - danger styling */
+.action-exit {
+  background: var(--color-danger);
+  color: white;
+  border-color: var(--color-danger);
+}
+
+.action-exit:hover:not(:disabled) {
+  background: var(--color-danger-text);
+  border-color: var(--color-danger-text);
+}
+
 @keyframes resetPulse {
   0% {
     transform: translateY(-1px) scale(1);
   }
+
   50% {
     transform: translateY(-1px) scale(1.05);
   }
+
   100% {
     transform: translateY(-1px) scale(1);
   }
 }
 
 /* =====================================================
-   Responsive Header Styles
+   Responsive Header Styles - Single Row Layout
    ===================================================== */
 
 /* Large desktop */
 @media (min-width: 1200px) {
-  .header-flex-container {
+  .header-single-row {
     padding: 0 2rem;
     gap: 1.5rem;
   }
-  
+
   .brand-logo {
-    height: 50px;
+    height: 46px;
+  }
+
+  .nav-pill {
+    padding: 0.625rem 1.5rem;
+    font-size: 1.125rem;
+  }
+
+  .action-btn-icon {
+    width: 48px;
+    height: 48px;
   }
 }
 
 /* Standard desktop and tablet */
 @media (max-width: 1199px) and (min-width: 769px) {
-  .header-flex-container {
-    padding: 0 1.25rem;
-    gap: 0.875rem;
+  .header-single-row {
+    padding: 0 1rem;
+    height: 52px;
+    gap: 0.5rem;
   }
-  
+
+  .brand-logo {
+    height: 40px;
+  }
+
   .nav-pill {
-    padding: 0.5rem 1rem;
-    font-size: 0.8125rem;
+    padding: 0.4rem 0.625rem;
+    font-size: 0.75rem;
   }
-  
-  .action-btn {
-    padding: 0 0.75rem;
-    font-size: 0.8125rem;
+
+  .action-btn-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .action-btn-icon svg {
+    width: 14px;
+    height: 14px;
   }
 }
 
-/* Tablet and small desktop - horizontal scroll nav */
+/* Tablet - horizontal scroll nav if needed */
 @media (max-width: 768px) {
-  .header-flex-container {
-    padding: 0 1rem;
-    gap: 0.75rem;
-    min-height: 60px;
+  .header-single-row {
+    padding: 0 0.75rem;
+    height: 48px;
+    gap: 0.5rem;
   }
-  
+
   .brand-logo {
-    height: 42px;
+    height: 36px;
   }
-  
-  /* Force horizontal layout - no wrapping */
+
   .header-navigation {
     justify-content: flex-start;
-    margin: 0 0.25rem;
+    gap: 0.25rem;
   }
-  
+
   .nav-pill {
-    font-size: 0.75rem;
-    padding: 0.5rem 0.875rem;
+    font-size: 0.6875rem;
+    padding: 0.375rem 0.5rem;
   }
-  
-  /* Keep action buttons visible and properly sized */
-  .action-btn {
-    height: 32px;
-    padding: 0 0.75rem;
-    font-size: 0.75rem;
-    min-width: fit-content;
+
+  .action-btn-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .action-btn-icon svg {
+    width: 14px;
+    height: 14px;
   }
 }
 
 /* Mobile - compact but all elements visible */
 @media (max-width: 480px) {
-  .header-flex-container {
-    padding: 0 0.75rem;
-    gap: 0.5rem;
-    min-height: 56px;
+  .header-single-row {
+    padding: 0 0.5rem;
+    height: 44px;
+    gap: 0.375rem;
   }
-  
+
   .brand-logo {
-    height: 38px;
+    height: 32px;
   }
-  
-  /* Compact navigation with horizontal scroll */
+
   .header-navigation {
-    margin: 0 0.125rem;
-    gap: 0.25rem;
+    gap: 0.125rem;
   }
-  
+
   .nav-pill {
-    font-size: 0.6875rem;
-    padding: 0.4375rem 0.75rem;
+    font-size: 0.625rem;
+    padding: 0.3rem 0.4rem;
   }
-  
-  /* Compact but visible action buttons */
-  .action-btn {
-    height: 30px;
-    padding: 0 0.625rem;
-    font-size: 0.6875rem;
-    min-width: fit-content;
+
+  .action-btn-icon {
+    width: 26px;
+    height: 26px;
+  }
+
+  .action-btn-icon svg {
+    width: 12px;
+    height: 12px;
   }
 }
 
 /* Extra small screens - ultra compact */
 @media (max-width: 360px) {
-  .header-flex-container {
-    padding: 0 0.5rem;
-    gap: 0.375rem;
+  .header-single-row {
+    padding: 0 0.375rem;
+    gap: 0.25rem;
   }
-  
+
   .brand-logo {
-    height: 34px;
-  }
-  
-  .nav-pill {
-    font-size: 0.625rem;
-    padding: 0.375rem 0.625rem;
-  }
-  
-  .action-btn {
     height: 28px;
-    padding: 0 0.5rem;
-    font-size: 0.625rem;
+  }
+
+  .nav-pill {
+    font-size: 0.5625rem;
+    padding: 0.25rem 0.3rem;
+  }
+
+  .action-btn-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .action-btn-icon svg {
+    width: 11px;
+    height: 11px;
   }
 }
 
@@ -814,11 +1069,9 @@ a:hover {
 }
 
 .table tbody tr:hover {
-  background: color-mix(
-    in srgb,
-    var(--color-primary) 5%,
-    var(--color-background) 95%
-  );
+  background: color-mix(in srgb,
+      var(--color-primary) 5%,
+      var(--color-background) 95%);
 }
 
 /* =====================================================
@@ -833,7 +1086,8 @@ a:hover {
 
 .procedure-grid {
   display: grid;
-  grid-template-columns: 460px 1fr; /* wider materials column */
+  grid-template-columns: 460px 1fr;
+  /* wider materials column */
   gap: var(--space-8);
   margin-top: var(--space-6);
   min-height: 600px;
@@ -873,21 +1127,28 @@ a:hover {
 }
 
 .materials-section .table thead th:nth-child(1) {
-  text-align: left; /* Alias */
+  text-align: left;
+  /* Alias */
 }
+
 .materials-section .table thead th:nth-child(2) {
-  text-align: center; /* CAS */
+  text-align: center;
+  /* CAS */
 }
+
 .materials-section .table thead th:nth-child(3) {
-  text-align: right; /* Total Amount */
+  text-align: right;
+  /* Total Amount */
 }
 
 .materials-section .table tbody td:nth-child(1) {
   text-align: left;
 }
+
 .materials-section .table tbody td:nth-child(2) {
   text-align: center;
 }
+
 .materials-section .table tbody td:nth-child(3) {
   text-align: right;
 }
@@ -900,9 +1161,12 @@ a:hover {
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
-  height: 470px; /* Fixed height to fit 96-well plate perfectly */
-  min-height: 470px; /* Ensure minimum height is maintained */
-  max-height: 470px; /* Prevent expansion */
+  height: 470px;
+  /* Fixed height to fit 96-well plate perfectly */
+  min-height: 470px;
+  /* Ensure minimum height is maintained */
+  max-height: 470px;
+  /* Prevent expansion */
 }
 
 .plate-section h3 {
@@ -939,19 +1203,15 @@ a:hover {
 }
 
 .search-result-item:hover {
-  background: color-mix(
-    in srgb,
-    var(--color-primary) 5%,
-    var(--color-background) 95%
-  );
+  background: color-mix(in srgb,
+      var(--color-primary) 5%,
+      var(--color-background) 95%);
 }
 
 .search-result-item.selected-result {
-  background: color-mix(
-    in srgb,
-    var(--color-accent) 10%,
-    var(--color-background) 90%
-  );
+  background: color-mix(in srgb,
+      var(--color-accent) 10%,
+      var(--color-background) 90%);
   border-left: 3px solid var(--color-accent);
 }
 
@@ -1099,7 +1359,7 @@ a:hover {
   padding: var(--space-3);
   box-shadow: var(--shadow-xs);
   margin-top: var(--space-4);
-  
+
   /* Updated width for 25% smaller wells */
   /* 96-well: 33px + 12*33 + 11*3 = 33 + 396 + 33 = 462px + padding ~ 12px each side */
   width: 486px;
@@ -1172,22 +1432,22 @@ a:hover {
     align-items: flex-start;
     gap: var(--space-md);
   }
-  
+
   .plate-type-selector {
     width: 100%;
     justify-content: space-between;
   }
-  
+
   .plate-type-toggle {
     flex: 1;
     max-width: 200px;
   }
-  
+
   .plate-type-btn {
     min-width: 60px;
     padding: var(--space-xs) var(--space-sm);
   }
-  
+
   /* Adjust plate container for mobile */
   .plate-container {
     width: 100%;
@@ -1195,7 +1455,7 @@ a:hover {
     height: auto;
     overflow-x: auto;
   }
-  
+
   .plate-grid.plate-24,
   .column-headers.plate-24,
   .plate-grid.plate-48,
@@ -1351,9 +1611,11 @@ a:hover {
 .text-center {
   text-align: center;
 }
+
 .mt-0 {
   margin-top: 0;
 }
+
 .mb-0 {
   margin-bottom: 0;
 }
@@ -1490,11 +1752,11 @@ input[type="file"]:focus {
   .molecules-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .molecule-card {
     padding: var(--space-sm);
   }
-  
+
   .molecule-image img {
     max-width: 150px;
   }

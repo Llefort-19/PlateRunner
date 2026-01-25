@@ -12,7 +12,7 @@ const Materials = () => {
   const [editMaterialIndex, setEditMaterialIndex] = useState(null);
   const [personalInventoryStatus, setPersonalInventoryStatus] = useState({});
   const [personalInventoryLoading, setPersonalInventoryLoading] = useState(false);
-  
+
   // Ref to track if we've already checked personal inventory for current materials
   const materialsHashRef = useRef('');
 
@@ -38,7 +38,7 @@ const Materials = () => {
   // File upload state - Materials from previous experiment
   const [selectedUploadFile, setSelectedUploadFile] = useState(null);
   const [uploadingMaterials, setUploadingMaterials] = useState(false);
-  
+
   // Kit upload state - Kit with materials AND design
   const [showKitUploadModal, setShowKitUploadModal] = useState(false);
   const [selectedKitFile, setSelectedKitFile] = useState(null);
@@ -57,7 +57,7 @@ const Materials = () => {
 
   const roleOptions = [
     "Reactant",
-    "Target product", 
+    "Target product",
     "Product",
     "Solvent",
     "Reagent",
@@ -71,13 +71,13 @@ const Materials = () => {
     return existingMaterials.some(existingMaterial => {
       // Check if any of the identifying fields match (name, alias, or CAS)
       // Only check if both values exist and are not empty
-      const nameMatch = existingMaterial.name && newMaterial.name && 
-                       existingMaterial.name.toLowerCase().trim() === newMaterial.name.toLowerCase().trim();
-      const aliasMatch = existingMaterial.alias && newMaterial.alias && 
-                        existingMaterial.alias.toLowerCase().trim() === newMaterial.alias.toLowerCase().trim();
-      const casMatch = existingMaterial.cas && newMaterial.cas && 
-                      existingMaterial.cas.toLowerCase().trim() === newMaterial.cas.toLowerCase().trim();
-      
+      const nameMatch = existingMaterial.name && newMaterial.name &&
+        existingMaterial.name.toLowerCase().trim() === newMaterial.name.toLowerCase().trim();
+      const aliasMatch = existingMaterial.alias && newMaterial.alias &&
+        existingMaterial.alias.toLowerCase().trim() === newMaterial.alias.toLowerCase().trim();
+      const casMatch = existingMaterial.cas && newMaterial.cas &&
+        existingMaterial.cas.toLowerCase().trim() === newMaterial.cas.toLowerCase().trim();
+
       return nameMatch || aliasMatch || casMatch;
     });
   };
@@ -98,16 +98,16 @@ const Materials = () => {
     if (materials.length > 0) {
       // Create a hash of the current materials to check if we need to update
       const materialsHash = materials.map(m => `${m.name}_${m.alias || ''}_${m.cas || ''}`).sort().join('|');
-      
+
       // Only update if the materials have actually changed
       if (materialsHash !== materialsHashRef.current) {
         materialsHashRef.current = materialsHash;
-        
+
         // Add a small delay to prevent excessive updates when switching tabs
         const timeoutId = setTimeout(() => {
           updatePersonalInventoryStatus();
         }, 100);
-        
+
         return () => clearTimeout(timeoutId);
       }
     }
@@ -123,9 +123,9 @@ const Materials = () => {
         else if (showKitUploadModal) setShowKitUploadModal(false);
       }
     };
-    
+
     document.addEventListener('keydown', handleEscKey);
-    
+
     return () => {
       document.removeEventListener('keydown', handleEscKey);
     };
@@ -136,7 +136,7 @@ const Materials = () => {
     try {
       const response = await axios.get("/api/experiment/materials");
       setMaterials(Array.isArray(response.data) ? response.data : []);
-      
+
       setTimeout(() => {
         updatePersonalInventoryStatus();
       }, 100);
@@ -201,7 +201,7 @@ const Materials = () => {
 
   const moveMaterialUp = async (index) => {
     if (index === 0) return; // Can't move first item up
-    
+
     try {
       const updatedMaterials = [...materials];
       // Swap with the item above
@@ -214,7 +214,7 @@ const Materials = () => {
 
   const moveMaterialDown = async (index) => {
     if (index === materials.length - 1) return; // Can't move last item down
-    
+
     try {
       const updatedMaterials = [...materials];
       // Swap with the item below
@@ -240,11 +240,11 @@ const Materials = () => {
   const updatePersonalInventoryStatus = async () => {
     // Prevent multiple simultaneous updates
     if (personalInventoryLoading) return;
-    
+
     try {
       setPersonalInventoryLoading(true);
       const statusMap = {};
-      
+
       // Filter out materials that don't need checking
       const materialsToCheck = materials.filter(material => {
         // Skip materials that are already known to be in personal inventory
@@ -255,12 +255,12 @@ const Materials = () => {
         }
         return true;
       });
-      
+
       if (materialsToCheck.length === 0) {
         setPersonalInventoryLoading(false);
         return;
       }
-      
+
       // Process remaining materials in batches
       const batchSize = 5;
       for (let i = 0; i < materialsToCheck.length; i += batchSize) {
@@ -273,7 +273,7 @@ const Materials = () => {
           })
         );
       }
-      
+
       // Update state once with all results
       setPersonalInventoryStatus(prev => ({
         ...prev,
@@ -305,7 +305,7 @@ const Materials = () => {
     try {
       await axios.post("/api/inventory/private/add", material);
       showSuccess(`${material.name} added to personal inventory!`);
-      
+
       // Immediately update the status for this specific material
       const key = `${material.name}_${material.alias || ''}_${material.cas || ''}`;
       setPersonalInventoryStatus(prev => ({
@@ -321,14 +321,14 @@ const Materials = () => {
   const generateMoleculeImage = async (smiles, name, alias, cas) => {
     setMoleculeLoading(true);
     setCurrentMolecule({ smiles, name });
-    
+
     try {
       const response = await axios.post("/api/molecule/image", {
         smiles: smiles,
         width: 400,
         height: 400,
       });
-      
+
       setMoleculeImage(`data:image/png;base64,${response.data.image}`);
       setCurrentMolecule({ smiles, name, alias, cas });
       setShowMoleculeModal(true);
@@ -356,7 +356,7 @@ const Materials = () => {
   const handleAddMultipleMaterials = async (materialsToAdd) => {
     try {
       // Filter out duplicates before adding
-      const newMaterials = materialsToAdd.filter(materialToAdd => 
+      const newMaterials = materialsToAdd.filter(materialToAdd =>
         !isMaterialDuplicate(materialToAdd, materials)
       );
 
@@ -439,9 +439,9 @@ const Materials = () => {
       if (selectedSolventClass) params.append('class_filter', selectedSolventClass);
       if (boilingPointFilter) params.append('bp_filter', boilingPointFilter);
       if (selectedTier) params.append('tier_filter', selectedTier);
-      
+
       console.log('Searching solvents with params:', params.toString());
-      
+
       const response = await axios.get(`/api/solvent/search?${params.toString()}`);
       setSolventSearchResults(response.data || []);
     } catch (error) {
@@ -471,10 +471,10 @@ const Materials = () => {
 
       // Reload materials to get the updated list
       await loadMaterials();
-      
+
       // Show success message with details
       const { added_materials, skipped_materials, inventory_matches, excel_uploads } = response.data;
-      
+
       let message = `Successfully uploaded ${added_materials} material(s) from Excel file.`;
       if (inventory_matches > 0) {
         message += ` ${inventory_matches} material(s) matched inventory data (using inventory information).`;
@@ -485,11 +485,11 @@ const Materials = () => {
       if (skipped_materials > 0) {
         message += ` ${skipped_materials} material(s) were skipped (already exist in current experiment).`;
       }
-      
+
       showSuccess(message);
       setShowUploadModal(false);
       setSelectedUploadFile(null);
-      
+
       // Clear the file input
       const fileInput = document.getElementById('materials-upload-input');
       if (fileInput) {
@@ -518,11 +518,11 @@ const Materials = () => {
     }
 
     setUploadingKit(true);
-    
+
     try {
       const formData = new FormData();
       formData.append('file', selectedKitFile);
-      
+
       const response = await axios.post("/api/experiment/kit/analyze", formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -532,11 +532,11 @@ const Materials = () => {
       const { materials, design, kit_size } = response.data;
       setKitData({ materials, design });
       setKitSize(kit_size);
-      
+
       // Close kit upload modal and show positioning modal
       setShowKitUploadModal(false);
       setShowKitPositionModal(true);
-      
+
     } catch (error) {
       console.error("Error analyzing kit:", error);
       showError("Error analyzing kit: " + (error.response?.data?.error || error.message));
@@ -582,7 +582,7 @@ const Materials = () => {
   return (
     <div className="card">
       {/* Action buttons */}
-      <div className="materials-actions-bar" style={{ 
+      <div className="materials-actions-bar" style={{
         marginBottom: "24px",
         padding: "20px",
         backgroundColor: "var(--color-surface)",
@@ -590,90 +590,48 @@ const Materials = () => {
         borderRadius: "8px",
         boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)"
       }}>
-        <div style={{ 
-          display: "flex", 
-          gap: "12px", 
+        <div style={{
+          display: "flex",
+          gap: "12px",
           flexWrap: "wrap",
           alignItems: "center",
           justifyContent: "flex-start"
         }}>
-          <button 
-            className="btn btn-primary" 
+          <button
+            className="btn btn-primary"
             onClick={() => setShowAddModal(true)}
-            style={{ 
-              padding: "10px 16px",
-              fontSize: "14px",
-              fontWeight: "500",
-              borderRadius: "6px",
-              transition: "all 0.2s ease"
-            }}
           >
             ➕ Add New Material
           </button>
-          <button 
-            className="btn btn-success" 
+          <button
+            className="btn btn-success"
             onClick={() => setShowInventoryModal(true)}
-            style={{ 
-              padding: "10px 16px",
-              fontSize: "14px",
-              fontWeight: "500",
-              borderRadius: "6px",
-              transition: "all 0.2s ease"
-            }}
           >
             🔍 Search Inventory
           </button>
-          <button 
-            className="btn btn-primary" 
+          <button
+            className="btn btn-primary"
             onClick={() => setShowSolventModal(true)}
-            style={{ 
-              padding: "10px 16px",
-              fontSize: "14px",
-              fontWeight: "500",
-              borderRadius: "6px",
-              transition: "all 0.2s ease"
-            }}
           >
             🧪 Add Solvent
           </button>
-          <button 
-            className="btn btn-success" 
+          <button
+            className="btn btn-success"
             onClick={() => setShowUploadModal(true)}
-            style={{ 
-              padding: "10px 16px",
-              fontSize: "14px",
-              fontWeight: "500",
-              borderRadius: "6px",
-              transition: "all 0.2s ease"
-            }}
           >
             📁 Upload Materials
           </button>
-          <button 
-            className="btn btn-primary" 
+          <button
+            className="btn btn-primary"
             onClick={() => setShowKitUploadModal(true)}
-            style={{ 
-              padding: "10px 16px",
-              fontSize: "14px",
-              fontWeight: "500",
-              borderRadius: "6px",
-              transition: "all 0.2s ease"
-            }}
           >
             📦 Upload Kit
           </button>
           {materials.length > 0 && (
-            <button 
-              className="btn btn-warning" 
+            <button
+              className="btn btn-warning"
               onClick={handleRemoveAllMaterials}
-              style={{ 
-                padding: "10px 16px",
-                fontSize: "14px",
-                fontWeight: "500",
-                borderRadius: "6px",
-                transition: "all 0.2s ease",
-                marginLeft: "auto"
-              }}
+              style={{ marginLeft: "auto" }}
             >
               🗑️ Clear Table
             </button>
@@ -740,9 +698,9 @@ const Materials = () => {
               <h4>{currentMolecule.alias || currentMolecule.name}</h4>
               {currentMolecule.cas && <p>CAS: {currentMolecule.cas}</p>}
               {moleculeImage && (
-                <img 
-                  src={moleculeImage} 
-                  alt="Molecule structure" 
+                <img
+                  src={moleculeImage}
+                  alt="Molecule structure"
                   style={{ maxWidth: "100%", maxHeight: "400px" }}
                 />
               )}
@@ -753,7 +711,7 @@ const Materials = () => {
       )}
 
 
-      
+
       {/* Solvent Search Modal */}
       {showSolventModal && (
         <div className="modal-overlay">
@@ -823,7 +781,7 @@ const Materials = () => {
                   </select>
                 </div>
               </div>
-              
+
               {solventSearchResults.length > 0 && (
                 <div style={{ maxHeight: "300px", overflowY: "auto" }}>
                   {solventSearchResults.map((solvent, index) => {
@@ -835,8 +793,8 @@ const Materials = () => {
                     }, materials);
 
                     return (
-                      <div key={index} style={{ 
-                        padding: "10px", 
+                      <div key={index} style={{
+                        padding: "10px",
                         borderBottom: "1px solid var(--color-border)",
                         display: "flex",
                         justifyContent: "space-between",
@@ -867,9 +825,9 @@ const Materials = () => {
                             handleAddFromInventory(material);
                           }}
                           disabled={isAlreadyAdded}
-                          style={{ 
-                            fontSize: "12px", 
-                            padding: "6px 12px", 
+                          style={{
+                            fontSize: "12px",
+                            padding: "6px 12px",
                             flexShrink: 0,
                             opacity: isAlreadyAdded ? 0.5 : 1
                           }}
@@ -940,8 +898,8 @@ const Materials = () => {
                     id="kit-upload-input"
                     style={{ width: "400px" }}
                   />
-                  <button 
-                    className="btn btn-primary" 
+                  <button
+                    className="btn btn-primary"
                     onClick={handleUploadKit}
                     disabled={!selectedKitFile || uploadingKit}
                   >

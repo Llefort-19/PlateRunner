@@ -6,18 +6,71 @@ import os
 import sys
 from pathlib import Path
 
+def get_exe_path():
+    """Get the directory where the executable lives (for PyInstaller)."""
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable - get the directory containing the exe
+        return os.path.dirname(sys.executable)
+    else:
+        # Running as script - get the parent directory of backend
+        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def get_app_resources_path():
+    """Get the path to bundled app resources (React build, etc.)."""
+    if getattr(sys, 'frozen', False):
+        # PyInstaller extracts bundled files to _MEIPASS temp directory
+        return sys._MEIPASS
+    else:
+        # Running as script - same as exe path
+        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def get_data_folder_path():
+    """Get the path to user data folder (Excel files, etc.).
+    
+    In frozen mode: looks for 'data' folder next to the exe.
+    In development: uses the project root directory directly.
+    """
+    # Check environment variable first (useful for testing/custom paths)
+    if os.environ.get('DATA_FOLDER_PATH'):
+        return os.environ.get('DATA_FOLDER_PATH')
+    
+    exe_path = get_exe_path()
+    
+    if getattr(sys, 'frozen', False):
+        # Frozen mode: data folder sits next to the executable
+        return os.path.join(exe_path, 'data')
+    else:
+        # Development mode: use project root directly (no 'data' subfolder)
+        return exe_path
+
+def ensure_data_folder_exists():
+    """Ensure the data folder exists and contains template files if needed."""
+    data_folder = get_data_folder_path()
+    
+    # Only create 'data' folder structure in frozen mode
+    if not getattr(sys, 'frozen', False):
+        return True
+    
+    # Create data folder if it doesn't exist
+    if not os.path.exists(data_folder):
+        try:
+            os.makedirs(data_folder)
+            print(f"Created data folder: {data_folder}")
+        except OSError as e:
+            print(f"Warning: Could not create data folder: {e}")
+            return False
+    
+    return True
+
 def get_data_root_path():
-    """Get the root path for data files, handling PyInstaller frozen mode."""
+    """DEPRECATED: Use get_data_folder_path() or get_app_resources_path() instead.
+    Kept for backward compatibility."""
     # Check environment variable first
     if os.environ.get('DATA_ROOT_PATH'):
         return os.environ.get('DATA_ROOT_PATH')
     
-    # PyInstaller frozen mode - data files are in _MEIPASS
-    if getattr(sys, 'frozen', False):
-        return sys._MEIPASS
-    
-    # Normal mode - data files are in parent directory of backend
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # For backward compatibility, return the data folder path
+    return get_data_folder_path()
 
 class Config:
     """Base configuration class with common settings."""
@@ -38,10 +91,18 @@ class Config:
     CORS_HEADERS = ['Content-Type', 'Authorization']
     
     # Data file paths - using function to handle PyInstaller
-    DATA_ROOT_PATH = get_data_root_path()
-    INVENTORY_PATH = os.path.join(DATA_ROOT_PATH, 'Inventory.xlsx')
-    PRIVATE_INVENTORY_PATH = os.path.join(DATA_ROOT_PATH, 'Private_Inventory.xlsx')
-    SOLVENT_PATH = os.path.join(DATA_ROOT_PATH, 'Solvent.xlsx')
+    # APP_RESOURCES_PATH: bundled resources (React build) - extracted to temp in frozen mode
+    # DATA_FOLDER_PATH: user data files (Excel) - sits next to exe in frozen mode
+    APP_RESOURCES_PATH = get_app_resources_path()
+    DATA_FOLDER_PATH = get_data_folder_path()
+    
+    # Legacy alias for backward compatibility
+    DATA_ROOT_PATH = DATA_FOLDER_PATH
+    
+    # Excel file paths - these are user-managed files
+    INVENTORY_PATH = os.path.join(DATA_FOLDER_PATH, 'Inventory.xlsx')
+    PRIVATE_INVENTORY_PATH = os.path.join(DATA_FOLDER_PATH, 'Private_Inventory.xlsx')
+    SOLVENT_PATH = os.path.join(DATA_FOLDER_PATH, 'Solvent.xlsx')
     
     # RDKit settings
     RDKIT_ENABLED = os.environ.get('RDKIT_ENABLED', 'True').lower() == 'true'

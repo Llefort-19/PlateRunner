@@ -6,6 +6,7 @@ import os
 import pandas as pd
 from flask import Blueprint, request, jsonify
 from state import inventory_data, load_inventory
+from config import get_config
 
 # Create blueprint
 inventory_bp = Blueprint('inventory', __name__, url_prefix='/api/inventory')
@@ -89,8 +90,9 @@ def search_inventory():
             inventory_data['smiles'].astype(str).str.lower().str.contains(query, na=False)
         ]
     
-    # Private inventory
-    private_path = os.path.join(os.path.dirname(__file__), '..', '..', 'Private_Inventory.xlsx')
+    # Private inventory - use config for portable path
+    config = get_config()
+    private_path = config.PRIVATE_INVENTORY_PATH
     private_results = pd.DataFrame()
     if os.path.exists(private_path):
         try:
@@ -160,7 +162,8 @@ def search_inventory():
 def add_to_private_inventory():
     """Add chemical to private inventory"""
     chemical = request.json
-    private_path = os.path.join(os.path.dirname(__file__), '..', '..', 'Private_Inventory.xlsx')
+    config = get_config()
+    private_path = config.PRIVATE_INVENTORY_PATH
     headers = ['chemical_name', 'alias', 'cas_number', 'molecular_weight', 'smiles', 'barcode']
 
     # Create file if it doesn't exist
@@ -205,7 +208,8 @@ def add_to_private_inventory():
 @inventory_bp.route('/private/fix-structure', methods=['POST'])
 def fix_private_inventory_structure():
     """Force fix the private inventory structure to have only the correct columns"""
-    private_path = os.path.join(os.path.dirname(__file__), '..', '..', 'Private_Inventory.xlsx')
+    config = get_config()
+    private_path = config.PRIVATE_INVENTORY_PATH
     
     try:
         if os.path.exists(private_path):
@@ -238,7 +242,8 @@ def fix_private_inventory_structure():
 def check_private_inventory():
     """Check if a chemical exists in private inventory by name, alias, CAS, or SMILES"""
     chemical = request.json
-    private_path = os.path.join(os.path.dirname(__file__), '..', '..', 'Private_Inventory.xlsx')
+    config = get_config()
+    private_path = config.PRIVATE_INVENTORY_PATH
     
     if not os.path.exists(private_path):
         return jsonify({'exists': False}), 200

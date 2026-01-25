@@ -7,6 +7,7 @@ import pandas as pd
 from datetime import datetime
 from flask import Blueprint, request, jsonify
 from state import current_experiment, inventory_data, load_inventory
+from config import get_config
 
 # Create blueprint
 uploads_bp = Blueprint('uploads', __name__, url_prefix='/api/experiment')
@@ -418,7 +419,8 @@ def upload_materials_from_excel():
                     
                     # Check private inventory if not found in main inventory
                     if inventory_material is None:
-                        private_path = os.path.join(os.path.dirname(__file__), '..', '..', 'Private_Inventory.xlsx')
+                        config = get_config()
+                        private_path = config.PRIVATE_INVENTORY_PATH
                         if os.path.exists(private_path):
                             try:
                                 private_df = pd.read_excel(private_path, parse_dates=False)

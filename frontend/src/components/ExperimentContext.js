@@ -64,7 +64,7 @@ const ExperimentContext = () => {
     try {
       const response = await axios.get('/api/experiment/materials');
       const currentMaterials = response.data || [];
-      
+
       // Create a set of identifiers for materials already in the list
       const addedSet = new Set();
       currentMaterials.forEach(material => {
@@ -72,17 +72,14 @@ const ExperimentContext = () => {
         if (material.smiles) addedSet.add(material.smiles);
         if (material.cas) addedSet.add(material.cas);
       });
-      
+
       setAddedMaterials(addedSet);
     } catch (error) {
       console.error("Error loading current materials:", error);
     }
   };
 
-  // Add a function to refresh materials state when needed
-  const refreshMaterialsState = () => {
-    loadCurrentMaterials();
-  };
+
 
   // Listen for custom events that indicate materials have been cleared
   useEffect(() => {
@@ -155,12 +152,12 @@ const ExperimentContext = () => {
     } catch (error) {
       console.error('Upload error:', error);
       console.error('Error response:', error.response);
-      
+
       // Show specific error message to user
-      const errorMessage = error.response?.data?.error || 
-                          error.response?.data?.message || 
-                          error.message || 
-                          'Failed to upload SDF file';
+      const errorMessage = error.response?.data?.error ||
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to upload SDF file';
       showError(`SDF Upload Error: ${errorMessage}`);
     } finally {
       setUploading(false);
@@ -195,7 +192,7 @@ const ExperimentContext = () => {
       [name]: value,
     };
     setContext(updatedContext);
-    
+
     // Auto-save to backend
     saveContextToBackend(updatedContext);
   };
@@ -203,6 +200,8 @@ const ExperimentContext = () => {
   const saveContextToBackend = async (contextData) => {
     try {
       await axios.post("/api/experiment/context", contextData);
+      // Dispatch event to notify header of context update
+      window.dispatchEvent(new CustomEvent('experimentContextUpdated'));
     } catch (error) {
       console.error("Error auto-saving context:", error);
     }
@@ -213,15 +212,17 @@ const ExperimentContext = () => {
     try {
       await axios.post("/api/experiment/context", context);
       showSuccess("Experiment context saved successfully!");
+      // Dispatch event to notify header of context update
+      window.dispatchEvent(new CustomEvent('experimentContextUpdated'));
     } catch (error) {
       showError("Error saving context: " + error.message);
     }
   };
 
   const isMaterialAdded = (chemical) => {
-    return addedMaterials.has(chemical.name) || 
-           addedMaterials.has(chemical.smiles) ||
-           (chemical.cas && addedMaterials.has(chemical.cas));
+    return addedMaterials.has(chemical.name) ||
+      addedMaterials.has(chemical.smiles) ||
+      (chemical.cas && addedMaterials.has(chemical.cas));
   };
 
   const addChemicalToMaterials = async (chemical) => {
@@ -229,7 +230,7 @@ const ExperimentContext = () => {
       // Get current materials to check for duplicates
       const materialsResponse = await axios.get('/api/experiment/materials');
       const currentMaterials = materialsResponse.data || [];
-      
+
       // Check for duplicates by name, alias, CAS, or SMILES
       const isDuplicate = currentMaterials.some(
         (material) =>
@@ -238,12 +239,12 @@ const ExperimentContext = () => {
           (material.cas && chemical.cas && material.cas === chemical.cas) ||
           (material.smiles && chemical.smiles && material.smiles === chemical.smiles)
       );
-      
+
       if (isDuplicate) {
         showError(`${chemical.name} is already in the materials list`);
         return;
       }
-      
+
       // Add to experiment materials only (not to personal inventory)
       const newMaterial = {
         name: chemical.name,
@@ -259,10 +260,10 @@ const ExperimentContext = () => {
 
       const updatedMaterials = [...currentMaterials, newMaterial];
       await axios.post('/api/experiment/materials', updatedMaterials);
-      
+
       // Add to the set of added materials
       setAddedMaterials(prev => new Set([...prev, chemical.name, chemical.smiles]));
-      
+
       showSuccess(`${chemical.name} added to materials list`);
     } catch (error) {
       showError("Error adding chemical to materials: " + error.message);
@@ -362,18 +363,18 @@ const ExperimentContext = () => {
               <span style={{ fontWeight: '500', color: 'var(--color-heading)', minWidth: 'fit-content' }}>
                 Upload Reaction (SDF File)
               </span>
-              <button 
-                type="button" 
-                className="btn btn-success" 
+              <button
+                type="button"
+                className="btn btn-success"
                 onClick={handleUploadClick}
                 disabled={uploading}
               >
                 {uploading ? 'Uploading...' : 'Select File'}
               </button>
               {sdfData && (
-                <button 
-                  type="button" 
-                  className="btn btn-warning" 
+                <button
+                  type="button"
+                  className="btn btn-warning"
                   onClick={clearSdfData}
                 >
                   Clear Reaction
@@ -427,8 +428,8 @@ const ExperimentContext = () => {
                         <td style={{ fontFamily: 'monospace', fontSize: '0.9em' }}>{mol.smiles}</td>
                         <td>
                           {mol.image && (
-                            <img 
-                              src={`data:image/png;base64,${mol.image}`} 
+                            <img
+                              src={`data:image/png;base64,${mol.image}`}
                               alt={mol.name}
                               style={{ maxWidth: '150px', height: 'auto' }}
                             />
@@ -440,8 +441,8 @@ const ExperimentContext = () => {
                             className="btn btn-success"
                             onClick={() => addChemicalToMaterials(mol)}
                             disabled={isMaterialAdded(mol)}
-                            style={{ 
-                              padding: '4px 8px', 
+                            style={{
+                              padding: '4px 8px',
                               fontSize: '12px',
                               opacity: isMaterialAdded(mol) ? 0.5 : 1
                             }}

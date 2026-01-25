@@ -9,7 +9,7 @@ from logging.handlers import RotatingFileHandler
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
-from config import get_config
+from config import get_config, get_app_resources_path
 
 def get_base_path():
     """Get the base path for the application (handles PyInstaller)."""
@@ -22,14 +22,15 @@ def get_base_path():
 
 def create_app(config_name=None):
     """Create and configure Flask application."""
-    # For PyInstaller, bundled files are in sys._MEIPASS
+    # Get path to bundled app resources (React build)
+    resources_path = get_app_resources_path()
+    
+    # In frozen mode, React build is in the resources path
+    # In development, it's in frontend/build
     if getattr(sys, 'frozen', False):
-        meipass = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
-        static_folder = os.path.join(meipass, 'build')
+        static_folder = os.path.join(resources_path, 'build')
     else:
-        # Development mode - React build in frontend/build
-        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        static_folder = os.path.join(base_path, 'frontend', 'build')
+        static_folder = os.path.join(resources_path, 'frontend', 'build')
     
     # Create Flask app with static folder configuration
     if os.path.exists(static_folder):
@@ -137,6 +138,7 @@ def register_blueprints(app):
     from routes.uploads import uploads_bp
     from routes.export import export_bp
     from routes.experiment_import import import_bp
+    from routes.lifecycle import lifecycle_bp
     
     app.register_blueprint(inventory_bp)
     app.register_blueprint(experiment_bp)
@@ -146,6 +148,7 @@ def register_blueprints(app):
     app.register_blueprint(uploads_bp)
     app.register_blueprint(export_bp)
     app.register_blueprint(import_bp)
+    app.register_blueprint(lifecycle_bp)
 
 def register_error_handlers(app):
     """Register error handlers for consistent error responses."""

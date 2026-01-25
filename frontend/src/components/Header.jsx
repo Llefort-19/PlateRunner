@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useToast } from "./ToastContext";
 import axios from 'axios';
 
@@ -8,7 +8,51 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
   const [isImporting, setIsImporting] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedImportFile, setSelectedImportFile] = useState(null);
-  
+  const [isPortableMode, setIsPortableMode] = useState(false);
+  const [showShutdownConfirm, setShowShutdownConfirm] = useState(false);
+  const [isShuttingDown, setIsShuttingDown] = useState(false);
+  const [experimentContext, setExperimentContext] = useState({ eln: '', project: '' });
+
+  // Check server status and load experiment context on mount
+  useEffect(() => {
+    const initializeHeader = async () => {
+      try {
+        // Check server status
+        const serverResponse = await axios.get('/api/server/status');
+        setIsPortableMode(serverResponse.data.shutdown_available);
+      } catch (error) {
+        setIsPortableMode(false);
+      }
+
+      try {
+        // Fetch experiment context for header display
+        const contextResponse = await axios.get('/api/experiment/context');
+        setExperimentContext({
+          eln: contextResponse.data.eln || '',
+          project: contextResponse.data.project || ''
+        });
+      } catch (error) {
+        console.log('Could not fetch experiment context');
+      }
+    };
+    initializeHeader();
+
+    // Listen for context updates
+    const handleContextUpdate = () => {
+      axios.get('/api/experiment/context')
+        .then(response => {
+          setExperimentContext({
+            eln: response.data.eln || '',
+            project: response.data.project || ''
+          });
+        })
+        .catch(() => { });
+    };
+
+    window.addEventListener('experimentContextUpdated', handleContextUpdate);
+    return () => window.removeEventListener('experimentContextUpdated', handleContextUpdate);
+  }, []);
+
   const tabs = [
     { id: "context", label: "Experiment Context" },
     { id: "materials", label: "Materials" },
@@ -32,6 +76,23 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
 
   const handleHelp = () => {
     onShowHelp(activeTab);
+  };
+
+  const handleShutdown = async () => {
+    setIsShuttingDown(true);
+    try {
+      await axios.post('/api/server/shutdown');
+      // Show success message briefly before server shuts down
+      showSuccess("Server is shutting down. You can close this browser tab.");
+      setShowShutdownConfirm(false);
+    } catch (error) {
+      if (error.response?.status === 403) {
+        showError("Shutdown is only available when running as a portable app.");
+      } else {
+        showError("Failed to shutdown server: " + error.message);
+      }
+      setIsShuttingDown(false);
+    }
   };
 
   const handleImportClick = () => {
@@ -63,7 +124,7 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
       showSuccess(response.data.message);
       setShowImportModal(false);
       setSelectedImportFile(null);
-      
+
       // Clear the file input
       const fileInput = document.getElementById('import-file-input');
       if (fileInput) {
@@ -74,7 +135,7 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
       setTimeout(() => {
         window.location.reload();
       }, 1000);
-      
+
     } catch (error) {
       console.error("Error importing experiment:", error);
       showError("Error importing experiment: " + (error.response?.data?.error || error.message));
@@ -98,7 +159,7 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
     try {
       // Import XLSX only when needed
       const XLSX = await import('xlsx');
-      
+
       // Create a new workbook
       const wb = XLSX.utils.book_new();
 
@@ -130,7 +191,7 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
         const contextResponse = await axios.get('/api/experiment/context');
         const context = contextResponse.data;
         const elnNumber = context.eln;
-        
+
         if (elnNumber && elnNumber.trim() !== '') {
           // Use ELN number + date (YYYY-MM-DD format)
           const dateOnly = new Date().toISOString().split('T')[0]; // Gets YYYY-MM-DD
@@ -269,18 +330,18 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
         axios.get('/api/experiment/procedure'),
         axios.get('/api/experiment/context')
       ]);
-      
+
       const procedure = procedureRes.data;
       const context = contextRes.data;
 
       // Determine plate type based on existing wells
       let rows, columns;
-      
+
       if (procedure && procedure.length > 0) {
         // Check if we have wells beyond 24-well plate
         const maxRow = Math.max(...procedure.map(p => p.well.charAt(0).charCodeAt(0)));
         const maxCol = Math.max(...procedure.map(p => parseInt(p.well.slice(1))));
-        
+
         if (maxRow <= 'D'.charCodeAt(0) && maxCol <= 6) {
           rows = ['A', 'B', 'C', 'D'];
           columns = ['1', '2', '3', '4', '5', '6'];
@@ -306,67 +367,154 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
       }
 
       // Collect all unique materials across all wells using unique identifiers
+      // We need to track: 1) unique materials, 2) which wells they appear in, 3) first appearance order, 4) if solvent
       const allMaterials = new Map(); // Use Map to store both ID and material data
+      const materialWellCount = new Map(); // Track how many wells each material appears in
+      const materialFirstAppearance = new Map(); // Track the order of first appearance in plate order
+      let materialOrder = 0;
+
+      // Helper to check if a material is a solvent
+      const isSolvent = (material) => {
+        return material.source === 'solvent_database' ||
+          (material.role && material.role.toLowerCase().includes('solvent'));
+      };
+
       if (procedure && procedure.length > 0) {
-        procedure.forEach(wellData => {
+        // Sort procedure by well position to ensure plate order (A1, A2, ..., H12)
+        const sortedProcedure = [...procedure].sort((a, b) => {
+          const wellA = a.well || '';
+          const wellB = b.well || '';
+          const rowA = wellA.charAt(0);
+          const rowB = wellB.charAt(0);
+          const colA = parseInt(wellA.slice(1)) || 0;
+          const colB = parseInt(wellB.slice(1)) || 0;
+
+          if (rowA !== rowB) {
+            return rowA.localeCompare(rowB);
+          }
+          return colA - colB;
+        });
+
+        // First pass: collect materials and count well appearances
+        sortedProcedure.forEach(wellData => {
           if (wellData.materials) {
+            const seenInThisWell = new Set(); // Track materials already counted for this well
             wellData.materials.forEach(material => {
               const materialId = getMaterialId(material);
-              if (materialId && !allMaterials.has(materialId)) {
-                allMaterials.set(materialId, material);
+              if (materialId) {
+                // Only count each material once per well
+                if (!seenInThisWell.has(materialId)) {
+                  seenInThisWell.add(materialId);
+                  materialWellCount.set(materialId, (materialWellCount.get(materialId) || 0) + 1);
+                }
+
+                // Track first appearance and material data
+                if (!allMaterials.has(materialId)) {
+                  allMaterials.set(materialId, material);
+                  materialFirstAppearance.set(materialId, materialOrder++);
+                }
               }
             });
           }
         });
       }
 
-      // Convert to array and sort for consistent ordering (sort by alias or name for display)
-      const sortedMaterials = Array.from(allMaterials.entries())
-        .sort(([idA, materialA], [idB, materialB]) => {
-          const nameA = materialA.alias || materialA.name || '';
-          const nameB = materialB.alias || materialB.name || '';
-          return nameA.localeCompare(nameB);
-        });
-      
+      // Separate compounds and solvents
+      const compounds = [];
+      const solvents = [];
+
+      allMaterials.forEach((material, materialId) => {
+        if (isSolvent(material)) {
+          solvents.push([materialId, material]);
+        } else {
+          compounds.push([materialId, material]);
+        }
+      });
+
+      // Sort compounds by:
+      // 1. Number of wells they appear in (DESCENDING) - common materials first (Pd precursor, substrate)
+      // 2. First appearance order (ascending) - maintains plate order within same frequency
+      compounds.sort(([idA], [idB]) => {
+        const countA = materialWellCount.get(idA) || 0;
+        const countB = materialWellCount.get(idB) || 0;
+
+        // First sort by well count DESCENDING (common materials first)
+        if (countA !== countB) {
+          return countB - countA; // Note: DESCENDING order
+        }
+
+        // Then by first appearance order (plate order)
+        return materialFirstAppearance.get(idA) - materialFirstAppearance.get(idB);
+      });
+
+      // Sort solvents by frequency (descending), then first appearance
+      solvents.sort(([idA], [idB]) => {
+        const countA = materialWellCount.get(idA) || 0;
+        const countB = materialWellCount.get(idB) || 0;
+
+        if (countA !== countB) {
+          return countB - countA;
+        }
+        return materialFirstAppearance.get(idA) - materialFirstAppearance.get(idB);
+      });
+
+      // Create compound to column mapping
       const materialToCompoundMap = {};
-      sortedMaterials.forEach(([materialId, material], index) => {
-        materialToCompoundMap[materialId] = index + 1;
+      compounds.forEach(([materialId], index) => {
+        materialToCompoundMap[materialId] = { type: 'compound', number: index + 1 };
+      });
+      solvents.forEach(([materialId], index) => {
+        materialToCompoundMap[materialId] = { type: 'solvent', number: index + 1 };
       });
 
       // Create headers for Design sheet
       const headers = ['Well', 'ID'];
-      for (let i = 1; i <= sortedMaterials.length; i++) {
-        headers.push(`Compound ${i} name`, `Compound ${i} amount`);
+      // Add compound headers
+      for (let i = 1; i <= compounds.length; i++) {
+        headers.push(`Compound ${i} Name`, `Compound ${i} Amount`);
+      }
+      // Add solvent headers
+      for (let i = 1; i <= solvents.length; i++) {
+        headers.push(`Solvent ${i} Name`, `Solvent ${i} Amount`);
       }
 
       const data = [headers];
+
+      const totalColumns = compounds.length + solvents.length;
 
       // Process each well in order for the determined plate type
       wells.forEach(wellId => {
         const wellData = procedure.find(p => p.well === wellId);
         const elnNumber = context.eln || '';
         const wellIdWithEln = elnNumber ? `${elnNumber}_${wellId}` : wellId;
-        
+
         const row = [wellId, wellIdWithEln];
-        
-        // Initialize all compound columns with empty values
-        for (let i = 0; i < sortedMaterials.length; i++) {
+
+        // Initialize all columns with empty values (compounds + solvents)
+        for (let i = 0; i < totalColumns; i++) {
           row.push('', '');
         }
-        
+
         if (wellData && wellData.materials && wellData.materials.length > 0) {
-          // Fill in compound names and amounts based on the consistent mapping
+          // Fill in names and amounts based on the consistent mapping
           wellData.materials.forEach(material => {
             const materialId = getMaterialId(material);
-            const compoundNumber = materialToCompoundMap[materialId];
-            if (compoundNumber) {
-              const compoundIndex = (compoundNumber - 1) * 2 + 2; // +2 for Well and ID columns
-              row[compoundIndex] = material.alias || material.name || '';
-              row[compoundIndex + 1] = material.amount || '';
+            const mapping = materialToCompoundMap[materialId];
+            if (mapping) {
+              let columnOffset;
+              if (mapping.type === 'compound') {
+                // Compound columns start at index 2 (after Well and ID)
+                columnOffset = (mapping.number - 1) * 2 + 2;
+              } else {
+                // Solvent columns start after all compound columns
+                columnOffset = compounds.length * 2 + (mapping.number - 1) * 2 + 2;
+              }
+              row[columnOffset] = material.alias || material.name || '';
+              row[columnOffset + 1] = material.amount || '';
             }
           });
         }
-        
+
         data.push(row);
       });
 
@@ -422,15 +570,15 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
       if (analyticalData && analyticalData.uploadedFiles && analyticalData.uploadedFiles.length > 0) {
         // Get the most recent uploaded file data
         const mostRecentUpload = analyticalData.uploadedFiles[analyticalData.uploadedFiles.length - 1];
-        
+
         if (mostRecentUpload && mostRecentUpload.data && mostRecentUpload.data.length > 0) {
           // Create the correct column order: Nr, Well, ID, Name_1, Area_1, Name_2, Area_2, etc.
           const orderedColumns = ['Well', 'Sample ID'];
-          
+
           // Find all Name_X and Area_X columns and sort them by number
           const nameColumns = [];
           const areaColumns = [];
-          
+
           Object.keys(mostRecentUpload.data[0]).forEach(key => {
             if (key.startsWith('Name_')) {
               nameColumns.push(key);
@@ -438,29 +586,29 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
               areaColumns.push(key);
             }
           });
-          
+
           // Sort by the number after the underscore
           nameColumns.sort((a, b) => {
             const numA = parseInt(a.split('_')[1]);
             const numB = parseInt(b.split('_')[1]);
             return numA - numB;
           });
-          
+
           areaColumns.sort((a, b) => {
             const numA = parseInt(a.split('_')[1]);
             const numB = parseInt(b.split('_')[1]);
             return numA - numB;
           });
-          
+
           // Add Name_X and Area_X columns in alternating order
           const maxCompounds = Math.max(nameColumns.length, areaColumns.length);
           for (let i = 0; i < maxCompounds; i++) {
             if (nameColumns[i]) orderedColumns.push(nameColumns[i]);
             if (areaColumns[i]) orderedColumns.push(areaColumns[i]);
           }
-          
+
           // Only include standard columns - do NOT add any extra columns from the uploaded file
-          
+
           // Create headers with correct order
           const headers = orderedColumns;
           const data = [headers];
@@ -504,7 +652,7 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
       try {
         const materialsResponse = await axios.get('/api/experiment/materials');
         const materials = materialsResponse.data || [];
-        
+
         // Get materials that are typically analyzed (reactants, products, internal standards)
         const analyticalRoles = ['reactant', 'product', 'target product', 'internal standard'];
         materials.forEach(material => {
@@ -543,7 +691,7 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
 
       // Get plate type from context to generate appropriate number of wells
       const plateType = context.plate_type || '96';
-      
+
       // Get plate configuration based on type
       const getPlateConfig = (plateType) => {
         if (plateType === "24") {
@@ -565,7 +713,7 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
       };
 
       const plateConfig = getPlateConfig(plateType);
-      
+
       // Generate wells based on plate type
       for (const col of plateConfig.rows) {
         for (const row of plateConfig.columns) {
@@ -609,7 +757,7 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
         for (let index = 0; index < heatmapData.heatmaps.length; index++) {
           const heatmap = heatmapData.heatmaps[index];
           const sheetName = `Heatmap_${index + 1}`;
-          
+
           // Create heatmap data
           const data = [
             [`Heatmap ${index + 1}: ${heatmap.title || 'Untitled'}`],
@@ -624,7 +772,7 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
           // Add column headers
           const cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
           const rows = ['1', '2', '3', '4', '5', '6', '7', '8'];
-          
+
           const headerRow = ['', ...cols];
           data.push(headerRow);
 
@@ -640,7 +788,7 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
           }
 
           const ws = XLSX.utils.aoa_to_sheet(data);
-          
+
           XLSX.utils.book_append_sheet(wb, ws, sheetName);
         }
       } else {
@@ -712,109 +860,181 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
     }
   };
 
-      return (
-        <>
-          <header className="clean-header">
-            <div className="header-flex-container">
-              {/* Brand Section - Left */}
-              <div className="header-brand">
-                <img 
-                  src="/logo-hte-d2d.png" 
-                  alt="HTE D2D" 
-                  className="brand-logo"
-                />
-              </div>
+  return (
+    <>
+      <header className="clean-header">
+        <div className="header-single-row">
+          {/* Brand Section - Left */}
+          <div className="header-brand">
+            <img
+              src="/logo-hte-d2d.png"
+              alt="HTE D2D"
+              className="brand-logo"
+            />
+          </div>
 
-              {/* Navigation Section - Center */}
-              <nav className="header-navigation">
-                {tabs.map((tab) => (
+          {/* Navigation Section - Center */}
+          <nav className="header-navigation">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                className={`nav-pill ${activeTab === tab.id ? "active" : ""}`}
+                onClick={() => onTabChange(tab.id)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+
+          {/* Action Buttons - Right (Compact Icon style) */}
+          <div className="header-actions">
+            <button
+              className="action-btn-icon"
+              onClick={handleImportClick}
+              title="Import experiment from Excel file"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            </button>
+            <button
+              className="action-btn-icon"
+              onClick={exportToExcel}
+              disabled={isExporting}
+              title="Export all experiment data to Excel"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+            </button>
+            <button
+              className="action-btn-icon"
+              onClick={handleHelp}
+              title={`Help for ${activeTab} tab`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </button>
+            <button
+              className="action-btn-icon action-btn-warning"
+              onClick={handleReset}
+              title="Reset all experiment data"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+            </button>
+            {isPortableMode && (
+              <button
+                className="action-btn-icon action-btn-danger"
+                onClick={() => setShowShutdownConfirm(true)}
+                title="Exit the application"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Shutdown Confirmation Modal */}
+      {showShutdownConfirm && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: "400px", width: "90%" }}>
+            <div className="modal-header">
+              <h3>Exit Application</h3>
+              <button className="modal-close" onClick={() => setShowShutdownConfirm(false)}>×</button>
+            </div>
+            <div className="modal-body" style={{ textAlign: 'center', padding: '20px' }}>
+              <p style={{ marginBottom: '15px', fontSize: '16px' }}>
+                Are you sure you want to exit the HTE App?
+              </p>
+              <p style={{ marginBottom: '20px', color: 'var(--color-text-secondary)', fontSize: '14px' }}>
+                Make sure you have exported your experiment data before exiting.
+              </p>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setShowShutdownConfirm(false)}
+                  disabled={isShuttingDown}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn"
+                  onClick={handleShutdown}
+                  disabled={isShuttingDown}
+                  style={{
+                    backgroundColor: '#dc3545',
+                    color: 'white',
+                    border: 'none',
+                    padding: '10px 20px',
+                    borderRadius: '6px',
+                    cursor: isShuttingDown ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {isShuttingDown ? 'Shutting down...' : 'Exit Application'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Modal */}
+      {showImportModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: "600px", width: "95%" }}>
+            <div className="modal-header">
+              <h3>Import Experiment</h3>
+              <button className="modal-close" onClick={closeImportModal}>×</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ marginBottom: "20px" }}>
+                <p style={{ marginBottom: "15px", color: "var(--color-text-secondary)" }}>
+                  Select an Excel file to import experiment data.
+                </p>
+                <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                  <input
+                    type="file"
+                    className="form-control"
+                    accept=".xlsx,.xls"
+                    onChange={handleImportFileSelect}
+                    id="import-file-input"
+                    style={{ width: "400px" }}
+                  />
                   <button
-                    key={tab.id}
-                    className={`nav-pill ${activeTab === tab.id ? "active" : ""}`}
-                    onClick={() => onTabChange(tab.id)}
+                    className="btn btn-primary"
+                    onClick={handleImportExperiment}
+                    disabled={!selectedImportFile || isImporting}
                   >
-                    {tab.label}
+                    {isImporting ? "Importing..." : "Import Experiment"}
                   </button>
-                ))}
-              </nav>
-
-              {/* Action Buttons - Right */}
-              <div className="header-actions">
-                <button 
-                  className="action-btn action-import"
-                  onClick={handleImportClick}
-                  title="Import experiment from Excel file"
-                >
-                  Import
-                </button>
-                <button 
-                  className="action-btn action-export"
-                  onClick={exportToExcel}
-                  disabled={isExporting}
-                  title="Export all experiment data to Excel"
-                >
-                  {isExporting ? 'Exporting...' : 'Export'}
-                </button>
-                <button 
-                  className="action-btn action-help"
-                  onClick={handleHelp}
-                  title={`Help for ${activeTab} tab`}
-                >
-                  Help
-                </button>
-                <button 
-                  className="action-btn action-reset"
-                  onClick={handleReset}
-                  title="Reset all experiment data"
-                >
-                  Reset
-                </button>
-              </div>
-            </div>
-          </header>
-
-          {/* Import Modal */}
-          {showImportModal && (
-            <div className="modal-overlay">
-              <div className="modal-content" style={{ maxWidth: "600px", width: "95%" }}>
-                <div className="modal-header">
-                  <h3>Import Experiment</h3>
-                  <button className="modal-close" onClick={closeImportModal}>×</button>
                 </div>
-                <div className="modal-body">
-                  <div style={{ marginBottom: "20px" }}>
-                    <p style={{ marginBottom: "15px", color: "var(--color-text-secondary)" }}>
-                      Select an Excel file to import experiment data.
-                    </p>
-                    <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                      <input
-                        type="file"
-                        className="form-control"
-                        accept=".xlsx,.xls"
-                        onChange={handleImportFileSelect}
-                        id="import-file-input"
-                        style={{ width: "400px" }}
-                      />
-                      <button
-                        className="btn btn-primary"
-                        onClick={handleImportExperiment}
-                        disabled={!selectedImportFile || isImporting}
-                      >
-                        {isImporting ? "Importing..." : "Import Experiment"}
-                      </button>
-                    </div>
-                    {selectedImportFile && (
-                      <div style={{ marginTop: "10px", padding: "10px", backgroundColor: "var(--color-surface)", borderRadius: "4px" }}>
-                        <strong>Selected file:</strong> {selectedImportFile.name}
-                      </div>
-                    )}
+                {selectedImportFile && (
+                  <div style={{ marginTop: "10px", padding: "10px", backgroundColor: "var(--color-surface)", borderRadius: "4px" }}>
+                    <strong>Selected file:</strong> {selectedImportFile.name}
                   </div>
-                </div>
+                )}
               </div>
             </div>
-          )}
-        </>
-      );
+          </div>
+        </div>
+      )}
+    </>
+  );
 };
 
 export default Header;

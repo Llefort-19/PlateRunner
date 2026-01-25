@@ -12,13 +12,12 @@ block_cipher = None
 base_path = os.path.dirname(os.path.abspath(SPEC))
 
 # Data files to include
+# NOTE: Excel files (Inventory.xlsx, Private_Inventory.xlsx, Solvent.xlsx) are NOT bundled!
+# They should be placed in a 'data' folder next to the exe by the user.
+# Only the React build folder is bundled.
 datas = [
-    # React build folder
+    # React build folder (bundled with the app)
     (os.path.join(base_path, 'frontend', 'build'), 'build'),
-    # Data files
-    (os.path.join(base_path, 'Inventory.xlsx'), '.'),
-    (os.path.join(base_path, 'Solvent.xlsx'), '.'),
-    (os.path.join(base_path, 'Private_Inventory.xlsx'), '.'),
 ]
 
 # Filter out non-existent files
@@ -40,7 +39,7 @@ hiddenimports = [
 ]
 
 a = Analysis(
-    ['run_app.py'],
+    ['hte_launcher.py'],
     pathex=[os.path.join(base_path, 'backend')],
     binaries=[],
     datas=datas,
@@ -49,7 +48,7 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
-        'tkinter',
+        # Note: tkinter is now REQUIRED for the GUI launcher
         'matplotlib',
         'scipy',
         'IPython',
@@ -74,7 +73,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,  # Keep console for debugging, can change to False later
+    console=False,  # Hide console - GUI launcher provides visual feedback
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
