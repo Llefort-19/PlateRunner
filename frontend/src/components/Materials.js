@@ -193,10 +193,78 @@ const Materials = () => {
     }
   };
 
+  // Helper function to create a unique identifier for materials (matches Procedure.js logic)
+  const getMaterialId = (material) => {
+    const name = (material.name || '').trim();
+    const alias = (material.alias || '').trim();
+    const cas = (material.cas || '').trim();
+
+    // Normalize Unicode characters
+    const normalizedName = name.normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '');
+    const normalizedAlias = alias.normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '');
+    const normalizedCas = cas.normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '');
+
+    return `${normalizedName}_${normalizedAlias}_${normalizedCas}`;
+  };
+
+  // Helper function to create a name-based key for fallback matching
+  const getMaterialNameKey = (material) => {
+    const name = (material.name || '').trim().normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
+    const alias = (material.alias || '').trim().normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
+    return alias || name;
+  };
+
+  // Helper function to check if two materials match (with fallback to name/alias matching)
+  const materialsMatch = (material1, material2) => {
+    if (!material1 || !material2) return false;
+
+    // First try exact ID match
+    if (getMaterialId(material1) === getMaterialId(material2)) {
+      return true;
+    }
+
+    // Fallback: match by name key (alias or name)
+    const nameKey1 = getMaterialNameKey(material1);
+    const nameKey2 = getMaterialNameKey(material2);
+    return nameKey1 && nameKey2 && nameKey1 === nameKey2;
+  };
+
+  // Helper function to clean procedure data by removing deleted materials from all wells
+  const cleanProcedureData = async (materialsToDelete) => {
+    try {
+      // Load current procedure data
+      const procedureResponse = await axios.get('/api/experiment/procedure');
+      const procedureData = procedureResponse.data || [];
+
+      // Filter out deleted materials from all wells
+      const cleanedProcedure = procedureData.map(wellData => ({
+        ...wellData,
+        materials: wellData.materials.filter(wellMaterial => {
+          // Check if this well material matches any of the materials being deleted
+          return !materialsToDelete.some(deletedMaterial =>
+            materialsMatch(wellMaterial, deletedMaterial)
+          );
+        })
+      }));
+
+      // Save the cleaned procedure data back
+      await axios.post('/api/experiment/procedure', cleanedProcedure);
+    } catch (error) {
+      console.error('Error cleaning procedure data:', error);
+      // Don't throw - we still want material deletion to succeed even if procedure cleanup fails
+    }
+  };
+
   const removeMaterial = async (index) => {
     if (window.confirm("Are you sure you want to remove this material?")) {
       try {
+        const materialToDelete = materials[index];
         const updatedMaterials = materials.filter((_, i) => i !== index);
+
+        // Clean up procedure data (remove from all wells)
+        await cleanProcedureData([materialToDelete]);
+
+        // Save updated materials list
         await saveMaterials(updatedMaterials);
         showSuccess("Material removed successfully!");
       } catch (error) {
@@ -331,11 +399,20 @@ const Materials = () => {
     if (!confirmed) return;
 
     try {
+      // Collect materials to delete
+      const materialsToDelete = materials.filter((_, index) =>
+        selectedMaterialIndices.has(index)
+      );
+
       // Filter out selected materials
       const updatedMaterials = materials.filter((_, index) =>
         !selectedMaterialIndices.has(index)
       );
 
+      // Clean up procedure data (remove from all wells)
+      await cleanProcedureData(materialsToDelete);
+
+      // Save updated materials list
       await saveMaterials(updatedMaterials);
 
       // Clear selection and reset state

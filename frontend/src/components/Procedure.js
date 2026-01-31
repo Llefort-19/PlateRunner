@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
 import { useToast } from "./ToastContext";
 
@@ -8,7 +8,11 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
   const [materialsLoading, setMaterialsLoading] = useState(true);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
   const [selectedWells, setSelectedWells] = useState([]);
-  const [isDragging, setIsDragging] = useState(false);
+  // Track drag state using ref to avoid re-renders and maintain state between events
+  const dragStateRef = useRef({
+    isDragging: false,
+    isCtrlDrag: false
+  });
   const [amount, setAmount] = useState("");
   const [unit, setUnit] = useState("μmol");
   const [clickedWell, setClickedWell] = useState(null);
@@ -194,7 +198,13 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
 
   useEffect(() => {
     const handleGlobalMouseUp = () => {
-      setIsDragging(false);
+      // Small delay before resetting to allow click handler to check state
+      setTimeout(() => {
+        dragStateRef.current = {
+          isDragging: false,
+          isCtrlDrag: false
+        };
+      }, 50);
     };
 
     document.addEventListener("mouseup", handleGlobalMouseUp);
@@ -202,6 +212,20 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
       document.removeEventListener("mouseup", handleGlobalMouseUp);
     };
   }, []);
+
+  // ESC key to clear well selections
+  useEffect(() => {
+    const handleEscKey = (e) => {
+      if (e.key === 'Escape' && selectedWells.length > 0) {
+        setSelectedWells([]);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [selectedWells]);
 
   const getWellData = (wellId) => {
     return (
@@ -315,6 +339,10 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
   };
 
   const handleWellClick = (wellId, event) => {
+    // If a drag just happened, don't process the click
+    // (Selection was already handled by mouseDown/mouseEnter)
+    if (dragStateRef.current.isDragging) return;
+
     if (event.ctrlKey || event.metaKey) {
       // Multi-select with Ctrl/Cmd - toggle selection
       setSelectedWells(
@@ -341,22 +369,40 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
   };
 
   const handleWellMouseDown = (wellId, event) => {
-    // Only start dragging if left mouse button is pressed and not Ctrl/Cmd key
-    if (event.button === 0 && !event.ctrlKey && !event.metaKey) {
-      setIsDragging(true);
+    if (event.button !== 0) return; // Only left click
+
+    // Prevent text selection during drag
+    event.preventDefault();
+
+    const isCtrl = event.ctrlKey || event.metaKey;
+
+    // Set drag state
+    dragStateRef.current = {
+      isDragging: true,
+      isCtrlDrag: isCtrl
+    };
+
+    if (isCtrl) {
+      // CTRL+drag: add to selection (toggle if already selected)
+      setSelectedWells(prev =>
+        prev.includes(wellId)
+          ? prev.filter(w => w !== wellId)
+          : [...prev, wellId]
+      );
+    } else {
+      // Normal drag: replace selection
       setSelectedWells([wellId]);
     }
   };
 
   const handleWellMouseEnter = (wellId, event) => {
-    if (!isDragging) return;
+    if (!dragStateRef.current.isDragging) return;
+    if (event.buttons !== 1) return; // Ensure button still pressed
 
-    // Only add wells if left mouse button is still pressed
-    if (event.buttons === 1) {
-      setSelectedWells((prev) =>
-        prev.includes(wellId) ? prev : [...prev, wellId],
-      );
-    }
+    // Add well to selection (never removes during drag)
+    setSelectedWells((prev) =>
+      prev.includes(wellId) ? prev : [...prev, wellId]
+    );
   };
 
   const handleRowClick = (rowLetter, event) => {
@@ -1089,18 +1135,12 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
                   select them, or use the following methods:
                 </li>
                 <ul style={{ paddingLeft: "20px", marginTop: "5px" }}>
-                  <li>Click on row letters ({plateType === "96" ? "A-H" : plateType === "48" ? "A-F" : "A-D"}) to select entire rows</li>
-                  <li>
-                    Click on column numbers ({plateType === "96" ? "1-12" : plateType === "48" ? "1-8" : "1-6"}) to select entire columns
-                  </li>
-                  <li>
-                    Hold Ctrl/Cmd and click to select multiple rows/columns
-                  </li>
-                  <li>
-                    Hold Ctrl/Cmd and click to select multiple individual wells
-                  </li>
-                  <li>Click and drag to select contiguous wells</li>
-                  <li>Click "ALL" to select all wells</li>
+                  <li><strong>Click & Drag:</strong> Select adjacent wells by clicking and dragging across them</li>
+                  <li><strong>Ctrl/Cmd + Click:</strong> Toggle individual wells on/off for multi-selection</li>
+                  <li><strong>Ctrl/Cmd + Drag:</strong> Add adjacent wells to your existing selection</li>
+                  <li><strong>Row/Column Headers:</strong> Click on row letters ({plateType === "96" ? "A-H" : plateType === "48" ? "A-F" : "A-D"}) or column numbers ({plateType === "96" ? "1-12" : plateType === "48" ? "1-8" : "1-6"}) to select entire rows/columns</li>
+                  <li><strong>ALL Button:</strong> Click "ALL" to select all wells at once</li>
+                  <li><strong>ESC Key:</strong> Press ESC to clear all well selections</li>
                 </ul>
                 <li>
                   <strong>Add Material:</strong> Enter the amount in the appropriate unit (μmol for materials, μL for solvents) and

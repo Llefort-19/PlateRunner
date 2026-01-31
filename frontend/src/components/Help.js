@@ -112,11 +112,31 @@ const Help = ({ tabId, visible, onClose }) => {
             <div>
               <h4>Designing Your Experiment:</h4>
               <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
-                <li><strong>Plate Layout:</strong> Design your 96-well plate experiment layout</li>
-                <li><strong>Material Assignment:</strong> Assign materials to specific wells</li>
-                <li><strong>Amount Setup:</strong> Set amounts for each material</li>
-                <li><strong>Well Management:</strong> Add, remove, or modify wells as needed</li>
-                <li><strong>Visual Design:</strong> See your plate layout in a visual format</li>
+                <li><strong>Select Material:</strong> Click on a material row in the Materials table to select it for dispensing</li>
+                <li><strong>Select Wells:</strong> Choose which wells to add the material to using the following methods:</li>
+              </ul>
+
+              <h4 style={{ marginTop: "16px" }}>Well Selection Methods:</h4>
+              <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
+                <li><strong>Click & Drag:</strong> Select adjacent wells by clicking and dragging across them</li>
+                <li><strong>Ctrl/Cmd + Click:</strong> Toggle individual wells on/off for multi-selection</li>
+                <li><strong>Ctrl/Cmd + Drag:</strong> Add adjacent wells to your existing selection</li>
+                <li><strong>ESC Key:</strong> Press ESC to clear all well selections</li>
+              </ul>
+
+              <h4 style={{ marginTop: "16px" }}>Material Operations:</h4>
+              <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
+                <li><strong>Add Material:</strong> Enter the amount in μmol (for materials) or μL (for solvents) and click "Add to wells"</li>
+                <li><strong>Remove Material:</strong> Click "Remove from wells" to remove the selected material from all selected wells</li>
+                <li><strong>View Contents:</strong> Right-click on any well to view its contents in a modal</li>
+                <li><strong>Auto-save:</strong> All changes are automatically saved</li>
+              </ul>
+
+              <h4 style={{ marginTop: "16px" }}>Visual Indicators:</h4>
+              <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
+                <li>Selected wells are highlighted in blue</li>
+                <li>Wells with materials have a green border</li>
+                <li>Material amounts are displayed inside wells</li>
               </ul>
             </div>
           )
