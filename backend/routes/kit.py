@@ -6,7 +6,7 @@ import os
 import pandas as pd
 from flask import Blueprint, request, jsonify
 from state import current_experiment
-from app_original import (
+from utils import (
     apply_kit_design_to_procedure, calculate_well_mappings, calculate_flexible_well_mappings
 )
 
@@ -170,6 +170,23 @@ def analyze_kit():
             
             if well_materials:
                 design_data[well] = well_materials
+        
+        # Apply amount override if provided
+        amount_override = request.form.get('amount_override', '').strip()
+        if amount_override:
+            try:
+                override_value = float(amount_override)
+                if override_value <= 0:
+                    return jsonify({'error': 'Amount override must be a positive number'}), 400
+                
+                # Replace all amounts in the design with the override value
+                for well, materials_list in design_data.items():
+                    for material in materials_list:
+                        material['amount'] = str(override_value)
+                
+                print(f"Applied amount override: {override_value} µmol to all materials")
+            except ValueError:
+                return jsonify({'error': f'Invalid amount override value: {amount_override}'}), 400
         
         # Determine kit size based on wells that actually have content
         if not design_data:

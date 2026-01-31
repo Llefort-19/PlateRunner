@@ -43,6 +43,7 @@ const Materials = () => {
   const [showKitUploadModal, setShowKitUploadModal] = useState(false);
   const [selectedKitFile, setSelectedKitFile] = useState(null);
   const [uploadingKit, setUploadingKit] = useState(false);
+  const [kitAmountOverride, setKitAmountOverride] = useState("");
 
   // Solvent search state
   const [solventSearchQuery, setSolventSearchQuery] = useState("");
@@ -54,6 +55,11 @@ const Materials = () => {
   const [availableSolventClasses, setAvailableSolventClasses] = useState([]);
   const [selectedTier, setSelectedTier] = useState("");
   const [availableTiers, setAvailableTiers] = useState([]);
+
+  // Selection and batch assignment state
+  const [selectedMaterialIndices, setSelectedMaterialIndices] = useState(new Set());
+  const [batchRole, setBatchRole] = useState("");
+  const [lastClickedIndex, setLastClickedIndex] = useState(null);
 
   const roleOptions = [
     "Reactant",
@@ -235,6 +241,114 @@ const Materials = () => {
       showError("Error updating material role: " + error.message);
     }
   };
+
+  // Selection handlers
+  const handleSelectionChange = (index, event) => {
+    const newSelection = new Set(selectedMaterialIndices);
+
+    // Access shiftKey from the native event (React SyntheticEvent wraps the native event)
+    const shiftPressed = event?.nativeEvent?.shiftKey || event?.shiftKey || false;
+
+    // Shift+Click range selection
+    if (shiftPressed && lastClickedIndex !== null) {
+      const start = Math.min(lastClickedIndex, index);
+      const end = Math.max(lastClickedIndex, index);
+
+      // Select all items in range
+      for (let i = start; i <= end; i++) {
+        newSelection.add(i);
+      }
+    } else {
+      // Regular toggle behavior
+      if (newSelection.has(index)) {
+        newSelection.delete(index);
+      } else {
+        newSelection.add(index);
+      }
+    }
+
+    setSelectedMaterialIndices(newSelection);
+    setLastClickedIndex(index);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedMaterialIndices.size === materials.length) {
+      setSelectedMaterialIndices(new Set());
+    } else {
+      setSelectedMaterialIndices(new Set(materials.map((_, i) => i)));
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedMaterialIndices(new Set());
+    setBatchRole("");
+    setLastClickedIndex(null);
+  };
+
+  const handleBatchRoleAssignment = async () => {
+    if (!batchRole) {
+      showError("Please select a role first");
+      return;
+    }
+
+    if (selectedMaterialIndices.size === 0) {
+      showError("No materials selected");
+      return;
+    }
+
+    try {
+      const updatedMaterials = materials.map((material, index) =>
+        selectedMaterialIndices.has(index)
+          ? { ...material, role: batchRole }
+          : material
+      );
+
+      await saveMaterials(updatedMaterials);
+
+      const count = selectedMaterialIndices.size;
+
+      // Clear selection and reset batch role
+      setSelectedMaterialIndices(new Set());
+      setBatchRole("");
+
+      showSuccess(`Role "${batchRole}" assigned to ${count} material(s)`);
+    } catch (error) {
+      showError("Error assigning roles: " + error.message);
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedMaterialIndices.size === 0) {
+      showError("No materials selected");
+      return;
+    }
+
+    const count = selectedMaterialIndices.size;
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${count} selected material(s)?\n\nThis action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      // Filter out selected materials
+      const updatedMaterials = materials.filter((_, index) =>
+        !selectedMaterialIndices.has(index)
+      );
+
+      await saveMaterials(updatedMaterials);
+
+      // Clear selection and reset state
+      setSelectedMaterialIndices(new Set());
+      setLastClickedIndex(null);
+      setBatchRole("");
+
+      showSuccess(`Successfully deleted ${count} material(s)`);
+    } catch (error) {
+      showError("Error deleting materials: " + error.message);
+    }
+  };
+
 
   // Personal inventory operations
   const updatePersonalInventoryStatus = async () => {
@@ -517,11 +631,22 @@ const Materials = () => {
       return;
     }
 
+    // Validate amount if provided
+    if (kitAmountOverride && (isNaN(kitAmountOverride) || parseFloat(kitAmountOverride) <= 0)) {
+      showError("Please enter a valid positive number for amount");
+      return;
+    }
+
     setUploadingKit(true);
 
     try {
       const formData = new FormData();
       formData.append('file', selectedKitFile);
+
+      // Add amount override if provided
+      if (kitAmountOverride && kitAmountOverride.trim() !== "") {
+        formData.append('amount_override', kitAmountOverride.trim());
+      }
 
       const response = await axios.post("/api/experiment/kit/analyze", formData, {
         headers: {
@@ -548,6 +673,7 @@ const Materials = () => {
   const closeKitUploadModal = () => {
     setShowKitUploadModal(false);
     setSelectedKitFile(null);
+    setKitAmountOverride("");
     // Clear the file input
     const fileInput = document.getElementById('kit-upload-input');
     if (fileInput) {
@@ -639,6 +765,59 @@ const Materials = () => {
         </div>
       </div>
 
+      {/* Batch Actions Toolbar - appears when materials are selected */}
+      {selectedMaterialIndices.size > 0 && (
+        <div style={{
+          marginBottom: "16px",
+          padding: "16px 20px",
+          backgroundColor: "rgba(74, 144, 226, 0.05)",
+          border: "2px solid #4a90e2",
+          borderRadius: "8px",
+          display: "flex",
+          alignItems: "center",
+          gap: "16px",
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+          flexWrap: "wrap"
+        }}>
+          <span style={{ fontWeight: "600", color: "#4a90e2", fontSize: "14px" }}>
+            ✓ {selectedMaterialIndices.size} material(s) selected
+          </span>
+          <select
+            className="form-control"
+            value={batchRole}
+            onChange={(e) => setBatchRole(e.target.value)}
+            style={{ width: "200px", fontSize: "14px" }}
+          >
+            <option value="">Select Role</option>
+            {roleOptions.map((role) => (
+              <option key={role} value={role}>{role}</option>
+            ))}
+          </select>
+          <button
+            className="btn btn-primary"
+            onClick={handleBatchRoleAssignment}
+            disabled={!batchRole}
+            style={{ fontSize: "14px" }}
+          >
+            Assign Role
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={handleClearSelection}
+            style={{ fontSize: "14px" }}
+          >
+            Clear Selection
+          </button>
+          <button
+            className="btn btn-warning"
+            onClick={handleBatchDelete}
+            style={{ fontSize: "14px", marginLeft: "auto" }}
+          >
+            🗑️ Delete Selected
+          </button>
+        </div>
+      )}
+
       {/* Materials table */}
       <MaterialTable
         materials={materials}
@@ -654,6 +833,9 @@ const Materials = () => {
         onMoveDown={moveMaterialDown}
         moleculeLoading={moleculeLoading}
         currentMolecule={currentMolecule}
+        selectedIndices={selectedMaterialIndices}
+        onSelectionChange={handleSelectionChange}
+        onSelectAll={handleSelectAll}
       />
 
       {/* Material Form Modal */}
@@ -889,23 +1071,40 @@ const Materials = () => {
             </div>
             <div className="modal-body">
               <div style={{ marginBottom: "20px" }}>
-                <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                <div style={{ marginBottom: "15px" }}>
                   <input
                     type="file"
                     className="form-control"
                     accept=".xlsx,.xls"
                     onChange={handleKitFileSelect}
                     id="kit-upload-input"
-                    style={{ width: "400px" }}
                   />
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleUploadKit}
-                    disabled={!selectedKitFile || uploadingKit}
-                  >
-                    {uploadingKit ? "Analyzing..." : "Upload Kit"}
-                  </button>
                 </div>
+
+                <div style={{ marginBottom: "15px", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px" }}>
+                  <label style={{ fontWeight: "normal", fontSize: "14px", whiteSpace: "nowrap", margin: 0 }}>
+                    Amount (in µmol):
+                  </label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    placeholder="Optional"
+                    value={kitAmountOverride}
+                    onChange={(e) => setKitAmountOverride(e.target.value)}
+                    min="0"
+                    step="any"
+                    style={{ width: "150px", fontSize: "14px" }}
+                  />
+                </div>
+
+                <button
+                  className="btn btn-primary"
+                  onClick={handleUploadKit}
+                  disabled={!selectedKitFile || uploadingKit}
+                  style={{ width: "100%" }}
+                >
+                  {uploadingKit ? "Analyzing..." : "Upload Kit"}
+                </button>
               </div>
             </div>
 

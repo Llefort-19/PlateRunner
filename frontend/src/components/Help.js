@@ -14,57 +14,68 @@ const Help = ({ tabId, visible, onClose }) => {
 
   const getHelpContent = (tabId) => {
     switch (tabId) {
-             case 'materials':
-         return {
-           title: 'Materials Help',
-           content: (
-             <div>
-               <h4>Managing Materials:</h4>
-               <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
-                 <li><strong>Add New Material:</strong> Manually enter material details</li>
-                 <li><strong>Search Inventory:</strong> Find chemicals from the main database</li>
-                 <li><strong>Search Solvents:</strong> Access the solvent database with filtering options</li>
-                 <li><strong>View Molecules:</strong> Click "View" in SMILES column to see structure</li>
-                 <li><strong>Edit Materials:</strong> Use "Modify" button to update material details</li>
-                 <li><strong>Personal Inventory:</strong> Add materials to your personal collection</li>
-               </ul>
-               
-                               <h4>Upload Methods:</h4>
-                <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
-                  <li><strong>Upload Materials:</strong> Import materials list from previous experiment Excel files</li>
-                  <li><strong>Upload Kit:</strong> Import materials AND design (plate positions) from kit Excel files</li>
-                </ul>
-                
-                <h4>Upload Materials Details:</h4>
-                <p>Upload an Excel file containing materials from a previous experiment to quickly populate your materials list.</p>
-                <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
-                  <li><strong>Supported Formats:</strong> Excel files (.xlsx, .xls) with Materials sheet</li>
-                  <li><strong>Required Columns:</strong> Name, Alias, CAS, SMILES, Molecular Weight, Lot number, Role</li>
-                  <li><strong>File Structure:</strong> Must contain a "Materials" sheet with the specified column headers</li>
-                  <li><strong>Data Import:</strong> All materials are imported with their properties and roles</li>
-                  <li><strong>Duplicate Handling:</strong> System automatically checks for existing materials</li>
-                </ul>
-               
-               <h4>Upload Kit Details:</h4>
-               <p>Upload an Excel file containing both materials and design (well positions with amounts) for a kit. The kit can be positioned on your current plate layout.</p>
-               <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
-                 <li><strong>Supported Formats:</strong> Excel files (.xlsx, .xls) with Materials and Design sheets</li>
-                 <li><strong>Kit Positioning:</strong> After upload, choose where to position the kit on your plate</li>
-                 <li><strong>Supported Kit Types:</strong> 24-well (4×6, 2×12), 48-well (6×8, 4×12), 96-well (8×12)</li>
-                 <li><strong>Positioning Strategies:</strong> Exact match, quadrant selection, row pair selection, half selection</li>
-               </ul>
-               
-               <h4>Kit Positioning Options:</h4>
-               <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
-                 <li><strong>24-well (4×6):</strong> Exact match on 24/48-well plates, quadrant selection on 96-well plates</li>
-                 <li><strong>24-well (2×12):</strong> Row pair selection on 96-well plates only</li>
-                 <li><strong>48-well (6×8):</strong> Exact match on 48-well plates only</li>
-                 <li><strong>48-well (4×12):</strong> Upper/lower half selection on 96-well plates only</li>
-                 <li><strong>96-well (8×12):</strong> Exact match on 96-well plates only</li>
-               </ul>
-             </div>
-           )
-         };
+      case 'materials':
+        return {
+          title: 'Materials Help',
+          content: (
+            <div>
+              <h4>Managing Materials:</h4>
+              <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
+                <li><strong>Add New Material:</strong> Manually enter material details</li>
+                <li><strong>Search Inventory:</strong> Find chemicals from the main database</li>
+                <li><strong>Search Solvents:</strong> Access the solvent database with filtering options</li>
+                <li><strong>View Molecules:</strong> Click "View" in SMILES column to see structure</li>
+                <li><strong>Edit Materials:</strong> Use "Modify" button to update material details</li>
+                <li><strong>Personal Inventory:</strong> Add materials to your personal collection</li>
+              </ul>
+
+              <h4>Batch Operations:</h4>
+              <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
+                <li><strong>Select Multiple Materials:</strong> Use checkboxes at the beginning of each row to select materials</li>
+                <li><strong>Select All:</strong> Click the checkbox in the table header to select/deselect all materials at once</li>
+                <li><strong>Range Selection:</strong> Click a material, then hold <strong>Shift</strong> and click another material to select all materials in between (works like file explorers)</li>
+                <li><strong>Batch Role Assignment:</strong> After selecting materials, choose a role from the dropdown in the batch toolbar and click "Assign Role" to apply it to all selected materials</li>
+                <li><strong>Batch Delete:</strong> Click "🗑️ Delete Selected" to remove multiple materials at once (requires confirmation)</li>
+                <li><strong>Clear Selection:</strong> Click "Clear Selection" to deselect all materials</li>
+              </ul>
+
+              <h4>Upload Methods:</h4>
+              <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
+                <li><strong>Upload Materials:</strong> Import materials list from previous experiment Excel files</li>
+                <li><strong>Upload Kit:</strong> Import materials AND design (plate positions) from kit Excel files</li>
+              </ul>
+
+              <h4>Upload Materials Details:</h4>
+              <p>Upload an Excel file containing materials from a previous experiment to quickly populate your materials list.</p>
+              <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
+                <li><strong>Supported Formats:</strong> Excel files (.xlsx, .xls) with Materials sheet</li>
+                <li><strong>Required Columns:</strong> Name, Alias, CAS, SMILES, Molecular Weight, Lot number, Role</li>
+                <li><strong>File Structure:</strong> Must contain a "Materials" sheet with the specified column headers</li>
+                <li><strong>Data Import:</strong> All materials are imported with their properties and roles</li>
+                <li><strong>Duplicate Handling:</strong> System automatically checks for existing materials</li>
+              </ul>
+
+              <h4>Upload Kit Details:</h4>
+              <p>Upload an Excel file containing both materials and design (well positions with amounts) for a kit. The kit can be positioned on your current plate layout.</p>
+              <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
+                <li><strong>Supported Formats:</strong> Excel files (.xlsx, .xls) with Materials and Design sheets</li>
+                <li><strong>Amount Override:</strong> Optionally specify a custom amount (in µmol) to override all material amounts in the kit. If left blank, amounts from the kit file will be used</li>
+                <li><strong>Kit Positioning:</strong> After upload, choose where to position the kit on your plate</li>
+                <li><strong>Supported Kit Types:</strong> 24-well (4×6, 2×12), 48-well (6×8, 4×12), 96-well (8×12)</li>
+                <li><strong>Positioning Strategies:</strong> Exact match, quadrant selection, row pair selection, half selection</li>
+              </ul>
+
+              <h4>Kit Positioning Options:</h4>
+              <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
+                <li><strong>24-well (4×6):</strong> Exact match on 24/48-well plates, quadrant selection on 96-well plates</li>
+                <li><strong>24-well (2×12):</strong> Row pair selection on 96-well plates only</li>
+                <li><strong>48-well (6×8):</strong> Exact match on 48-well plates only</li>
+                <li><strong>48-well (4×12):</strong> Upper/lower half selection on 96-well plates only</li>
+                <li><strong>96-well (8×12):</strong> Exact match on 96-well plates only</li>
+              </ul>
+            </div>
+          )
+        };
       case 'context':
         return {
           title: 'Experiment Context Help',
@@ -80,7 +91,7 @@ const Help = ({ tabId, visible, onClose }) => {
                 <li><strong>Clear Reaction:</strong> Use "Clear Reaction" to remove uploaded reaction data and start over.</li>
                 <li><strong>Data Persistence:</strong> Reaction data and role assignments persist when switching tabs until manually cleared.</li>
               </ul>
-              
+
               <h4>File Requirements:</h4>
               <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
                 <li>Only SDF format files are accepted</li>
@@ -89,7 +100,7 @@ const Help = ({ tabId, visible, onClose }) => {
                 <li>Available roles: Reactant, Target product, Product, Solvent, Reagent, Internal standard</li>
                 <li>Role assignments are saved and persist across tab switches</li>
               </ul>
-              
+
 
             </div>
           )
@@ -145,7 +156,7 @@ const Help = ({ tabId, visible, onClose }) => {
                 <li><strong>Well Plate Format:</strong> Templates include all wells with automatic numbering (A1-H12 for 96-well, A1-D6 for 24-well).</li>
                 <li><strong>Sample IDs:</strong> Automatically generated using ELN number from Context tab.</li>
               </ul>
-              
+
               <h4>Instructions:</h4>
               <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
                 <li><strong>Generate Template:</strong> Select compounds and export Excel templates for data collection</li>
@@ -153,7 +164,7 @@ const Help = ({ tabId, visible, onClose }) => {
                 <li>Ensure ELN number is set in Context tab before generating templates</li>
                 <li>Use consistent compound names across all experiment sections</li>
               </ul>
-              
+
               <h4>Workflow:</h4>
               <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
                 <li>1. Generate template with selected compounds</li>
@@ -171,7 +182,7 @@ const Help = ({ tabId, visible, onClose }) => {
             <div>
               <h4>Results Overview:</h4>
               <p>View analytical results from uploaded UPLC data and export the complete experiment.</p>
-              
+
               <h4>Results Features:</h4>
               <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
                 <li><strong>Analytical Data Display:</strong> View uploaded UPLC results in a table format.</li>
@@ -179,7 +190,7 @@ const Help = ({ tabId, visible, onClose }) => {
                 <li><strong>Data Table:</strong> Browse through all uploaded analytical data.</li>
                 <li><strong>Export Functionality:</strong> Generate comprehensive Excel reports.</li>
               </ul>
-              
+
               <h4>Data Structure:</h4>
               <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
                 <li>Well: Well plate position (A1-H12 for 96-well, A1-D6 for 24-well)</li>
@@ -187,7 +198,7 @@ const Help = ({ tabId, visible, onClose }) => {
                 <li>Compound Areas: Chromatogram peak areas for each compound</li>
                 <li>Data is organized according to the analytical template format</li>
               </ul>
-              
+
               <h4>Export Information:</h4>
               <p>The exported Excel file will contain the following sheets:</p>
               <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
@@ -199,7 +210,7 @@ const Help = ({ tabId, visible, onClose }) => {
               </ul>
 
               <p><strong>Note:</strong> This data format is compatible with the provided template and suitable for ML model training.</p>
-              
+
               <h4>Workflow:</h4>
               <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
                 <li>1. Upload analytical data in the Analytical Data tab</li>
@@ -243,7 +254,7 @@ const Help = ({ tabId, visible, onClose }) => {
     if (visible) {
       // Store the currently focused element
       previousActiveElement.current = document.activeElement;
-      
+
       // Focus the close button when modal opens
       setTimeout(() => {
         if (closeButtonRef.current) {
@@ -311,7 +322,7 @@ const Help = ({ tabId, visible, onClose }) => {
   }
 
   return (
-    <div 
+    <div
       className="modal-overlay"
       role="dialog"
       aria-modal="true"
@@ -323,17 +334,17 @@ const Help = ({ tabId, visible, onClose }) => {
         }
       }}
     >
-      <div 
+      <div
         ref={modalRef}
-        className="modal-content" 
+        className="modal-content"
         style={{ maxWidth: "800px" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
           <h3 id="help-modal-title">{helpContent.title}</h3>
-          <button 
+          <button
             ref={closeButtonRef}
-            className="modal-close" 
+            className="modal-close"
             onClick={onClose}
             aria-label={`Close ${helpContent.title} dialog`}
           >
