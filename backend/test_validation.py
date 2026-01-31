@@ -5,7 +5,7 @@ import json
 import unittest
 import logging
 from unittest.mock import patch
-from app_factory import app
+from app import app
 
 class TestValidation(unittest.TestCase):
     """Test validation functionality."""

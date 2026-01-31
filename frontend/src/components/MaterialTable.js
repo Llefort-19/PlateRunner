@@ -1,8 +1,8 @@
 import React, { memo } from "react";
 
-const MaterialTable = memo(({ 
-  materials, 
-  roleOptions, 
+const MaterialTable = memo(({
+  materials,
+  roleOptions,
   personalInventoryStatus,
   personalInventoryLoading,
   onMoleculeView,
@@ -13,9 +13,12 @@ const MaterialTable = memo(({
   onMoveUp,
   onMoveDown,
   moleculeLoading,
-  currentMolecule 
+  currentMolecule,
+  selectedIndices = new Set(),
+  onSelectionChange,
+  onSelectAll
 }) => {
-  
+
   const renderActionButtons = (material, index) => (
     <div className="actions-cell" style={{ width: "260px", display: "flex", flexWrap: "wrap", gap: "4px", justifyContent: "center" }}>
       <button
@@ -32,54 +35,54 @@ const MaterialTable = memo(({
       >
         Modify
       </button>
-             <button
-         onClick={() => onMoveUp(index)}
-         disabled={index === 0}
-         style={{ 
-           padding: "5px 10px", 
-           fontSize: "12px",
-           marginRight: "6px",
-           opacity: index === 0 ? 0.5 : 1,
-           backgroundColor: "#6c757d",
-           border: "1px solid #6c757d",
-           color: "white",
-           borderRadius: "4px",
-           cursor: index === 0 ? "not-allowed" : "pointer",
-           transition: "all 0.2s ease"
-         }}
-         title="Move Up"
-       >
-         ▲
-       </button>
-       <button
-         onClick={() => onMoveDown(index)}
-         disabled={index === materials.length - 1}
-         style={{ 
-           padding: "5px 10px", 
-           fontSize: "12px",
-           marginRight: "6px",
-           opacity: index === materials.length - 1 ? 0.5 : 1,
-           backgroundColor: "#6c757d",
-           border: "1px solid #6c757d",
-           color: "white",
-           borderRadius: "4px",
-           cursor: index === materials.length - 1 ? "not-allowed" : "pointer",
-           transition: "all 0.2s ease"
-         }}
-         title="Move Down"
-       >
-         ▼
-       </button>
-      {personalInventoryStatus[`${material.name}_${material.alias || ''}_${material.cas || ''}`] === false && 
-        material.source !== "inventory" && 
-        material.source !== "solvent_database" && 
-        material.source !== "inventory_match" && 
+      <button
+        onClick={() => onMoveUp(index)}
+        disabled={index === 0}
+        style={{
+          padding: "5px 10px",
+          fontSize: "12px",
+          marginRight: "6px",
+          opacity: index === 0 ? 0.5 : 1,
+          backgroundColor: "#6c757d",
+          border: "1px solid #6c757d",
+          color: "white",
+          borderRadius: "4px",
+          cursor: index === 0 ? "not-allowed" : "pointer",
+          transition: "all 0.2s ease"
+        }}
+        title="Move Up"
+      >
+        ▲
+      </button>
+      <button
+        onClick={() => onMoveDown(index)}
+        disabled={index === materials.length - 1}
+        style={{
+          padding: "5px 10px",
+          fontSize: "12px",
+          marginRight: "6px",
+          opacity: index === materials.length - 1 ? 0.5 : 1,
+          backgroundColor: "#6c757d",
+          border: "1px solid #6c757d",
+          color: "white",
+          borderRadius: "4px",
+          cursor: index === materials.length - 1 ? "not-allowed" : "pointer",
+          transition: "all 0.2s ease"
+        }}
+        title="Move Down"
+      >
+        ▼
+      </button>
+      {personalInventoryStatus[`${material.name}_${material.alias || ''}_${material.cas || ''}`] === false &&
+        material.source !== "inventory" &&
+        material.source !== "solvent_database" &&
+        material.source !== "inventory_match" &&
         material.source !== "kit_upload" && (
           <button
             className="btn btn-success"
             onClick={() => onAddToPersonalInventory(material)}
-            style={{ 
-              padding: "5px 10px", 
+            style={{
+              padding: "5px 10px",
               fontSize: "12px"
             }}
           >
@@ -91,13 +94,13 @@ const MaterialTable = memo(({
 
   const renderSmilesCell = (material) => {
     // Check for valid SMILES data - must be non-empty string and not just "nan", "null", etc.
-    const hasValidSmiles = material.smiles && 
-                          typeof material.smiles === 'string' && 
-                          material.smiles.trim() && 
-                          material.smiles.toLowerCase() !== 'nan' && 
-                          material.smiles.toLowerCase() !== 'null' &&
-                          material.smiles.toLowerCase() !== 'none';
-    
+    const hasValidSmiles = material.smiles &&
+      typeof material.smiles === 'string' &&
+      material.smiles.trim() &&
+      material.smiles.toLowerCase() !== 'nan' &&
+      material.smiles.toLowerCase() !== 'null' &&
+      material.smiles.toLowerCase() !== 'none';
+
     if (hasValidSmiles) {
       return (
         <button
@@ -136,6 +139,15 @@ const MaterialTable = memo(({
       <table className="table">
         <thead>
           <tr>
+            <th style={{ width: "40px", textAlign: "center", padding: "8px" }}>
+              <input
+                type="checkbox"
+                checked={selectedIndices.size === materials.length && materials.length > 0}
+                onChange={onSelectAll}
+                style={{ cursor: "pointer", width: "16px", height: "16px" }}
+                title="Select All"
+              />
+            </th>
             <th>Name/Alias</th>
             <th>CAS</th>
             <th>SMILES</th>
@@ -146,7 +158,28 @@ const MaterialTable = memo(({
         </thead>
         <tbody>
           {materials.map((material, index) => (
-            <tr key={index}>
+            <tr
+              key={index}
+              style={{
+                backgroundColor: selectedIndices.has(index)
+                  ? 'rgba(74, 144, 226, 0.08)'
+                  : 'transparent',
+                transition: 'background-color 0.2s ease'
+              }}
+            >
+              <td style={{ textAlign: "center", padding: "8px" }}>
+                <input
+                  type="checkbox"
+                  checked={selectedIndices.has(index)}
+                  onChange={(e) => onSelectionChange(index, e)}
+                  onClick={(e) => {
+                    // This stops default behavior so we can handle it manually
+                    // This ensures onChange gets called with proper shift key state
+                    e.stopPropagation();
+                  }}
+                  style={{ cursor: "pointer", width: "16px", height: "16px" }}
+                />
+              </td>
               <td>{material.alias || material.name}</td>
               <td>{material.cas}</td>
               <td>{renderSmilesCell(material)}</td>

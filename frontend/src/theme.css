@@ -1046,33 +1046,7 @@ a:hover {
 /* =====================================================
    Tables
    ===================================================== */
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9375rem;
-}
-
-.table th,
-.table td {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--color-border);
-  text-align: left;
-}
-
-.table thead th {
-  background: var(--color-background);
-  font-weight: 600;
-  color: var(--color-heading);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.table tbody tr:hover {
-  background: color-mix(in srgb,
-      var(--color-primary) 5%,
-      var(--color-background) 95%);
-}
+/* Table styles are defined in index.css */
 
 /* =====================================================
    Responsive Grid Layouts
@@ -1240,68 +1214,7 @@ a:hover {
 
 /* Plate section has its own fixed height styling above */
 
-/* Design Tab Materials Table */
-.scrollable-table-container {
-  max-height: 320px;
-  overflow-y: auto;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-background);
-  box-shadow: var(--shadow-xs);
-}
-
-.scrollable-table-container .table {
-  margin: 0;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-.scrollable-table-container .table thead {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: var(--color-background);
-  border-bottom: 2px solid var(--color-border);
-}
-
-.scrollable-table-container .table thead th {
-  background: var(--color-background);
-  font-weight: 600;
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--text-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-text-secondary);
-}
-
-.scrollable-table-container .table tbody tr {
-  transition: background-color 0.15s ease;
-  border-bottom: 1px solid var(--color-border-light);
-}
-
-.scrollable-table-container .table tbody tr:hover {
-  background: var(--color-primary-light);
-}
-
-.scrollable-table-container .table tbody tr.selected-row {
-  background: var(--color-primary-light);
-  border-left: 3px solid var(--color-primary);
-}
-
-.scrollable-table-container .table tbody tr.selected-row:hover {
-  background: var(--color-primary-light);
-}
-
-.scrollable-table-container .table tbody td {
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--text-sm);
-  vertical-align: middle;
-}
-
-.materials-table-container {
-  max-height: 300px;
-  overflow-y: auto;
-}
+/* .materials-table-container and .scrollable-table-container are defined in App.css */
 
 .amount-input-section {
   margin-top: var(--space-4);
@@ -1352,19 +1265,7 @@ a:hover {
   border: 1px solid var(--color-border);
 }
 
-.plate-container {
-  background: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
-  box-shadow: var(--shadow-xs);
-  margin-top: var(--space-4);
-
-  /* Updated width for 25% smaller wells */
-  /* 96-well: 33px + 12*33 + 11*3 = 33 + 396 + 33 = 462px + padding ~ 12px each side */
-  width: 486px;
-  overflow: visible;
-}
+/* .plate-container is defined in index.css */
 
 .plate-header {
   display: flex;
@@ -1472,91 +1373,9 @@ a:hover {
   display: contents;
 }
 
-.header-cell {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  padding: var(--space-2);
-  text-align: center;
-  font-weight: 600;
-  font-size: var(--text-sm);
-  cursor: pointer;
-  user-select: none;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-secondary);
-}
+/* .header-cell and .corner-cell are defined in index.css */
 
-.header-cell:hover {
-  background: var(--color-primary-light);
-  color: var(--color-primary);
-  border-color: var(--color-primary);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-xs);
-}
-
-.corner-cell {
-  background: var(--color-primary);
-  color: white;
-  font-weight: 700;
-  font-size: var(--text-xs);
-}
-
-.corner-cell:hover {
-  background: var(--color-primary-hover);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
-}
-
-.well {
-  width: 44px;
-  height: 44px;
-  border: 2px solid var(--color-border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 9px;
-  cursor: pointer;
-  user-select: none;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  background: var(--color-surface);
-  border-radius: var(--radius-sm);
-  position: relative;
-}
-
-.well:hover {
-  border-color: var(--color-primary);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
-  z-index: 1;
-}
-
-.well.selected {
-  background: var(--color-primary-light);
-  border-color: var(--color-primary);
-  border-width: 3px;
-  color: var(--color-primary);
-  font-weight: 600;
-  box-shadow: var(--shadow-sm);
-}
-
-.well.has-content {
-  background: var(--color-success-light);
-  border-color: var(--color-success);
-  border-width: 3px;
-}
-
-.well.selected.has-content {
-  background: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
-}
-
-.well-content {
-  font-size: 8px;
-  line-height: 1;
-  text-align: center;
-  word-break: break-all;
-}
+/* .well and .well-content are defined in index.css */
 
 /* =====================================================
    Tabs / Nav (Legacy - being replaced)

@@ -138,35 +138,7 @@ code {
     margin: 20px 0;
 }
 
-.well {
-    width: 44px;
-    height: 44px;
-    border: 1px solid var(--color-border);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 9px;
-    cursor: pointer;
-    background: var(--color-surface);
-    transition: background 0.15s ease;
-}
-
-.well:hover {
-    background: color-mix(in srgb,
-            var(--color-primary) 5%,
-            var(--color-background) 95%);
-}
-
-.well.selected {
-    background: var(--color-primary);
-    color: white;
-}
-
-.well.has-content {
-    background: var(--color-surface);
-    border: 3px solid var(--color-success);
-    color: var(--color-text-primary);
-}
+/* .well styles are defined in the Well Plate Layout Styles section below */
 
 /* Well Plate Layout Styles */
 .plate-container {

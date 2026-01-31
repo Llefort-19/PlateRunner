@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { useToast } from "./ToastContext";
 
-const Procedure = () => {
+const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType }) => {
   const [procedure, setProcedure] = useState([]);
   const [materials, setMaterials] = useState([]);
   const [materialsLoading, setMaterialsLoading] = useState(true);
@@ -14,7 +14,9 @@ const Procedure = () => {
   const [clickedWell, setClickedWell] = useState(null);
   const [showWellModal, setShowWellModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
-  const [plateType, setPlateType] = useState("96"); // "96", "48", or "24"
+  // Use props if provided, otherwise fall back to local state for standalone usage
+  const plateType = propPlateType || "96";
+  const setPlateType = propSetPlateType || (() => { });
   const [showPlateSwitchWarning, setShowPlateSwitchWarning] = useState(false);
   const [pendingPlateType, setPendingPlateType] = useState(null);
 
@@ -112,8 +114,7 @@ const Procedure = () => {
     setPendingPlateType(null);
   };
 
-  // Track if this is the initial load to avoid setting plate type on refresh
-  const isInitialLoad = React.useRef(true);
+
 
   const loadProcedure = useCallback(async () => {
     try {
@@ -123,16 +124,16 @@ const Procedure = () => {
 
       setProcedure(procedureResponse.data || []);
 
-      // Only set plate type from context on initial load, not on every refresh
+      // Load plate type from context to ensure persistence across tab switches
       const context = contextResponse.data || {};
-      if (context.plate_type && isInitialLoad.current) {
-        console.log(`Setting plate type from context: ${context.plate_type}`);
+      if (context.plate_type) {
+        console.log(`Loading plate type from context: ${context.plate_type}`);
         setPlateType(context.plate_type);
       }
     } catch (error) {
       console.error("Error loading procedure:", error);
     }
-  }, []); // Remove procedure.length dependency to prevent re-creation
+  }, [setPlateType]); // Include setPlateType in dependencies
 
   const loadMaterials = useCallback(async () => {
     // Only show loading indicator if request takes longer than 150ms
@@ -158,7 +159,6 @@ const Procedure = () => {
     const loadData = async () => {
       // Load both in parallel to avoid sequential delays
       await Promise.all([loadProcedure(), loadMaterials()]);
-      isInitialLoad.current = false;
     };
 
     loadData();

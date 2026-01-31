@@ -3,7 +3,7 @@ Molecules routes blueprint.
 Handles molecule image generation and SDF file uploads.
 """
 from flask import Blueprint, request, jsonify
-from app_original import (
+from utils import (
     generate_molecule_image, parse_sdf_file
 )
 

@@ -18,6 +18,7 @@ function App() {
   const [activeTab, setActiveTab] = useState("context");
   const [showHelp, setShowHelp] = useState(false);
   const [helpTabId, setHelpTabId] = useState(null);
+  const [plateType, setPlateType] = useState("96"); // Lifted state to persist across tab switches
 
   const tabs = [
     {
@@ -37,13 +38,13 @@ function App() {
     try {
       // Call backend reset endpoint
       await axios.post("/api/experiment/reset");
-      
+
       // Clear localStorage for SDF data
       localStorage.removeItem("experimentSdfData");
-      
+
       // Clear session flag so next start is treated as fresh
       sessionStorage.removeItem("experimentSessionActive");
-      
+
       // Force page reload to reset all component states
       window.location.reload();
     } catch (error) {
@@ -65,10 +66,10 @@ function App() {
     <ToastProvider>
       <Router>
         <div className="App">
-          <Header 
-            activeTab={activeTab} 
-            onTabChange={setActiveTab} 
-            onReset={handleReset} 
+          <Header
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            onReset={handleReset}
             onShowHelp={handleShowHelp}
           />
 
@@ -76,20 +77,20 @@ function App() {
             <div className="tab-content">
               {activeTab === "context" && <ExperimentContext />}
               {activeTab === "materials" && <Materials />}
-              {activeTab === "procedure" && <Procedure />}
+              {activeTab === "procedure" && <Procedure plateType={plateType} setPlateType={setPlateType} />}
               {activeTab === "procedure-settings" && <ProcedureSettings />}
               {activeTab === "analytical" && <AnalyticalData />}
               {activeTab === "results" && <Results />}
               {activeTab === "heatmap" && <Heatmap />}
             </div>
           </div>
-          
-          <Help 
-            tabId={helpTabId} 
-            visible={showHelp} 
-            onClose={handleCloseHelp} 
+
+          <Help
+            tabId={helpTabId}
+            visible={showHelp}
+            onClose={handleCloseHelp}
           />
-          
+
           <ToastContainer />
         </div>
       </Router>
