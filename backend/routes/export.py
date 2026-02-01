@@ -39,7 +39,7 @@ def export_experiment():
     ws_materials = wb.create_sheet("Materials")
     if current_experiment.get('materials'):
         # Add headers - match inventory column names exactly (lowercase) and order
-        headers = ['Nr', 'chemical_name', 'alias', 'cas_number', 'molecular_weight', 'smiles', 'barcode', 'role', 'source', 'supplier']
+        headers = ['Nr', 'chemical_name', 'alias', 'cas_number', 'molecular_weight', 'smiles', 'barcode', 'role', 'sub_role', 'source', 'supplier']
         ws_materials.append(headers)
         
         # Load inventory data to enrich materials
@@ -84,6 +84,7 @@ def export_experiment():
                 material.get('smiles', enriched_data.get('smiles', '')),
                 material.get('barcode', enriched_data.get('barcode', '')),
                 material.get('role', ''),
+                material.get('role_id', ''), # Changed from sub_role to role_id
                 material.get('source', enriched_data.get('source', '')),
                 material.get('supplier', enriched_data.get('supplier', ''))
             ]

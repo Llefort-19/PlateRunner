@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(tree:*)",
+      "Bash(gh pr list:*)",
+      "Bash(git fetch:*)",
+      "Bash(gh api:*)",
+      "Bash(certutil -decode - -)",
+      "Bash(powershell -Command \"[System.Text.Encoding]::UTF8.GetString\\([System.Convert]::FromBase64String\\([Console]::In.ReadToEnd\\(\\)\\)\\)\")",
+      "Bash(git stash:*)",
+      "Bash(git checkout:*)",
+      "Bash(git rm:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)",
+      "Bash(find:*)",
+      "Bash(python:*)",
+      "Bash(npx eslint:*)",
+      "Bash(.venvScriptsactivate)",
+      "Bash(\"..\\\\.venv\\\\Scripts\\\\python.exe\" -m unittest test_validation_strict.TestStrictValidation -v)",
+      "Bash(\"..\\\\.venv\\\\Scripts\\\\python.exe\" -c \"from test_validation_strict import TestStrictValidation; print\\(''Tests module loaded successfully''\\)\")",
+      "Bash(\"..\\\\.venv\\\\Scripts\\\\python.exe\" -m py_compile test_validation_strict.py)",
+      "Bash(\"..\\\\.venv\\\\Scripts\\\\python.exe\" -m py_compile test_integration.py)",
+      "Bash(git add:*)"
+    ]
+  }
+}

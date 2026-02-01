@@ -4,6 +4,31 @@ Marshmallow schemas for request/response validation.
 from marshmallow import Schema, fields, validate, post_load, ValidationError
 from typing import Dict, Any
 
+
+def validate_smiles_syntax(smiles):
+    """
+    Fast syntactic SMILES validation.
+    Does not use RDKit (too slow for interactive validation).
+    """
+    if not smiles or not isinstance(smiles, str):
+        return
+
+    # Check balanced parentheses
+    if smiles.count('(') != smiles.count(')'):
+        raise ValidationError('Unbalanced parentheses in SMILES')
+
+    # Check balanced brackets
+    if smiles.count('[') != smiles.count(']'):
+        raise ValidationError('Unbalanced brackets in SMILES')
+
+    # Check for obviously invalid characters
+    # SMILES uses: C, N, O, S, P, F, Cl, Br, I, H, =, #, -, +, (, ), [, ], @, %, digits
+    # Reject common typos
+    invalid_chars = ['_', '$', '^', '&', '*', '!', '~', '`', '{', '}', '|', '\\', '"', "'", '<', '>']
+    for char in invalid_chars:
+        if char in smiles:
+            raise ValidationError(f'Invalid character in SMILES: {char}')
+
 class ExperimentContextSchema(Schema):
     """Schema for experiment context data."""
     author = fields.Str(required=True, validate=validate.Length(min=1, max=100))
@@ -17,14 +42,38 @@ class MaterialSchema(Schema):
     """Schema for individual material data."""
     name = fields.Str(required=True, validate=validate.Length(min=1, max=200))
     alias = fields.Str(validate=validate.Length(max=100), allow_none=True)
-    cas = fields.Str(validate=validate.Length(max=50), allow_none=True)
-    smiles = fields.Str(validate=validate.Length(max=500), allow_none=True)
-    molecular_weight = fields.Str(validate=validate.Length(max=20), allow_none=True)
+    cas = fields.Str(
+        validate=[
+            validate.Length(max=50),
+            validate.Regexp(
+                r'^\d{1,7}-\d{2}-\d$',
+                error='Invalid CAS format (expected: 123-45-6 or 1234567-12-3)'
+            )
+        ],
+        allow_none=True
+    )
+    smiles = fields.Str(
+        validate=[
+            validate.Length(max=500),
+            validate_smiles_syntax
+        ],
+        allow_none=True
+    )
+    molecular_weight = fields.Float(
+        validate=validate.Range(min=0, max=10000, min_inclusive=False),
+        allow_none=True,
+        error_messages={
+            'invalid': 'Molecular weight must be a number',
+            'min': 'Molecular weight must be greater than 0',
+            'max': 'Molecular weight cannot exceed 10000'
+        }
+    )
     barcode = fields.Str(validate=validate.Length(max=100), allow_none=True)
     role = fields.Str(validate=validate.OneOf([
         'Reactant', 'Target product', 'Product', 'Solvent', 
         'Reagent', 'Internal standard', ''
     ]), missing='')
+    role_id = fields.Str(allow_none=True)
     source = fields.Str(validate=validate.OneOf([
         'inventory_match', 'excel_upload', 'kit_upload', 'manual', 'solvent_database'
     ]), missing='manual')
@@ -48,10 +97,18 @@ class WellMaterialSchema(Schema):
     name = fields.Str(required=True, validate=validate.Length(min=1, max=200))
     alias = fields.Str(validate=validate.Length(max=100), allow_none=True)
     cas = fields.Str(validate=validate.Length(max=50), allow_none=True)
-    amount = fields.Str(required=True, validate=validate.Length(min=1, max=20))
+    amount = fields.Float(
+        required=True,
+        validate=validate.Range(min=0, min_inclusive=False),
+        error_messages={
+            'required': 'Amount is required',
+            'invalid': 'Amount must be a number',
+            'min': 'Amount must be greater than 0'
+        }
+    )
     unit = fields.Str(validate=validate.OneOf(['μmol', 'mmol', 'mol', 'μL', 'mL', 'L', 'mg', 'g']), missing='μmol')
     role = fields.Str(allow_none=True)
-    source = fields.Str(allow_none=True)
+    role_id = fields.Str(allow_none=True)
 
 class ProcedureItemSchema(Schema):
     """Schema for individual procedure item (well)."""
@@ -65,9 +122,19 @@ class ProcedureListSchema(Schema):
 
 class ReactionConditionsSchema(Schema):
     """Schema for reaction conditions."""
-    temperature = fields.Str(validate=validate.Length(max=20), allow_none=True)
+    temperature = fields.Float(
+        allow_none=True,
+        error_messages={'invalid': 'Temperature must be a number'}
+    )
     time = fields.Str(validate=validate.Length(max=20), allow_none=True)
-    pressure = fields.Str(validate=validate.Length(max=20), allow_none=True)
+    pressure = fields.Float(
+        validate=validate.Range(min=0, min_inclusive=False),
+        allow_none=True,
+        error_messages={
+            'invalid': 'Pressure must be a number',
+            'min': 'Pressure must be greater than 0'
+        }
+    )
     wavelength = fields.Str(validate=validate.Length(max=20), allow_none=True)
     remarks = fields.Str(validate=validate.Length(max=1000), allow_none=True)
 
@@ -101,9 +168,33 @@ class ResultItemSchema(Schema):
     """Schema for individual result item."""
     well = fields.Str(required=True, validate=validate.Regexp(r'^[A-H](1[0-2]|[1-9])$'))
     id = fields.Str(validate=validate.Length(max=50), allow_none=True)
-    conversion_percent = fields.Str(validate=validate.Length(max=10), allow_none=True)
-    yield_percent = fields.Str(validate=validate.Length(max=10), allow_none=True)
-    selectivity_percent = fields.Str(validate=validate.Length(max=10), allow_none=True)
+    conversion_percent = fields.Float(
+        validate=validate.Range(min=0, max=100),
+        allow_none=True,
+        error_messages={
+            'invalid': 'Conversion % must be a number',
+            'min': 'Conversion % cannot be negative',
+            'max': 'Conversion % cannot exceed 100'
+        }
+    )
+    yield_percent = fields.Float(
+        validate=validate.Range(min=0, max=100),
+        allow_none=True,
+        error_messages={
+            'invalid': 'Yield % must be a number',
+            'min': 'Yield % cannot be negative',
+            'max': 'Yield % cannot exceed 100'
+        }
+    )
+    selectivity_percent = fields.Float(
+        validate=validate.Range(min=0, max=100),
+        allow_none=True,
+        error_messages={
+            'invalid': 'Selectivity % must be a number',
+            'min': 'Selectivity % cannot be negative',
+            'max': 'Selectivity % cannot exceed 100'
+        }
+    )
 
 class ResultsSchema(Schema):
     """Schema for results data."""

@@ -10,6 +10,32 @@ export const useToast = () => {
   return context;
 };
 
+// Helper function to format validation error details
+const formatValidationDetails = (details) => {
+  if (!details || typeof details !== 'object') return '';
+
+  const errors = [];
+  Object.entries(details).forEach(([field, messages]) => {
+    // Handle both array and string error messages
+    if (Array.isArray(messages)) {
+      messages.forEach(msg => {
+        // Make field names user-friendly
+        const friendlyField = field
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, l => l.toUpperCase());
+        errors.push(`${friendlyField}: ${msg}`);
+      });
+    } else {
+      const friendlyField = field
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, l => l.toUpperCase());
+      errors.push(`${friendlyField}: ${messages}`);
+    }
+  });
+
+  return errors.join('\n');
+};
+
 export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
 
@@ -52,6 +78,20 @@ export const ToastProvider = ({ children }) => {
     return showToast(message, 'warning', duration);
   }, [showToast]);
 
+  const showValidationError = useCallback((errorResponse, duration = 8000) => {
+    const { message, details, error } = errorResponse;
+
+    // Handle different error response formats
+    const errorMessage = message || error || 'Validation failed';
+
+    if (details) {
+      const detailsText = formatValidationDetails(details);
+      return showError(`${errorMessage}\n\n${detailsText}`, duration);
+    }
+
+    return showError(errorMessage, duration);
+  }, [showError]);
+
   const value = {
     toasts,
     showToast,
@@ -59,6 +99,7 @@ export const ToastProvider = ({ children }) => {
     showError,
     showInfo,
     showWarning,
+    showValidationError,
     removeToast
   };
 

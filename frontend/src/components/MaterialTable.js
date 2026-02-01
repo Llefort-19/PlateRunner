@@ -1,5 +1,56 @@
 import React, { memo } from "react";
 
+// Helper functions for role_id formatting
+const formatRoleId = (role, number) => {
+  if (!number || (role !== "Reagent" && role !== "Reactant")) return null;
+  const num = parseInt(number);
+  if (isNaN(num) || num < 1 || num > 99) return null;
+  const prefix = role === "Reagent" ? "Reagent" : "Reactant";
+  return `${prefix}_${String(num).padStart(2, '0')}`;
+};
+
+const parseRoleId = (roleId) => {
+  if (!roleId) return "";
+  const match = roleId.match(/_(\d+)$/);
+  return match ? parseInt(match[1]) : "";
+};
+
+const RoleIdInput = ({ material, index, onUpdate }) => {
+  const [value, setValue] = React.useState(parseRoleId(material.role_id) || "");
+
+  // Sync state with prop changes (e.g. from modal updates)
+  React.useEffect(() => {
+    setValue(parseRoleId(material.role_id) || "");
+  }, [material.role_id]);
+
+  const handleBlur = () => {
+    const formatted = formatRoleId(material.role, value);
+    // Only update if value actually changed/is valid
+    if (formatted !== material.role_id) {
+      onUpdate(index, formatted);
+    }
+  };
+
+  return (
+    <input
+      type="number"
+      min="1"
+      max="99"
+      placeholder="1-99"
+      className="form-control"
+      style={{ width: "60px", padding: "4px 8px", fontSize: "12px" }}
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={handleBlur}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.target.blur();
+        }
+      }}
+    />
+  );
+};
+
 const MaterialTable = memo(({
   materials,
   roleOptions,
@@ -7,6 +58,7 @@ const MaterialTable = memo(({
   personalInventoryLoading,
   onMoleculeView,
   onRoleUpdate,
+  onRoleIdUpdate,
   onRemove,
   onEdit,
   onAddToPersonalInventory,
@@ -153,6 +205,7 @@ const MaterialTable = memo(({
             <th>SMILES</th>
             <th>Barcode</th>
             <th>Role</th>
+            <th>Role_ID</th>
             <th style={{ textAlign: "center", width: "280px", minWidth: "280px" }}>Actions</th>
           </tr>
         </thead>
@@ -198,6 +251,17 @@ const MaterialTable = memo(({
                     </option>
                   ))}
                 </select>
+              </td>
+              <td>
+                {(material.role === "Reagent" || material.role === "Reactant") ? (
+                  <RoleIdInput
+                    material={material}
+                    index={index}
+                    onUpdate={onRoleIdUpdate}
+                  />
+                ) : (
+                  <span style={{ color: "#ccc" }}>-</span>
+                )}
               </td>
               <td style={{ textAlign: "center", width: "280px", minWidth: "280px" }}>{renderActionButtons(material, index)}</td>
             </tr>

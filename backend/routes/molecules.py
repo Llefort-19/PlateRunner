@@ -6,30 +6,16 @@ from flask import Blueprint, request, jsonify
 from utils import (
     generate_molecule_image, parse_sdf_file
 )
+from validation import validate_request, MoleculeImageRequestSchema
 
 # Create blueprint
 molecules_bp = Blueprint('molecules', __name__, url_prefix='/api')
 
 @molecules_bp.route('/molecule/image', methods=['POST'])
+@validate_request(MoleculeImageRequestSchema)
 def get_molecule_image():
     """Generate molecule image from SMILES string"""
-    # Optional validation in warn-only mode
-    try:
-        from validation.utils import validate_data
-        from validation.schemas import MoleculeImageRequestSchema
-        
-        schema = MoleculeImageRequestSchema()
-        validated_data, errors = validate_data(
-            schema, request.get_json(), strict_mode=False,
-            endpoint="POST /api/molecule/image"
-        )
-        data = validated_data
-    except Exception as e:
-        # If validation fails, use original data and log warning
-        import logging
-        logging.warning(f"Molecule image request validation failed: {e}")
-        data = request.get_json()
-    
+    data = request.validated_json
     smiles = data.get('smiles', '').strip()
     
     if not smiles:

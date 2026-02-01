@@ -191,5 +191,205 @@ class TestValidation(unittest.TestCase):
         self.assertEqual(stored_data['project'], 'Valid Project')
         self.assertEqual(stored_data['eln'], 'ELN-001')
 
+class TestValidationStrictMode(unittest.TestCase):
+    """Test validation functionality in strict mode."""
+
+    def setUp(self):
+        """Set up test client with strict validation."""
+        self.app = app
+        self.app.config['TESTING'] = True
+        self.app.config['VALIDATION_STRICT'] = True  # Enable strict mode
+        self.client = app.test_client()
+
+    def tearDown(self):
+        """Clean up."""
+        # Reset to default
+        self.app.config['VALIDATION_STRICT'] = False
+
+    def test_valid_context_data_accepted(self):
+        """Test that valid context data is accepted in strict mode."""
+        valid_context = {
+            'author': 'Test Author',
+            'date': '2025-01-01',
+            'project': 'Test Project',
+            'eln': 'ELN-001',
+            'objective': 'Test objective'
+        }
+
+        response = self.client.post('/api/experiment/context',
+                                  data=json.dumps(valid_context),
+                                  content_type='application/json')
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_invalid_context_data_rejected(self):
+        """Test that invalid context data is rejected in strict mode."""
+        invalid_context = {
+            'author': '',  # Invalid: empty author
+            'date': 'invalid-date',  # Invalid: bad date format
+            'project': 'x' * 201,  # Invalid: too long
+            'eln': '',  # Invalid: empty ELN
+            'objective': 'x' * 1001  # Invalid: too long
+        }
+
+        response = self.client.post('/api/experiment/context',
+                                  data=json.dumps(invalid_context),
+                                  content_type='application/json')
+
+        # Should be rejected in strict mode
+        self.assertEqual(response.status_code, 400)
+
+        # Should include error details
+        data = json.loads(response.data)
+        self.assertIn('details', data)
+
+    def test_valid_materials_accepted(self):
+        """Test that valid materials are accepted in strict mode."""
+        valid_materials = [
+            {
+                'name': 'Ethanol',
+                'alias': 'EtOH',
+                'cas': '64-17-5',  # Valid CAS format
+                'smiles': 'CCO',  # Valid SMILES
+                'molecular_weight': 46.07,  # Float, not string
+                'role': 'Reactant',
+                'source': 'manual'
+            }
+        ]
+
+        response = self.client.post('/api/experiment/materials',
+                                  data=json.dumps(valid_materials),
+                                  content_type='application/json')
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_invalid_materials_rejected(self):
+        """Test that invalid materials are rejected in strict mode."""
+        invalid_materials = [
+            {
+                'name': '',  # Invalid: empty name
+                'alias': 'x' * 101,  # Invalid: too long
+                'cas': 'invalid-cas',  # Invalid: wrong format
+                'role': 'InvalidRole',  # Invalid: not in allowed values
+                'source': 'invalid_source'  # Invalid: not in allowed values
+            }
+        ]
+
+        response = self.client.post('/api/experiment/materials',
+                                  data=json.dumps(invalid_materials),
+                                  content_type='application/json')
+
+        # Should be rejected in strict mode
+        self.assertEqual(response.status_code, 400)
+
+        # Should include error details
+        data = json.loads(response.data)
+        self.assertIn('details', data)
+
+    def test_molecular_weight_string_rejected(self):
+        """Test that molecular weight as string is rejected in strict mode."""
+        materials = [
+            {
+                'name': 'Test',
+                'alias': 'T',
+                'molecular_weight': '46.07',  # String instead of float
+                'role': 'Reactant'
+            }
+        ]
+
+        response = self.client.post('/api/experiment/materials',
+                                  data=json.dumps(materials),
+                                  content_type='application/json')
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_invalid_cas_format_rejected(self):
+        """Test that invalid CAS format is rejected in strict mode."""
+        materials = [
+            {
+                'name': 'Test',
+                'alias': 'T',
+                'cas': '12345',  # Invalid format
+                'role': 'Reactant'
+            }
+        ]
+
+        response = self.client.post('/api/experiment/materials',
+                                  data=json.dumps(materials),
+                                  content_type='application/json')
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_invalid_smiles_rejected(self):
+        """Test that invalid SMILES is rejected in strict mode."""
+        materials = [
+            {
+                'name': 'Test',
+                'alias': 'T',
+                'smiles': 'C(C(',  # Unbalanced parentheses
+                'role': 'Reactant'
+            }
+        ]
+
+        response = self.client.post('/api/experiment/materials',
+                                  data=json.dumps(materials),
+                                  content_type='application/json')
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_invalid_results_percentages_rejected(self):
+        """Test that invalid percentages are rejected in strict mode."""
+        results = {
+            'results': [
+                {
+                    'well': 'A1',
+                    'id': 'A1',
+                    'conversion_percent': 150.0  # Invalid: > 100
+                }
+            ]
+        }
+
+        response = self.client.post('/api/experiment/results',
+                                  data=json.dumps(results),
+                                  content_type='application/json')
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_valid_results_percentages_accepted(self):
+        """Test that valid percentages are accepted in strict mode."""
+        results = {
+            'results': [
+                {
+                    'well': 'A1',
+                    'id': 'A1',
+                    'conversion_percent': 75.5,
+                    'yield_percent': 68.2,
+                    'selectivity_percent': 90.5
+                }
+            ]
+        }
+
+        response = self.client.post('/api/experiment/results',
+                                  data=json.dumps(results),
+                                  content_type='application/json')
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_invalid_molecule_image_request_rejected(self):
+        """Test that invalid molecule image request is rejected in strict mode."""
+        invalid_request = {
+            'smiles': 'x' * 501,  # Invalid: too long
+            'width': 5000,  # Invalid: too large
+            'height': -10  # Invalid: negative
+        }
+
+        response = self.client.post('/api/molecule/image',
+                                  data=json.dumps(invalid_request),
+                                  content_type='application/json')
+
+        # Should be rejected in strict mode
+        self.assertEqual(response.status_code, 400)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

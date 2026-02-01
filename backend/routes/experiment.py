@@ -14,29 +14,9 @@ from validation import (
 # Create blueprint
 experiment_bp = Blueprint('experiment', __name__, url_prefix='/api/experiment')
 
-@experiment_bp.route('/context', methods=['GET', 'POST'])
-def experiment_context():
-    """Get or update experiment context"""
-    if request.method == 'POST':
-        # Optional validation in warn-only mode
-        try:
-            from validation.utils import validate_data
-            from validation.schemas import ExperimentContextSchema
-            
-            schema = ExperimentContextSchema()
-            validated_data, errors = validate_data(
-                schema, request.json, strict_mode=False, 
-                endpoint="POST /api/experiment/context"
-            )
-            current_experiment['context'] = validated_data
-        except Exception as e:
-            # If validation fails, use original data and log warning
-            import logging
-            logging.warning(f"Context validation failed: {e}")
-            current_experiment['context'] = request.json
-            
-        return jsonify({'message': 'Context updated'})
-    
+@experiment_bp.route('/context', methods=['GET'])
+def get_experiment_context():
+    """Get experiment context"""
     # Get context and ensure all fields are present with proper format
     context = current_experiment.get('context', {}).copy()
     
@@ -93,55 +73,46 @@ def experiment_context():
 
     return jsonify(context)
 
-@experiment_bp.route('/materials', methods=['GET', 'POST'])
-def experiment_materials():
-    """Get or update experiment materials"""
-    if request.method == 'POST':
-        # Optional validation in warn-only mode
-        try:
-            from validation.utils import validate_data
-            from validation.schemas import MaterialSchema
-            
-            # Validate each material in the list
-            materials_data = request.json
-            if isinstance(materials_data, list):
-                validated_materials = []
-                schema = MaterialSchema()
-                for i, material in enumerate(materials_data):
-                    validated_material, errors = validate_data(
-                        schema, material, strict_mode=False,
-                        endpoint=f"POST /api/experiment/materials[{i}]"
-                    )
-                    validated_materials.append(validated_material)
-                current_experiment['materials'] = validated_materials
-            else:
-                current_experiment['materials'] = materials_data
-        except Exception as e:
-            # If validation fails, use original data and log warning
-            import logging
-            logging.warning(f"Materials validation failed: {e}")
-            current_experiment['materials'] = request.json
-            
-        return jsonify({'message': 'Materials updated'})
-    
+@experiment_bp.route('/context', methods=['POST'])
+@validate_request(ExperimentContextSchema)
+def update_experiment_context():
+    """Update experiment context with validation"""
+    current_experiment['context'] = request.validated_json
+    return jsonify({'message': 'Context updated'})
+
+@experiment_bp.route('/materials', methods=['GET'])
+def get_experiment_materials():
+    """Get experiment materials"""
     return jsonify(current_experiment['materials'])
 
-@experiment_bp.route('/procedure', methods=['GET', 'POST'])
-def experiment_procedure():
-    """Get or update experiment procedure (96-well plate)"""
-    if request.method == 'POST':
-        current_experiment['procedure'] = request.json
-        return jsonify({'message': 'Procedure updated'})
-    
+@experiment_bp.route('/materials', methods=['POST'])
+@validate_request(MaterialsListSchema)
+def update_experiment_materials():
+    """Update experiment materials with validation"""
+    # MaterialsListSchema handles list validation
+    materials_data = request.validated_json
+    if isinstance(materials_data, list):
+        current_experiment['materials'] = materials_data
+    else:
+        # If not a list, wrap it
+        current_experiment['materials'] = materials_data if isinstance(materials_data, list) else [materials_data]
+    return jsonify({'message': 'Materials updated'})
+
+@experiment_bp.route('/procedure', methods=['GET'])
+def get_experiment_procedure():
+    """Get experiment procedure (96-well plate)"""
     return jsonify(current_experiment['procedure'])
 
-@experiment_bp.route('/procedure-settings', methods=['GET', 'POST'])
-def experiment_procedure_settings():
-    """Get or update experiment procedure settings (reaction conditions and analytical details)"""
-    if request.method == 'POST':
-        current_experiment['procedure_settings'] = request.json
-        return jsonify({'message': 'Procedure settings updated'})
-    
+@experiment_bp.route('/procedure', methods=['POST'])
+@validate_request(ProcedureListSchema)
+def update_experiment_procedure():
+    """Update experiment procedure with validation"""
+    current_experiment['procedure'] = request.validated_json
+    return jsonify({'message': 'Procedure updated'})
+
+@experiment_bp.route('/procedure-settings', methods=['GET'])
+def get_experiment_procedure_settings():
+    """Get experiment procedure settings (reaction conditions and analytical details)"""
     return jsonify(current_experiment.get('procedure_settings', {
         'reactionConditions': {
             'temperature': '',
@@ -157,6 +128,13 @@ def experiment_procedure_settings():
             'remarks': ''
         }
     }))
+
+@experiment_bp.route('/procedure-settings', methods=['POST'])
+@validate_request(ProcedureSettingsSchema)
+def update_experiment_procedure_settings():
+    """Update experiment procedure settings with validation"""
+    current_experiment['procedure_settings'] = request.validated_json
+    return jsonify({'message': 'Procedure settings updated'})
 
 @experiment_bp.route('/analytical', methods=['GET', 'POST'])
 def experiment_analytical():
@@ -191,14 +169,17 @@ def experiment_analytical():
         traceback.print_exc()
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
-@experiment_bp.route('/results', methods=['GET', 'POST'])
-def experiment_results():
-    """Get or update experiment results"""
-    if request.method == 'POST':
-        current_experiment['results'] = request.json
-        return jsonify({'message': 'Results updated'})
-    
+@experiment_bp.route('/results', methods=['GET'])
+def get_experiment_results():
+    """Get experiment results"""
     return jsonify(current_experiment['results'])
+
+@experiment_bp.route('/results', methods=['POST'])
+@validate_request(ResultsSchema)
+def update_experiment_results():
+    """Update experiment results with validation"""
+    current_experiment['results'] = request.validated_json
+    return jsonify({'message': 'Results updated'})
 
 @experiment_bp.route('/heatmap', methods=['GET', 'POST'])
 def experiment_heatmap():

@@ -283,6 +283,8 @@ def import_materials_sheet(ws):
                     material['barcode'] = str(value).strip()
                 elif header == 'role':
                     material['role'] = str(value).strip()
+                elif header == 'role_id':
+                    material['role_id'] = str(value).strip()
                 elif header == 'source':
                     material['source'] = str(value).strip()
                 elif header == 'supplier':

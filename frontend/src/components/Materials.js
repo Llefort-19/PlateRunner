@@ -59,6 +59,7 @@ const Materials = () => {
   // Selection and batch assignment state
   const [selectedMaterialIndices, setSelectedMaterialIndices] = useState(new Set());
   const [batchRole, setBatchRole] = useState("");
+  const [batchRoleId, setBatchRoleId] = useState(""); // State for batch role_id input
   const [lastClickedIndex, setLastClickedIndex] = useState(null);
 
   const roleOptions = [
@@ -70,7 +71,7 @@ const Materials = () => {
     "Internal standard",
   ];
 
-  const { showSuccess, showError } = useToast();
+  const { showSuccess, showError, showValidationError } = useToast();
 
   // Helper function to check if a material is a duplicate
   const isMaterialDuplicate = (newMaterial, existingMaterials) => {
@@ -158,7 +159,12 @@ const Materials = () => {
       setMaterials(updatedMaterials);
     } catch (error) {
       console.error("Error saving materials:", error);
-      showError("Error saving materials: " + error.message);
+      // Check if it's a validation error from backend
+      if (error.response?.data?.details) {
+        showValidationError(error.response.data);
+      } else {
+        showError("Error saving materials: " + (error.response?.data?.error || error.message));
+      }
     }
   };
 
@@ -178,6 +184,14 @@ const Materials = () => {
       showError("Error adding material: " + error.message);
     }
   };
+
+  const handleRoleIdUpdate = (index, value) => {
+    // Value will preserve formatting (e.g. "Reagent_01") from the table component
+    const updatedMaterials = [...materials];
+    updatedMaterials[index] = { ...updatedMaterials[index], role_id: value };
+    saveMaterials(updatedMaterials);
+  };
+
 
   const updateMaterial = async (materialData) => {
     try {
@@ -310,6 +324,21 @@ const Materials = () => {
     }
   };
 
+  const handleSubRoleUpdate = async (index, subRole) => {
+    try {
+      // Format numeric input to sub-role ID (e.g. "1" -> "Reagent_01")
+      // This logic is also handled in the component for display, but ensure it's saved correctly here
+      // Expecting subRole to be the formatted ID string (e.g. "Reagent_01") or empty
+
+      const updatedMaterials = materials.map((material, i) =>
+        i === index ? { ...material, sub_role: subRole } : material
+      );
+      await saveMaterials(updatedMaterials);
+    } catch (error) {
+      showError("Error updating material sub-role: " + error.message);
+    }
+  };
+
   // Selection handlers
   const handleSelectionChange = (index, event) => {
     const newSelection = new Set(selectedMaterialIndices);
@@ -350,6 +379,7 @@ const Materials = () => {
   const handleClearSelection = () => {
     setSelectedMaterialIndices(new Set());
     setBatchRole("");
+    setBatchRoleId(""); // Reset batch role_id
     setLastClickedIndex(null);
   };
 
@@ -365,11 +395,35 @@ const Materials = () => {
     }
 
     try {
-      const updatedMaterials = materials.map((material, index) =>
-        selectedMaterialIndices.has(index)
-          ? { ...material, role: batchRole }
-          : material
-      );
+      // Helper to format role_id if applicable
+      let formattedRoleId = null;
+      if ((batchRole === "Reagent" || batchRole === "Reactant") && batchRoleId) {
+        const num = parseInt(batchRoleId);
+        if (!isNaN(num) && num >= 1 && num <= 99) {
+          formattedRoleId = `${batchRole}_${String(num).padStart(2, '0')}`;
+        }
+      }
+
+      const updatedMaterials = materials.map((material, index) => {
+        if (selectedMaterialIndices.has(index)) {
+          const update = { ...material, role: batchRole };
+          // If a role_id is provided, apply it. 
+          // If NOT provided, we might want to keep existing IF it matches the new role, 
+          // but simpler to just clear it if switching roles usually. 
+          // However, for batch assignment, let's only set role_id if the user entered one.
+          // Or should we clear it if the role changes? 
+          // Common behavior: if changing role, role_id for old role is invalid.
+
+          if (formattedRoleId) {
+            update.role_id = formattedRoleId;
+          } else if (material.role !== batchRole) {
+            // If role changed and no new role_id provided, clear the old invalid role_id
+            update.role_id = null;
+          }
+          return update;
+        }
+        return material;
+      });
 
       await saveMaterials(updatedMaterials);
 
@@ -378,8 +432,9 @@ const Materials = () => {
       // Clear selection and reset batch role
       setSelectedMaterialIndices(new Set());
       setBatchRole("");
+      setBatchRoleId("");
 
-      showSuccess(`Role "${batchRole}" assigned to ${count} material(s)`);
+      showSuccess(`Role "${batchRole}" assigned to ${count} material(s)${formattedRoleId ? ` with Role_ID ${formattedRoleId}` : ''}`);
     } catch (error) {
       showError("Error assigning roles: " + error.message);
     }
@@ -870,6 +925,23 @@ const Materials = () => {
               <option key={role} value={role}>{role}</option>
             ))}
           </select>
+
+          {/* Batch Role_ID Input */}
+          {(batchRole === "Reagent" || batchRole === "Reactant") && (
+            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+              <span style={{ fontSize: "14px", color: "#666" }}>Role_ID:</span>
+              <input
+                type="number"
+                className="form-control"
+                min="1"
+                max="99"
+                placeholder="#"
+                value={batchRoleId}
+                onChange={(e) => setBatchRoleId(e.target.value)}
+                style={{ width: "60px", fontSize: "14px", padding: "4px 8px" }}
+              />
+            </div>
+          )}
           <button
             className="btn btn-primary"
             onClick={handleBatchRoleAssignment}
@@ -903,6 +975,7 @@ const Materials = () => {
         personalInventoryLoading={personalInventoryLoading}
         onMoleculeView={generateMoleculeImage}
         onRoleUpdate={updateMaterialRole}
+        onRoleIdUpdate={handleRoleIdUpdate}
         onRemove={removeMaterial}
         onEdit={handleEditMaterial}
         onAddToPersonalInventory={addToPersonalInventory}

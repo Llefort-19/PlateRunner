@@ -18,8 +18,9 @@ const ProcedureSettings = () => {
     remarks: ""
   });
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
 
-  const { showError } = useToast();
+  const { showError, showValidationError } = useToast();
 
   useEffect(() => {
     loadProcedureSettings();
@@ -51,6 +52,23 @@ const ProcedureSettings = () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
+
+  // Validation functions
+  const validatePressure = (value) => {
+    if (!value) return null; // Optional field
+    const num = parseFloat(value);
+    if (isNaN(num)) return 'Must be a number';
+    if (num <= 0) return 'Must be greater than 0';
+    return null;
+  };
+
+  const validatePositiveNumber = (value, fieldName) => {
+    if (!value) return null; // Optional field
+    const num = parseFloat(value);
+    if (isNaN(num)) return 'Must be a number';
+    if (num < 0) return `${fieldName} cannot be negative`;
+    return null;
+  };
 
   const loadProcedureSettings = async () => {
     try {
@@ -99,13 +117,34 @@ const ProcedureSettings = () => {
 
   const saveProcedureSettings = async () => {
     try {
+      // Convert numeric string values to floats for backend
+      const reactionData = {
+        ...reactionConditions,
+        temperature: reactionConditions.temperature ? parseFloat(reactionConditions.temperature) : null,
+        time: reactionConditions.time ? parseFloat(reactionConditions.time) : null,
+        pressure: reactionConditions.pressure ? parseFloat(reactionConditions.pressure) : null,
+        wavelength: reactionConditions.wavelength ? parseFloat(reactionConditions.wavelength) : null
+      };
+
+      const analyticalData = {
+        ...analyticalDetails,
+        duration: analyticalDetails.duration ? parseFloat(analyticalDetails.duration) : null,
+        wavelength: analyticalDetails.wavelength ? parseFloat(analyticalDetails.wavelength) : null
+      };
+
       await axios.post("/api/experiment/procedure-settings", {
-        reactionConditions,
-        analyticalDetails
+        reactionConditions: reactionData,
+        analyticalDetails: analyticalData
       });
     } catch (error) {
       console.error("Error saving procedure settings:", error);
-      showError("Error saving procedure settings: " + error.message);
+
+      // Check if it's a validation error from backend
+      if (error.response?.data?.details) {
+        showValidationError(error.response.data);
+      } else {
+        showError("Error saving procedure settings: " + (error.response?.data?.error || error.message));
+      }
     }
   };
 
@@ -144,17 +183,31 @@ const ProcedureSettings = () => {
                   <td>
                     <input
                       type="number"
-                      className="form-control"
+                      className={`form-control ${fieldErrors.time ? 'is-invalid' : ''}`}
                       value={reactionConditions.time}
                       onChange={(e) => {
                         setReactionConditions(prev => ({
                           ...prev,
                           time: e.target.value
                         }));
+                        if (fieldErrors.time) {
+                          setFieldErrors(prev => ({ ...prev, time: null }));
+                        }
                         saveProcedureSettings();
                       }}
+                      onBlur={() => {
+                        const error = validatePositiveNumber(reactionConditions.time, 'Time');
+                        setFieldErrors(prev => ({ ...prev, time: error }));
+                      }}
                       placeholder="Enter time"
+                      min="0"
+                      step="0.1"
                     />
+                    {fieldErrors.time && (
+                      <div className="invalid-feedback" style={{ display: 'block' }}>
+                        {fieldErrors.time}
+                      </div>
+                    )}
                   </td>
                   <td>h</td>
                 </tr>
@@ -163,17 +216,32 @@ const ProcedureSettings = () => {
                   <td>
                     <input
                       type="number"
-                      className="form-control"
+                      className={`form-control ${fieldErrors.pressure ? 'is-invalid' : ''}`}
                       value={reactionConditions.pressure}
                       onChange={(e) => {
                         setReactionConditions(prev => ({
                           ...prev,
                           pressure: e.target.value
                         }));
+                        // Clear error when user starts typing
+                        if (fieldErrors.pressure) {
+                          setFieldErrors(prev => ({ ...prev, pressure: null }));
+                        }
                         saveProcedureSettings();
                       }}
-                      placeholder="Enter pressure"
+                      onBlur={() => {
+                        const error = validatePressure(reactionConditions.pressure);
+                        setFieldErrors(prev => ({ ...prev, pressure: error }));
+                      }}
+                      placeholder="Enter pressure (must be > 0)"
+                      min="0.01"
+                      step="0.1"
                     />
+                    {fieldErrors.pressure && (
+                      <div className="invalid-feedback" style={{ display: 'block' }}>
+                        {fieldErrors.pressure}
+                      </div>
+                    )}
                   </td>
                   <td>bar</td>
                 </tr>
@@ -182,17 +250,31 @@ const ProcedureSettings = () => {
                   <td>
                     <input
                       type="number"
-                      className="form-control"
+                      className={`form-control ${fieldErrors.reactionWavelength ? 'is-invalid' : ''}`}
                       value={reactionConditions.wavelength}
                       onChange={(e) => {
                         setReactionConditions(prev => ({
                           ...prev,
                           wavelength: e.target.value
                         }));
+                        if (fieldErrors.reactionWavelength) {
+                          setFieldErrors(prev => ({ ...prev, reactionWavelength: null }));
+                        }
                         saveProcedureSettings();
                       }}
+                      onBlur={() => {
+                        const error = validatePositiveNumber(reactionConditions.wavelength, 'Wavelength');
+                        setFieldErrors(prev => ({ ...prev, reactionWavelength: error }));
+                      }}
                       placeholder="Enter wavelength"
+                      min="0"
+                      step="1"
                     />
+                    {fieldErrors.reactionWavelength && (
+                      <div className="invalid-feedback" style={{ display: 'block' }}>
+                        {fieldErrors.reactionWavelength}
+                      </div>
+                    )}
                   </td>
                   <td>nm</td>
                 </tr>
@@ -266,17 +348,31 @@ const ProcedureSettings = () => {
                   <td>
                     <input
                       type="number"
-                      className="form-control"
+                      className={`form-control ${fieldErrors.duration ? 'is-invalid' : ''}`}
                       value={analyticalDetails.duration}
                       onChange={(e) => {
                         setAnalyticalDetails(prev => ({
                           ...prev,
                           duration: e.target.value
                         }));
+                        if (fieldErrors.duration) {
+                          setFieldErrors(prev => ({ ...prev, duration: null }));
+                        }
                         saveProcedureSettings();
                       }}
+                      onBlur={() => {
+                        const error = validatePositiveNumber(analyticalDetails.duration, 'Duration');
+                        setFieldErrors(prev => ({ ...prev, duration: error }));
+                      }}
                       placeholder="Enter duration"
+                      min="0"
+                      step="0.1"
                     />
+                    {fieldErrors.duration && (
+                      <div className="invalid-feedback" style={{ display: 'block' }}>
+                        {fieldErrors.duration}
+                      </div>
+                    )}
                   </td>
                   <td>min</td>
                 </tr>
@@ -285,17 +381,31 @@ const ProcedureSettings = () => {
                   <td>
                     <input
                       type="number"
-                      className="form-control"
+                      className={`form-control ${fieldErrors.analyticalWavelength ? 'is-invalid' : ''}`}
                       value={analyticalDetails.wavelength}
                       onChange={(e) => {
                         setAnalyticalDetails(prev => ({
                           ...prev,
                           wavelength: e.target.value
                         }));
+                        if (fieldErrors.analyticalWavelength) {
+                          setFieldErrors(prev => ({ ...prev, analyticalWavelength: null }));
+                        }
                         saveProcedureSettings();
                       }}
+                      onBlur={() => {
+                        const error = validatePositiveNumber(analyticalDetails.wavelength, 'Wavelength');
+                        setFieldErrors(prev => ({ ...prev, analyticalWavelength: error }));
+                      }}
                       placeholder="Enter wavelength"
+                      min="0"
+                      step="1"
                     />
+                    {fieldErrors.analyticalWavelength && (
+                      <div className="invalid-feedback" style={{ display: 'block' }}>
+                        {fieldErrors.analyticalWavelength}
+                      </div>
+                    )}
                   </td>
                   <td>nm</td>
                 </tr>
