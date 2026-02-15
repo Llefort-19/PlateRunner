@@ -22,7 +22,12 @@
       "Bash(\"..\\\\.venv\\\\Scripts\\\\python.exe\" -c \"from test_validation_strict import TestStrictValidation; print\\(''Tests module loaded successfully''\\)\")",
       "Bash(\"..\\\\.venv\\\\Scripts\\\\python.exe\" -m py_compile test_validation_strict.py)",
       "Bash(\"..\\\\.venv\\\\Scripts\\\\python.exe\" -m py_compile test_integration.py)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git pull:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(dir \"C:\\\\Cursor\\\\HTE App\\\\frontend\\\\src\\\\components\\\\PlatingProtocol\")",
+      "Bash(npx react-scripts build)"
     ]
   }
 }

@@ -289,3 +289,57 @@ class KitAnalysisResponseSchema(Schema):
     design = fields.Dict(required=True)  # Complex nested structure, keep flexible
     kit_size = fields.Nested(KitSizeSchema, required=True)
     filename = fields.Str(required=True)
+
+
+# Plating Protocol Schemas
+class StockSolutionSchema(Schema):
+    """Schema for stock solution configuration."""
+    solvent_name = fields.Str(required=True)
+    solvent_cas = fields.Str(allow_none=True)
+    solvent_density = fields.Float(allow_none=True)
+    concentration_value = fields.Float(required=True, validate=validate.Range(min=0, min_inclusive=False))
+    concentration_unit = fields.Str(required=True, validate=validate.OneOf(['M', 'mM', 'mg/mL']))
+    total_volume_value = fields.Float(required=True, validate=validate.Range(min=0, min_inclusive=False))
+    total_volume_unit = fields.Str(required=True, validate=validate.OneOf(['L', 'mL']))
+    aliquot_volume_value = fields.Float(allow_none=True, validate=validate.Range(min=0, min_inclusive=False))
+    aliquot_volume_unit = fields.Str(validate=validate.OneOf(['mL', 'μL', 'uL']), allow_none=True)
+
+
+class WellAmountSchema(Schema):
+    """Schema for well amount in plating protocol."""
+    value = fields.Float(required=True, validate=validate.Range(min=0, min_inclusive=False))
+    unit = fields.Str(required=True)
+
+
+class PlatingMaterialSchema(Schema):
+    """Schema for material in plating protocol."""
+    name = fields.Str(required=True)
+    alias = fields.Str(allow_none=True)
+    cas = fields.Str(allow_none=True)
+    molecular_weight = fields.Float(allow_none=True)
+    dispensing_method = fields.Str(required=True, validate=validate.OneOf(['neat', 'stock']))
+    stock_solution = fields.Nested(StockSolutionSchema, allow_none=True)
+    well_amounts = fields.Dict(keys=fields.Str(), values=fields.Nested(WellAmountSchema), required=True)
+    total_amount_value = fields.Float(allow_none=True)
+    total_amount_unit = fields.Str(allow_none=True)
+    calculated_mass_value = fields.Float(allow_none=True)
+    calculated_mass_unit = fields.Str(allow_none=True)
+
+
+class PlatingProtocolContextSchema(Schema):
+    """Schema for plating protocol context."""
+    eln = fields.Str(allow_none=True)
+    author = fields.Str(allow_none=True)
+    project = fields.Str(allow_none=True)
+    date = fields.Str(allow_none=True)
+
+
+class PlatingProtocolSchema(Schema):
+    """Schema for plating protocol."""
+    materials = fields.List(fields.Nested(PlatingMaterialSchema), required=True)
+    dispense_order = fields.List(fields.Int(), required=True)
+    plate_type = fields.Str(validate=validate.OneOf(['24', '48', '96']), missing='96')
+    context = fields.Nested(PlatingProtocolContextSchema, allow_none=True)
+    created_at = fields.DateTime(allow_none=True)
+    exported_at = fields.DateTime(allow_none=True)
+    saved_at = fields.Str(allow_none=True)

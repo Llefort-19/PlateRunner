@@ -60,4 +60,10 @@ temp/
 
 # Inventory file (contains sensitive data)
 Inventory.xlsx
-~.xlsx
+
+# Virtual Environment
+.venv/
+
+# Test output
+backend/test_output.pdf
+

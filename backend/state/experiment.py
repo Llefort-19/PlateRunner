@@ -32,7 +32,8 @@ _current_experiment = {
         'selectedCompounds': [],
         'uploadedFiles': []
     },
-    'results': []
+    'results': [],
+    'plating_protocol': None
 }
 
 def get_current_experiment() -> Dict[str, Any]:
@@ -77,6 +78,12 @@ def update_experiment_heatmap_data(heatmap_data: Dict[str, Any]) -> None:
     with _experiment_lock:
         _current_experiment['heatmap_data'] = heatmap_data
 
+
+def update_experiment_plating_protocol(protocol: Dict[str, Any]) -> None:
+    """Update experiment plating protocol."""
+    with _experiment_lock:
+        _current_experiment['plating_protocol'] = protocol
+
 def reset_experiment() -> None:
     """Reset experiment to initial state."""
     with _experiment_lock:
@@ -104,7 +111,8 @@ def reset_experiment() -> None:
                 'selectedCompounds': [],
                 'uploadedFiles': []
             },
-            'results': []
+            'results': [],
+            'plating_protocol': None
         }
 
 # For backward compatibility, provide direct access to the state

@@ -10,6 +10,9 @@ openpyxl==3.1.5
 # Image processing
 pillow==10.2.0
 
+# PDF generation
+reportlab>=4.4.3
+
 # File validation and security
 python-magic==0.4.27
 

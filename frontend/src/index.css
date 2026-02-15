@@ -586,3 +586,40 @@ code {
     padding: 20px;
     color: var(--color-text-secondary);
 }
+
+/* Action Bar - Fixed bottom bar for page actions */
+.action-bar {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 16px 20px;
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    margin-top: 20px;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.action-bar .btn {
+    min-width: 180px;
+}
+
+.action-bar .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Button warning style */
+.btn-warning {
+    background: var(--color-warning);
+    color: white;
+}
+
+.btn-warning:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-warning) 85%, #000 15%);
+}

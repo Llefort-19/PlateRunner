@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
 import { useToast } from "./ToastContext";
+import { PlatingProtocolModal } from "./PlatingProtocol";
 
 const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType }) => {
   const [procedure, setProcedure] = useState([]);
@@ -23,8 +24,8 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
   const setPlateType = propSetPlateType || (() => { });
   const [showPlateSwitchWarning, setShowPlateSwitchWarning] = useState(false);
   const [pendingPlateType, setPendingPlateType] = useState(null);
-
-
+  const [showPlatingProtocol, setShowPlatingProtocol] = useState(false);
+  const [experimentContext, setExperimentContext] = useState({});
 
   const { showError } = useToast();
 
@@ -130,6 +131,7 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
 
       // Load plate type from context to ensure persistence across tab switches
       const context = contextResponse.data || {};
+      setExperimentContext(context);
       if (context.plate_type) {
         console.log(`Loading plate type from context: ${context.plate_type}`);
         setPlateType(context.plate_type);
@@ -1252,6 +1254,30 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
           </div>
         </div>
       )}
+
+      {/* Plating Protocol Modal */}
+      <PlatingProtocolModal
+        visible={showPlatingProtocol}
+        onClose={() => setShowPlatingProtocol(false)}
+        procedure={procedure}
+        materials={materials}
+        plateType={plateType}
+        context={experimentContext}
+      />
+
+      {/* Bottom Action Bar */}
+      <div className="action-bar">
+        <button
+          className="btn btn-primary"
+          onClick={() => setShowPlatingProtocol(true)}
+          disabled={procedure.length === 0 || procedure.every(p => p.materials.length === 0)}
+          title={procedure.length === 0 || procedure.every(p => p.materials.length === 0)
+            ? "Add materials to wells first"
+            : "Generate plating protocol for lab execution"}
+        >
+          Generate Plating Protocol
+        </button>
+      </div>
     </div>
   );
 };

@@ -139,7 +139,8 @@ def register_blueprints(app):
     from routes.export import export_bp
     from routes.experiment_import import import_bp
     from routes.lifecycle import lifecycle_bp
-    
+    from routes.plating_protocol import plating_protocol_bp
+
     app.register_blueprint(inventory_bp)
     app.register_blueprint(experiment_bp)
     app.register_blueprint(solvent_bp)
@@ -149,6 +150,7 @@ def register_blueprints(app):
     app.register_blueprint(export_bp)
     app.register_blueprint(import_bp)
     app.register_blueprint(lifecycle_bp)
+    app.register_blueprint(plating_protocol_bp)
 
 def register_error_handlers(app):
     """Register error handlers for consistent error responses."""
