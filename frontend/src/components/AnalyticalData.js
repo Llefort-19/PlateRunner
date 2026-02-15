@@ -153,17 +153,15 @@ const AnalyticalData = () => {
     const materialRole = material.role || 'Other';
     if (!selectedRoles.includes(materialRole)) return false;
 
-    // Role_ID logic
-    if (materialRole === 'Reagent') {
-      // Check if any Reagent role_ids are selected
-      const hasReagentFilter = selectedRoleIds.some(sr => sr.startsWith('Reagent_'));
-      if (hasReagentFilter) {
-        return material.role_id && selectedRoleIds.includes(material.role_id);
-      }
-    }
-    if (materialRole === 'Reactant') {
-      const hasReactantFilter = selectedRoleIds.some(sr => sr.startsWith('Reactant_'));
-      if (hasReactantFilter) {
+    // Role_ID logic - filter by specific role_ids if any are selected
+    if ((materialRole === 'Reagent' || materialRole === 'Reactant') && selectedRoleIds.length > 0) {
+      // Check if there are role_id filters for this material's role
+      const roleIdFiltersForThisRole = materials
+        .filter(m => m.role === materialRole && m.role_id && selectedRoleIds.includes(m.role_id))
+        .map(m => m.role_id);
+
+      if (roleIdFiltersForThisRole.length > 0) {
+        // Only include materials that match the selected role_ids
         return material.role_id && selectedRoleIds.includes(material.role_id);
       }
     }
@@ -275,14 +273,24 @@ const AnalyticalData = () => {
     <div className="card">
       {/* Generate Template Section */}
       <div className="card" style={{ marginBottom: "20px" }}>
-        <h3>Generate Analytical Data Template</h3>
+        <h3 style={{ marginBottom: "20px" }}>Generate Analytical Data Template</h3>
 
         {/* Two-Column Layout */}
         <div className="procedure-grid">
           {/* Materials Table */}
-          <div className="materials-section">
-            <h4>Materials</h4>
-            <div className="scrollable-table-container">
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <h4 style={{ margin: "0 0 16px 0", fontSize: "14px", fontWeight: "600", color: "var(--color-heading)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Materials</h4>
+            <div style={{
+              flex: 1,
+              border: "1px solid var(--color-border)",
+              borderRadius: "var(--radius-md)",
+              padding: "16px",
+              backgroundColor: "var(--color-surface)",
+              boxShadow: "var(--shadow-sm)",
+              display: "flex",
+              flexDirection: "column"
+            }}>
+              <div className="scrollable-table-container" style={{ flex: 1 }}>
               <table className="table">
                 <thead>
                   <tr>
@@ -330,8 +338,12 @@ const AnalyticalData = () => {
 
             {/* Role Filter Buttons */}
             <div style={{ marginTop: "15px" }}>
-              <h5 style={{ marginBottom: "10px", fontSize: "14px", color: "#495057" }}>Filter by Role:</h5>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+              <h5 style={{ marginBottom: "10px", fontSize: "12px", color: "var(--color-text-secondary)", fontWeight: "600" }}>Filter by Role:</h5>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: "8px"
+              }}>
                 {['Reactant', 'Target product', 'Product', 'Solvent', 'Reagent', 'Internal standard'].map((role) => {
                   const isSelected = selectedRoles.includes(role);
                   const count = filteredMaterials.filter(m => m.role === role).length;
@@ -341,19 +353,18 @@ const AnalyticalData = () => {
                       className={`btn btn-sm ${isSelected ? 'btn-success' : 'btn-outline-secondary'}`}
                       onClick={() => toggleRole(role)}
                       style={{
-                        fontSize: "12px",
-                        padding: "6px 12px",
+                        fontSize: "11px",
+                        padding: "6px 8px",
                         position: "relative",
-                        width: "140px", // Fixed width to prevent size changes
-                        height: "32px", // Fixed height for consistency
+                        height: "32px",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                         gap: "4px",
-                        border: isSelected ? "2px solid #28a745" : "1px solid #6c757d",
-                        borderRadius: "6px",
+                        border: isSelected ? "2px solid #28a745" : "1px solid var(--color-border)",
+                        borderRadius: "var(--radius-sm)",
                         fontWeight: isSelected ? "600" : "400",
-                        boxShadow: isSelected ? "0 2px 4px rgba(40, 167, 69, 0.3)" : "none",
+                        boxShadow: isSelected ? "0 2px 4px rgba(40, 167, 69, 0.2)" : "none",
                         transition: "all 0.2s ease",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
@@ -414,7 +425,7 @@ const AnalyticalData = () => {
                           border: "1px solid #17a2b8"
                         }}
                       >
-                        {String(roleId).replace('Reactant_', '')}
+                        {roleId}
                       </button>
                     );
                   })}
@@ -441,7 +452,7 @@ const AnalyticalData = () => {
                           border: "1px solid #ffc107"
                         }}
                       >
-                        {String(roleId).replace('Reagent_', '')}
+                        {roleId}
                       </button>
                     );
                   })}
@@ -450,47 +461,86 @@ const AnalyticalData = () => {
             )}
 
             <div style={{
-              marginTop: "15px",
+              marginTop: "auto",
+              paddingTop: "12px",
               fontSize: "11px",
-              color: "#6c757d",
+              color: "var(--color-text-secondary)",
               fontStyle: "italic",
-              borderTop: "1px solid #eee",
-              paddingTop: "8px"
+              borderTop: "1px solid var(--color-border)"
             }}>
               Showing {filteredMaterials.length} of {materials.length} materials
             </div>
+            </div>
           </div>
-        </div>
 
-        {/* Compound Selection Controls */}
-        <div className="plate-section">
-          <h4>Compound Selection</h4>
+          {/* Compound Selection Controls */}
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <h4 style={{ margin: "0 0 16px 0", fontSize: "14px", fontWeight: "600", color: "var(--color-heading)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Compound Selection</h4>
+            <div style={{
+              flex: 1,
+              border: "1px solid var(--color-border)",
+              borderRadius: "var(--radius-md)",
+              padding: "16px",
+              backgroundColor: "var(--color-surface)",
+              boxShadow: "var(--shadow-sm)",
+              display: "flex",
+              flexDirection: "column"
+            }}>
+              {selectedCompounds.length > 0 && (
+                <div style={{ marginBottom: "12px", display: "flex", justifyContent: "flex-end" }}>
+                  <button
+                    className="btn btn-sm btn-outline-danger"
+                    onClick={() => {
+                      setSelectedCompounds([]);
+                      saveSelectedCompounds([]);
+                    }}
+                    style={{ fontSize: "11px", padding: "4px 10px" }}
+                  >
+                    Clear All
+                  </button>
+                </div>
+              )}
 
-          <div className="scrollable-table-container" style={{ maxHeight: "400px" }}>
-            <div style={{ padding: "16px" }}>
+            <div style={{ flex: 1 }}>
               {selectedCompounds.length === 0 ? (
-                <p style={{ color: "#6c757d", fontStyle: "italic" }}>
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minHeight: "200px",
+                  color: "var(--color-text-secondary)",
+                  fontStyle: "italic",
+                  textAlign: "center",
+                  padding: "20px"
+                }}>
                   No compounds selected. Click on materials in the table to add them.
-                </p>
+                </div>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                  {selectedCompounds.map((compound, index) => (
-                    <div
-                      key={index}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        padding: "8px",
-                        border: "1px solid #e0e0e0",
-                        borderRadius: "4px",
-                        backgroundColor: "#f8f9fa"
-                      }}
-                    >
-                      <span style={{ fontWeight: "bold", color: "#495057" }}>
-                        {index + 1}.
-                      </span>
-                      <span style={{ flex: 1 }}>{compound}</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {selectedCompounds.map((compound, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      padding: "10px 12px",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: "var(--radius-md)",
+                      backgroundColor: "var(--color-surface)",
+                      transition: "all 0.2s ease",
+                      boxShadow: "var(--shadow-sm)"
+                    }}
+                  >
+                    <span style={{
+                      fontWeight: "600",
+                      color: "var(--color-primary)",
+                      minWidth: "24px",
+                      textAlign: "center"
+                    }}>
+                      {index + 1}
+                    </span>
+                    <span style={{ flex: 1, fontWeight: "500", color: "var(--color-text)" }}>{compound}</span>
                       <div style={{ display: "flex", gap: "4px" }}>
                         <button
                           onClick={() => moveCompoundUp(index)}
@@ -543,23 +593,24 @@ const AnalyticalData = () => {
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Export Button - Centered below compound selection */}
-          <div style={{
-            display: "flex",
-            justifyContent: "center",
-            marginTop: "20px",
-            padding: "20px 0"
-          }}>
-            <button
-              className="btn btn-success btn-lg"
-              onClick={exportTemplate}
-              disabled={selectedCompounds.length === 0}
-              style={{ minWidth: "200px" }}
-            >
-              Export Analytical Template
-            </button>
+            {/* Export Button */}
+            <div style={{ marginTop: "auto", paddingTop: "20px", borderTop: "1px solid var(--color-border)" }}>
+              <button
+                className="btn btn-success"
+                onClick={exportTemplate}
+                disabled={selectedCompounds.length === 0}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  fontSize: "14px",
+                  fontWeight: "600"
+                }}
+              >
+                Export Analytical Template
+              </button>
+            </div>
+            </div>
           </div>
         </div>
       </div>

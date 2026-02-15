@@ -333,17 +333,31 @@ def import_procedure_sheet(ws):
                     well_data['well'] = value_str
                 elif header == 'ID':
                     well_data['id'] = value_str
-                elif 'Compound' in header and 'name' in header:
-                    # Extract compound number from header like "Compound 1 name"
+                elif 'Compound' in header and ('name' in header.lower() or 'Name' in header):
+                    # Extract compound number from header like "Compound 1 Name" or "Compound 1 name"
                     import re
-                    match = re.search(r'Compound (\d+) name', header)
+                    match = re.search(r'Compound (\d+) (?:Name|name)', header, re.IGNORECASE)
                     if match:
                         compound_num = match.group(1)
-                        amount_header = f'Compound {compound_num} amount'
-                        amount_idx = headers.index(amount_header) if amount_header in headers else -1
-                        amount = str(row[amount_idx]).strip() if amount_idx >= 0 and amount_idx < len(row) and row[amount_idx] else ''
-                        
-                        if value_str and amount:
+                        # Try both capitalized and lowercase versions of "Amount"
+                        amount_header_caps = f'Compound {compound_num} Amount'
+                        amount_header_lower = f'Compound {compound_num} amount'
+
+                        if amount_header_caps in headers:
+                            amount_idx = headers.index(amount_header_caps)
+                        elif amount_header_lower in headers:
+                            amount_idx = headers.index(amount_header_lower)
+                        else:
+                            amount_idx = -1
+
+                        amount_str = str(row[amount_idx]).strip() if amount_idx >= 0 and amount_idx < len(row) and row[amount_idx] else ''
+
+                        if value_str and amount_str:
+                            try:
+                                amount = float(amount_str)
+                            except ValueError:
+                                amount = 0.0
+
                             # Determine unit based on material role
                             # For now, assume μmol for all compounds, we'll fix this when we have material roles
                             materials.append({
@@ -358,9 +372,14 @@ def import_procedure_sheet(ws):
                     compound_num = header.split('-')[1].split('_')[0]
                     amount_header = f'Compound-{compound_num}_mmol'
                     amount_idx = headers.index(amount_header) if amount_header in headers else -1
-                    amount = str(row[amount_idx]).strip() if amount_idx >= 0 and amount_idx < len(row) and row[amount_idx] else ''
-                    
-                    if value_str and amount:
+                    amount_str = str(row[amount_idx]).strip() if amount_idx >= 0 and amount_idx < len(row) and row[amount_idx] else ''
+
+                    if value_str and amount_str:
+                        try:
+                            amount = float(amount_str)
+                        except ValueError:
+                            amount = 0.0
+
                         materials.append({
                             'name': value_str,
                             'alias': value_str,
@@ -373,9 +392,14 @@ def import_procedure_sheet(ws):
                     reagent_num = header.split('-')[1].split('_')[0]
                     amount_header = f'Reagent-{reagent_num}_mmol'
                     amount_idx = headers.index(amount_header) if amount_header in headers else -1
-                    amount = str(row[amount_idx]).strip() if amount_idx >= 0 and amount_idx < len(row) and row[amount_idx] else ''
-                    
-                    if value_str and amount:
+                    amount_str = str(row[amount_idx]).strip() if amount_idx >= 0 and amount_idx < len(row) and row[amount_idx] else ''
+
+                    if value_str and amount_str:
+                        try:
+                            amount = float(amount_str)
+                        except ValueError:
+                            amount = 0.0
+
                         materials.append({
                             'name': value_str,
                             'alias': value_str,
@@ -383,14 +407,51 @@ def import_procedure_sheet(ws):
                             'unit': 'mmol',
                             'type': 'reagent'
                         })
+                elif 'Solvent' in header and ('name' in header.lower() or 'Name' in header):
+                    # Extract solvent number from header like "Solvent 1 Name" or "Solvent 1 name"
+                    import re
+                    match = re.search(r'Solvent (\d+) (?:Name|name)', header, re.IGNORECASE)
+                    if match:
+                        solvent_num = match.group(1)
+                        # Try both capitalized and lowercase versions of "Amount"
+                        amount_header_caps = f'Solvent {solvent_num} Amount'
+                        amount_header_lower = f'Solvent {solvent_num} amount'
+
+                        if amount_header_caps in headers:
+                            amount_idx = headers.index(amount_header_caps)
+                        elif amount_header_lower in headers:
+                            amount_idx = headers.index(amount_header_lower)
+                        else:
+                            amount_idx = -1
+
+                        amount_str = str(row[amount_idx]).strip() if amount_idx >= 0 and amount_idx < len(row) and row[amount_idx] else ''
+
+                        if value_str and amount_str:
+                            try:
+                                amount = float(amount_str)
+                            except ValueError:
+                                amount = 0.0
+
+                            materials.append({
+                                'name': value_str,
+                                'alias': value_str,
+                                'amount': amount,
+                                'unit': 'μL',  # Solvents use μL
+                                'type': 'solvent'
+                            })
                 elif header.startswith('Solvent-') and header.endswith('_name'):
-                    # Extract solvent name and find corresponding amount
+                    # Extract solvent name and find corresponding amount (old format)
                     solvent_num = header.split('-')[1].split('_')[0]
                     amount_header = f'Solvent-{solvent_num}_uL'
                     amount_idx = headers.index(amount_header) if amount_header in headers else -1
-                    amount = str(row[amount_idx]).strip() if amount_idx >= 0 and amount_idx < len(row) and row[amount_idx] else ''
-                    
-                    if value_str and amount:
+                    amount_str = str(row[amount_idx]).strip() if amount_idx >= 0 and amount_idx < len(row) and row[amount_idx] else ''
+
+                    if value_str and amount_str:
+                        try:
+                            amount = float(amount_str)
+                        except ValueError:
+                            amount = 0.0
+
                         materials.append({
                             'name': value_str,
                             'alias': value_str,
@@ -401,20 +462,59 @@ def import_procedure_sheet(ws):
         
         # Only add well data if it has a well identifier
         if well_data.get('well'):
-            # Correct the units based on material roles from current_experiment
+            # Enrich materials with properties from current_experiment materials list
             if 'materials' in current_experiment and materials:
-                material_roles = {}
+                # Create lookup dictionaries for fast matching
+                material_by_name = {}
+                material_by_alias = {}
+                material_by_cas = {}
+
                 for mat in current_experiment['materials']:
-                    material_roles[mat.get('alias', '')] = mat.get('role', '')
-                
-                # Update units based on roles
+                    name = (mat.get('name', '') or '').strip().lower()
+                    alias = (mat.get('alias', '') or '').strip().lower()
+                    cas = (mat.get('cas', '') or '').strip().lower()
+
+                    if name:
+                        material_by_name[name] = mat
+                    if alias:
+                        material_by_alias[alias] = mat
+                    if cas:
+                        material_by_cas[cas] = mat
+
+                # Enrich each material with properties from materials list
                 for material in materials:
-                    role = material_roles.get(material['name'], '')
-                    if role.lower() == 'solvent':
-                        material['unit'] = 'μL'
-                    else:
-                        material['unit'] = 'μmol'
-            
+                    material_name = (material.get('name', '') or '').strip().lower()
+                    material_alias = (material.get('alias', '') or '').strip().lower()
+                    material_cas = (material.get('cas', '') or '').strip().lower()
+
+                    # Try to find matching material (by alias, then name, then CAS)
+                    matched_material = None
+                    if material_alias and material_alias in material_by_alias:
+                        matched_material = material_by_alias[material_alias]
+                    elif material_name and material_name in material_by_name:
+                        matched_material = material_by_name[material_name]
+                    elif material_name and material_name in material_by_alias:
+                        # The exported name might actually be the alias in the materials list
+                        matched_material = material_by_alias[material_name]
+                    elif material_cas and material_cas in material_by_cas:
+                        matched_material = material_by_cas[material_cas]
+
+                    # If we found a match, enrich the material with all properties
+                    if matched_material:
+                        material['name'] = matched_material.get('name', material.get('name', ''))
+                        material['alias'] = matched_material.get('alias', material.get('alias', ''))
+                        material['cas'] = matched_material.get('cas', material.get('cas', ''))
+                        material['molecular_weight'] = matched_material.get('molecular_weight', material.get('molecular_weight', ''))
+                        material['barcode'] = matched_material.get('barcode', material.get('barcode', ''))
+                        material['smiles'] = matched_material.get('smiles', material.get('smiles', ''))
+
+                        # Update unit based on role
+                        role = (matched_material.get('role', '') or '').lower()
+                        if role == 'solvent':
+                            material['unit'] = 'μL'
+                        else:
+                            material['unit'] = 'μmol'
+
             well_data['materials'] = materials
             procedure.append(well_data)
     

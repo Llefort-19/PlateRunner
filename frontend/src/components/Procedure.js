@@ -26,6 +26,7 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
   const [pendingPlateType, setPendingPlateType] = useState(null);
   const [showPlatingProtocol, setShowPlatingProtocol] = useState(false);
   const [experimentContext, setExperimentContext] = useState({});
+  const [expandedKits, setExpandedKits] = useState(new Set());
 
   const { showError } = useToast();
 
@@ -884,6 +885,42 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
 
   const displayMaterials = allMaterialsForDisplay();
 
+  // Helper: Group materials by kit
+  const groupMaterialsByKit = () => {
+    const groups = {
+      kits: {},
+      manual: []
+    };
+
+    displayMaterials.forEach((material) => {
+      if (material.role_id && material.role_id.startsWith('kit_')) {
+        if (!groups.kits[material.role_id]) {
+          groups.kits[material.role_id] = [];
+        }
+        groups.kits[material.role_id].push(material);
+      } else {
+        groups.manual.push(material);
+      }
+    });
+
+    return groups;
+  };
+
+  // Helper: Toggle kit expansion
+  const toggleKitExpansion = (kitId) => {
+    setExpandedKits(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(kitId)) {
+        newSet.delete(kitId);
+      } else {
+        newSet.add(kitId);
+      }
+      return newSet;
+    });
+  };
+
+  const groupedMaterials = groupMaterialsByKit();
+
   return (
     <div className="card">
       {/* Two-Column Grid Layout */}
@@ -923,54 +960,131 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
                       No materials available. Switch to the Materials tab to add materials.
                     </td>
                   </tr>
-                ) : displayMaterials.map((material, index) => {
-                  const materialId = getMaterialId(material);
-                  const totalData = materialTotals[materialId] || {
-                    umol: 0,
-                    μL: 0,
-                    mg: 0,
-                    hasMolecularWeight: false,
-                    unit: "μmol"
-                  };
+                ) : (
+                  <>
+                    {/* Render kit groups (collapsed by default) */}
+                    {Object.entries(groupedMaterials.kits)
+                      .sort(([a], [b]) => a.localeCompare(b))
+                      .map(([kitId, kitMaterials]) => (
+                        <React.Fragment key={`kit-${kitId}`}>
+                          {/* Kit group header row */}
+                          <tr
+                            style={{
+                              backgroundColor: '#f0f8ff',
+                              borderTop: '2px solid #dee2e6',
+                              borderBottom: expandedKits.has(kitId) ? 'none' : '2px solid #dee2e6',
+                              cursor: 'pointer'
+                            }}
+                            onClick={() => toggleKitExpansion(kitId)}
+                          >
+                            <td colSpan="3" style={{ padding: "10px 12px" }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: '500' }}>
+                                <span style={{ fontSize: '14px' }}>
+                                  {expandedKits.has(kitId) ? '▼' : '▶'}
+                                </span>
+                                <span style={{ color: '#495057' }}>{kitId}</span>
+                                <span style={{ color: '#6c757d', fontSize: '13px', fontWeight: 'normal' }}>
+                                  ({kitMaterials.length} materials - click to {expandedKits.has(kitId) ? 'collapse' : 'expand'})
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
 
-                  // Check if this material should be highlighted using unique identifier
-                  const isSelected = selectedMaterial && getMaterialId(selectedMaterial) === getMaterialId(material);
+                          {/* Kit materials (shown when expanded) */}
+                          {expandedKits.has(kitId) && kitMaterials.map((material) => {
+                            const materialId = getMaterialId(material);
+                            const totalData = materialTotals[materialId] || {
+                              umol: 0,
+                              μL: 0,
+                              mg: 0,
+                              hasMolecularWeight: false,
+                              unit: "μmol"
+                            };
+                            const isSelected = selectedMaterial && getMaterialId(selectedMaterial) === getMaterialId(material);
 
-                  return (
-                    <tr
-                      key={materialId}
-                      className={
-                        isSelected
-                          ? "selected-row"
-                          : ""
-                      }
-                      onClick={() => handleMaterialClick(material)}
-                      style={{ cursor: "pointer" }}
-                    >
-                      <td>{material.alias || material.name}</td>
-                      <td>{material.cas || (material.fromMaterialsList ? "" : "N/A")}</td>
-                      <td className="total-amount">
-                        {(totalData.umol > 0 || totalData.μL > 0) ? (
-                          <div className="amount-display">
-                            <div className="amount-umol">
-                              {totalData.unit === "μL"
-                                ? `${formatAmount(totalData.μL)} μL`
-                                : `${formatAmount(totalData.umol)} μmol`
-                              }
-                            </div>
-                            <div className="amount-mg">
-                              {totalData.hasMolecularWeight && totalData.unit === "μmol"
-                                ? `${formatAmount(totalData.mg)} mg`
-                                : "--"}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="no-amount">-</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                            return (
+                              <tr
+                                key={materialId}
+                                className={isSelected ? "selected-row" : ""}
+                                onClick={() => handleMaterialClick(material)}
+                                style={{
+                                  cursor: "pointer",
+                                  backgroundColor: isSelected ? undefined : 'rgba(0, 123, 255, 0.02)',
+                                  borderLeft: '3px solid #007bff'
+                                }}
+                              >
+                                <td>{material.alias || material.name}</td>
+                                <td>{material.cas || (material.fromMaterialsList ? "" : "N/A")}</td>
+                                <td className="total-amount">
+                                  {(totalData.umol > 0 || totalData.μL > 0) ? (
+                                    <div className="amount-display">
+                                      <div className="amount-umol">
+                                        {totalData.unit === "μL"
+                                          ? `${formatAmount(totalData.μL)} μL`
+                                          : `${formatAmount(totalData.umol)} μmol`
+                                        }
+                                      </div>
+                                      <div className="amount-mg">
+                                        {totalData.hasMolecularWeight && totalData.unit === "μmol"
+                                          ? `${formatAmount(totalData.mg)} mg`
+                                          : "--"}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <span className="no-amount">-</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </React.Fragment>
+                      ))}
+
+                    {/* Render manual materials (always shown) */}
+                    {groupedMaterials.manual.map((material) => {
+                      const materialId = getMaterialId(material);
+                      const totalData = materialTotals[materialId] || {
+                        umol: 0,
+                        μL: 0,
+                        mg: 0,
+                        hasMolecularWeight: false,
+                        unit: "μmol"
+                      };
+                      const isSelected = selectedMaterial && getMaterialId(selectedMaterial) === getMaterialId(material);
+
+                      return (
+                        <tr
+                          key={materialId}
+                          className={isSelected ? "selected-row" : ""}
+                          onClick={() => handleMaterialClick(material)}
+                          style={{ cursor: "pointer" }}
+                        >
+                          <td>{material.alias || material.name}</td>
+                          <td>{material.cas || (material.fromMaterialsList ? "" : "N/A")}</td>
+                          <td className="total-amount">
+                            {(totalData.umol > 0 || totalData.μL > 0) ? (
+                              <div className="amount-display">
+                                <div className="amount-umol">
+                                  {totalData.unit === "μL"
+                                    ? `${formatAmount(totalData.μL)} μL`
+                                    : `${formatAmount(totalData.umol)} μmol`
+                                  }
+                                </div>
+                                <div className="amount-mg">
+                                  {totalData.hasMolecularWeight && totalData.unit === "μmol"
+                                    ? `${formatAmount(totalData.mg)} mg`
+                                    : "--"}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="no-amount">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </>
+                )}
               </tbody>
             </table>
           </div>

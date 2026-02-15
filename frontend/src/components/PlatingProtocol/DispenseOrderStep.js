@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 // Operation type definitions with icons and labels
 const OPERATION_TYPES = {
   dispense: { icon: '💧', label: 'Dispense', color: 'var(--color-primary)' },
+  kit: { icon: '📦', label: 'Kit', color: 'var(--color-success, #27ae60)' },
   wait: { icon: '⏳', label: 'Wait', color: 'var(--color-warning, #e67e22)' },
   stir: { icon: '🌀', label: 'Stir', color: 'var(--color-primary)' },
   evaporate: { icon: '🔥', label: 'Evaporate', color: 'var(--color-info, #17a2b8)' },
@@ -35,9 +36,14 @@ const formatDispenseSummary = (material) => {
 };
 
 // Get operation title
-const getOperationTitle = (op, material) => {
+const getOperationTitle = (op, material, materialConfigs) => {
   if (op.type === 'dispense' && material) {
     return material.alias || material.name;
+  }
+  if (op.type === 'kit') {
+    // Get count of materials in this kit
+    const count = op.materialIndices?.length || 0;
+    return `${op.kitId} (${count} materials)`;
   }
   return OPERATION_TYPES[op.type]?.label || 'Unknown';
 };
@@ -74,8 +80,9 @@ const StepTypeChooser = ({ onSelect, onClose, position }) => {
 };
 
 // Inline content for each operation type
-const OperationContent = ({ operation, material, onUpdate }) => {
+const OperationContent = ({ operation, material, materialConfigs, onUpdate }) => {
   const isDispense = operation.type === 'dispense';
+  const isKit = operation.type === 'kit';
 
   // Dispense — read-only title + details
   if (isDispense) {
@@ -83,6 +90,25 @@ const OperationContent = ({ operation, material, onUpdate }) => {
       <div className="timeline-content-dense">
         <div className="timeline-title-dense">{getOperationTitle(operation, material)}</div>
         <div className="timeline-details-dense">{formatDispenseSummary(material)}</div>
+      </div>
+    );
+  }
+
+  // Kit — title + note field
+  if (isKit) {
+    return (
+      <div className="timeline-content-dense">
+        <div className="timeline-title-dense">{getOperationTitle(operation, null, materialConfigs)}</div>
+        <div className="inline-fields inline-fields-grow" style={{ marginTop: '8px' }}>
+          <input
+            type="text"
+            className="inline-input inline-input-text"
+            value={operation.note || ''}
+            onChange={(e) => onUpdate({ ...operation, note: e.target.value })}
+            placeholder="Add note about how kit is used (e.g., 'Pre-dispensed' or 'Dissolved in DCM')..."
+            style={{ fontSize: '12px' }}
+          />
+        </div>
       </div>
     );
   }
@@ -166,6 +192,7 @@ const OperationContent = ({ operation, material, onUpdate }) => {
 const TimelineRow = ({
   operation,
   material,
+  materialConfigs,
   index,
   isLast,
   onUpdate,
@@ -179,6 +206,7 @@ const TimelineRow = ({
 }) => {
   const opConfig = OPERATION_TYPES[operation.type];
   const isDispense = operation.type === 'dispense';
+  const isKit = operation.type === 'kit';
 
   return (
     <div
@@ -222,11 +250,12 @@ const TimelineRow = ({
       <OperationContent
         operation={operation}
         material={material}
+        materialConfigs={materialConfigs}
         onUpdate={onUpdate}
       />
 
-      {/* Delete button — only for unit operations */}
-      {!isDispense && (
+      {/* Delete button — only for unit operations, not dispense or kit */}
+      {!isDispense && !isKit && (
         <button
           className="timeline-delete-btn"
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
@@ -344,6 +373,7 @@ const DispenseOrderStep = ({ materialConfigs, dispenseOrder, onOrderChange }) =>
               key={`step-${index}`}
               operation={operation}
               material={material}
+              materialConfigs={materialConfigs}
               index={index}
               isLast={index === dispenseOrder.length - 1}
               onUpdate={(updated) => updateOperation(index, updated)}

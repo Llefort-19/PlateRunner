@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 const MaterialConfigStep = ({ materialConfigs, onConfigChange }) => {
+  const [expandedKits, setExpandedKits] = useState(new Set());
+
   if (materialConfigs.length === 0) {
     return (
       <div className="material-config-step">
@@ -12,6 +14,42 @@ const MaterialConfigStep = ({ materialConfigs, onConfigChange }) => {
       </div>
     );
   }
+
+  // Helper: Group materials by kit
+  const groupMaterialsByKit = () => {
+    const groups = {
+      kits: {},
+      manual: []
+    };
+
+    materialConfigs.forEach((material, index) => {
+      if (material.role_id && material.role_id.startsWith('kit_')) {
+        if (!groups.kits[material.role_id]) {
+          groups.kits[material.role_id] = [];
+        }
+        groups.kits[material.role_id].push({ material, index });
+      } else {
+        groups.manual.push({ material, index });
+      }
+    });
+
+    return groups;
+  };
+
+  // Helper: Toggle kit expansion
+  const toggleKitExpansion = (kitId) => {
+    setExpandedKits(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(kitId)) {
+        newSet.delete(kitId);
+      } else {
+        newSet.add(kitId);
+      }
+      return newSet;
+    });
+  };
+
+  const groupedMaterials = groupMaterialsByKit();
 
   // Format amount for display
   const formatAmount = (amount) => {
@@ -48,6 +86,111 @@ const MaterialConfigStep = ({ materialConfigs, onConfigChange }) => {
     return (umol * molecularWeight) / 1000;
   };
 
+  // Helper: Render a single material row
+  const renderMaterialRow = (material, index, isInKit = false) => {
+    const wellCount = getWellCount(material);
+    const stats = getPerWellStats(material);
+    const isVolumeUnit = material.totalAmount.unit === 'μL' || material.totalAmount.unit === 'mL';
+
+    // For μmol/well display
+    let umolDisplay;
+    if (isVolumeUnit) {
+      // If unit is volume (for solvents), show that instead
+      umolDisplay = stats.isUniform
+        ? `${formatAmount(stats.avg)} ${material.totalAmount.unit}`
+        : `${formatAmount(stats.min)}-${formatAmount(stats.max)} ${material.totalAmount.unit}`;
+    } else {
+      umolDisplay = stats.isUniform
+        ? formatAmount(stats.avg)
+        : `${formatAmount(stats.min)}-${formatAmount(stats.max)}`;
+    }
+
+    // For mg/well display
+    let mgDisplay = '--';
+    if (!isVolumeUnit && material.molecular_weight) {
+      if (stats.isUniform) {
+        const mg = calculateMg(stats.avg, material.molecular_weight);
+        mgDisplay = formatAmount(mg);
+      } else {
+        const mgMin = calculateMg(stats.min, material.molecular_weight);
+        const mgMax = calculateMg(stats.max, material.molecular_weight);
+        mgDisplay = `${formatAmount(mgMin)}-${formatAmount(mgMax)}`;
+      }
+    }
+
+    // Total amount display
+    const totalUmol = material.totalAmount.value;
+    const totalUmolDisplay = isVolumeUnit
+      ? `${formatAmount(totalUmol)} ${material.totalAmount.unit}`
+      : formatAmount(totalUmol);
+
+    // Total mg display
+    const totalMg = !isVolumeUnit && material.molecular_weight
+      ? calculateMg(totalUmol, material.molecular_weight)
+      : null;
+    const totalMgDisplay = totalMg !== null ? formatAmount(totalMg) : '--';
+
+    return (
+      <tr
+        key={`${material.name}_${material.cas}_${index}`}
+        style={isInKit ? {
+          backgroundColor: 'rgba(0, 123, 255, 0.02)',
+          borderLeft: '3px solid #007bff'
+        } : {}}
+      >
+        <td>
+          <div>
+            <strong>{material.alias || material.name}</strong>
+            {material.molecular_weight && (
+              <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
+                MW: {material.molecular_weight} g/mol
+              </div>
+            )}
+          </div>
+        </td>
+        <td>
+          <span className="well-count-badge">
+            {wellCount}
+          </span>
+        </td>
+        <td style={{ fontWeight: 500 }}>
+          {umolDisplay}
+        </td>
+        <td style={{ fontWeight: 500 }}>
+          {mgDisplay}
+        </td>
+        <td style={{ fontWeight: 500, color: 'var(--color-primary)' }}>
+          {totalUmolDisplay}
+        </td>
+        <td style={{ fontWeight: 500, color: 'var(--color-primary)' }}>
+          {totalMgDisplay}
+        </td>
+        <td>
+          <div className="dispense-method-toggle">
+            <button
+              className={`method-btn neat ${material.dispensingMethod === 'neat' ? 'active' : ''}`}
+              onClick={() => onConfigChange(index, 'dispensingMethod', 'neat')}
+            >
+              Neat
+            </button>
+            <button
+              className={`method-btn stock ${material.dispensingMethod === 'stock' ? 'active' : ''}`}
+              onClick={() => onConfigChange(index, 'dispensingMethod', 'stock')}
+              disabled={!material.molecular_weight}
+            >
+              Stock
+            </button>
+          </div>
+          {!material.molecular_weight && (
+            <div style={{ fontSize: '11px', color: 'var(--color-warning)', marginTop: '4px' }}>
+              Stock requires MW
+            </div>
+          )}
+        </td>
+      </tr>
+    );
+  };
+
   return (
     <div className="material-config-step">
       <table className="material-config-table">
@@ -63,103 +206,45 @@ const MaterialConfigStep = ({ materialConfigs, onConfigChange }) => {
           </tr>
         </thead>
         <tbody>
-          {materialConfigs.map((material, index) => {
-            const wellCount = getWellCount(material);
-            const stats = getPerWellStats(material);
-            const isVolumeUnit = material.totalAmount.unit === 'μL' || material.totalAmount.unit === 'mL';
-
-            // For μmol/well display
-            let umolDisplay;
-            if (isVolumeUnit) {
-              // If unit is volume (for solvents), show that instead
-              umolDisplay = stats.isUniform
-                ? `${formatAmount(stats.avg)} ${material.totalAmount.unit}`
-                : `${formatAmount(stats.min)}-${formatAmount(stats.max)} ${material.totalAmount.unit}`;
-            } else {
-              umolDisplay = stats.isUniform
-                ? formatAmount(stats.avg)
-                : `${formatAmount(stats.min)}-${formatAmount(stats.max)}`;
-            }
-
-            // For mg/well display
-            let mgDisplay = '--';
-            if (!isVolumeUnit && material.molecular_weight) {
-              if (stats.isUniform) {
-                const mg = calculateMg(stats.avg, material.molecular_weight);
-                mgDisplay = formatAmount(mg);
-              } else {
-                const mgMin = calculateMg(stats.min, material.molecular_weight);
-                const mgMax = calculateMg(stats.max, material.molecular_weight);
-                mgDisplay = `${formatAmount(mgMin)}-${formatAmount(mgMax)}`;
-              }
-            }
-
-            // Total amount display
-            const totalUmol = material.totalAmount.value;
-            const totalUmolDisplay = isVolumeUnit
-              ? `${formatAmount(totalUmol)} ${material.totalAmount.unit}`
-              : formatAmount(totalUmol);
-
-            // Total mg display
-            const totalMg = !isVolumeUnit && material.molecular_weight
-              ? calculateMg(totalUmol, material.molecular_weight)
-              : null;
-            const totalMgDisplay = totalMg !== null ? formatAmount(totalMg) : '--';
-
-            return (
-              <tr key={`${material.name}_${material.cas}`}>
-                <td>
-                  <div>
-                    <strong>{material.alias || material.name}</strong>
-                    {material.molecular_weight && (
-                      <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-                        MW: {material.molecular_weight} g/mol
-                      </div>
-                    )}
-                  </div>
-                </td>
-                <td>
-                  <span className="well-count-badge">
-                    {wellCount}
-                  </span>
-                </td>
-                <td style={{ fontWeight: 500 }}>
-                  {umolDisplay}
-                </td>
-                <td style={{ fontWeight: 500 }}>
-                  {mgDisplay}
-                </td>
-                <td style={{ fontWeight: 500, color: 'var(--color-primary)' }}>
-                  {totalUmolDisplay}
-                </td>
-                <td style={{ fontWeight: 500, color: 'var(--color-primary)' }}>
-                  {totalMgDisplay}
-                </td>
-                <td>
-                  <div className="dispense-method-toggle">
-                    <button
-                      className={`method-btn neat ${material.dispensingMethod === 'neat' ? 'active' : ''}`}
-                      onClick={() => onConfigChange(index, 'dispensingMethod', 'neat')}
-                    >
-                      Neat
-                    </button>
-                    <button
-                      className={`method-btn stock ${material.dispensingMethod === 'stock' ? 'active' : ''}`}
-                      onClick={() => onConfigChange(index, 'dispensingMethod', 'stock')}
-                      disabled={!material.molecular_weight}
-                    >
-                      Stock
-                    </button>
-                  </div>
-                  {!material.molecular_weight && (
-                    <div style={{ fontSize: '11px', color: 'var(--color-warning)', marginTop: '4px' }}>
-                      Stock requires MW
+          {/* Render kit groups (collapsed by default) */}
+          {Object.entries(groupedMaterials.kits)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([kitId, kitMaterials]) => (
+              <React.Fragment key={`kit-${kitId}`}>
+                {/* Kit group header row */}
+                <tr
+                  style={{
+                    backgroundColor: '#f0f8ff',
+                    borderTop: '2px solid #dee2e6',
+                    borderBottom: expandedKits.has(kitId) ? 'none' : '2px solid #dee2e6',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => toggleKitExpansion(kitId)}
+                >
+                  <td colSpan="7" style={{ padding: "10px 12px" }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: '500' }}>
+                      <span style={{ fontSize: '14px' }}>
+                        {expandedKits.has(kitId) ? '▼' : '▶'}
+                      </span>
+                      <span style={{ color: '#495057' }}>{kitId}</span>
+                      <span style={{ color: '#6c757d', fontSize: '13px', fontWeight: 'normal' }}>
+                        ({kitMaterials.length} materials - click to {expandedKits.has(kitId) ? 'collapse' : 'expand'})
+                      </span>
                     </div>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
+                  </td>
+                </tr>
+
+                {/* Kit materials (shown when expanded) */}
+                {expandedKits.has(kitId) && kitMaterials.map(({ material, index }) =>
+                  renderMaterialRow(material, index, true)
+                )}
+              </React.Fragment>
+            ))}
+
+          {/* Render manual materials (always shown) */}
+          {groupedMaterials.manual.map(({ material, index }) =>
+            renderMaterialRow(material, index, false)
+          )}
         </tbody>
       </table>
 

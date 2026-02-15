@@ -55,21 +55,6 @@ const MaterialForm = ({
     }
   };
 
-  // Helper functions for role_id - reusing logic from MaterialTable
-  // Ideally this should be shared, but keeping it simple for now
-  const formatRoleId = (role, number) => {
-    if (!number || (role !== "Reagent" && role !== "Reactant")) return null;
-    const num = parseInt(number);
-    if (isNaN(num) || num < 1 || num > 99) return null;
-    const prefix = role === "Reagent" ? "Reagent" : "Reactant";
-    return `${prefix}_${String(num).padStart(2, '0')}`;
-  };
-
-  const parseRoleId = (roleId) => {
-    if (!roleId) return "";
-    const match = roleId.match(/_(\d+)$/);
-    return match ? parseInt(match[1]) : "";
-  };
 
   // Validation functions
   const validateMolecularWeight = (value) => {
@@ -133,18 +118,10 @@ const MaterialForm = ({
         : null
     };
 
-    // Check if we need to format the role_id from a simple number to ID
-    // We store the number in local state for the input, but save the formatted ID
-    if ((finalData.role === 'Reagent' || finalData.role === 'Reactant') && finalData.role_id) {
-      // If it looks like just a number (1-99) or string "5", format it
-      // If it's already "Reagent_05", leave it (though input usually handles the number part)
-      const val = String(finalData.role_id);
-      if (!val.includes('_')) {
-        const formatted = formatRoleId(finalData.role, val);
-        if (formatted) finalData.role_id = formatted;
-      }
+    // Trim role_id whitespace and set to null if empty
+    if (finalData.role_id) {
+      finalData.role_id = finalData.role_id.trim() || null;
     } else {
-      // Clear role_id if role is not compatible
       finalData.role_id = null;
     }
 
@@ -284,23 +261,22 @@ const MaterialForm = ({
                 </select>
               </div>
 
-              {/* Role_ID Input - Only for Reagent/Reactant */}
-              {(formData.role === "Reagent" || formData.role === "Reactant") && (
-                <div className="form-group">
-                  <label htmlFor="role_id">Role_ID</label>
-                  <input
-                    type="number"
-                    id="role_id"
-                    className="form-control"
-                    min="1"
-                    max="99"
-                    value={parseRoleId(formData.role_id) || (formData.role_id && !formData.role_id.includes('_') ? formData.role_id : "")}
-                    onChange={(e) => handleInputChange("role_id", e.target.value)}
-                    placeholder="#"
-                    style={{ width: "100px" }}
-                  />
-                </div>
-              )}
+              {/* Role_ID Input - Optional free text field */}
+              <div className="form-group">
+                <label htmlFor="role_id">Role_ID (optional)</label>
+                <input
+                  type="text"
+                  id="role_id"
+                  className="form-control"
+                  value={formData.role_id || ""}
+                  onChange={(e) => handleInputChange("role_id", e.target.value)}
+                  placeholder="e.g. kit1, Lig"
+                  style={{ width: "150px" }}
+                />
+                <small style={{ color: "var(--color-text-secondary)", fontSize: "11px" }}>
+                  Use to tag materials from kits or custom identifiers
+                </small>
+              </div>
 
             </div>
             <div className="modal-footer">

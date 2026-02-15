@@ -5,6 +5,7 @@ import PlateGridView from './PlateGridView';
 // Operation type definitions (matching DispenseOrderStep.js)
 const OPERATION_TYPES = {
   dispense: { icon: '💧', label: 'Dispense' },
+  kit: { icon: '📦', label: 'Kit' },
   wait: { icon: '⏳', label: 'Wait' },
   stir: { icon: '🌀', label: 'Stir' },
   evaporate: { icon: '🔥', label: 'Evaporate' },
@@ -12,8 +13,12 @@ const OPERATION_TYPES = {
 };
 
 // Format operation for display
-const formatOperation = (op) => {
+const formatOperation = (op, materialConfigs) => {
   switch (op.type) {
+    case 'kit':
+      const count = op.materialIndices?.length || 0;
+      const kitText = `${op.kitId} (${count} materials)`;
+      return op.note ? `${kitText} - ${op.note}` : kitText;
     case 'wait':
       return `Wait ${op.duration || '--'} ${op.unit || 'min'}`;
     case 'stir':
@@ -42,12 +47,22 @@ const ProtocolPreview = ({
 }) => {
   const [exportError, setExportError] = useState(null);
 
-  // Get only dispense operations with their materials
+  // Get all materials that will be dispensed (including from kits)
   const getDispenseOperations = useCallback(() => {
-    return dispenseOrder
-      .filter(op => op.type === 'dispense')
-      .map(op => materialConfigs[op.materialIndex])
-      .filter(Boolean);
+    const materials = [];
+    dispenseOrder.forEach(op => {
+      if (op.type === 'dispense') {
+        const material = materialConfigs[op.materialIndex];
+        if (material) materials.push(material);
+      } else if (op.type === 'kit') {
+        // Add all materials from the kit
+        op.materialIndices?.forEach(idx => {
+          const material = materialConfigs[idx];
+          if (material) materials.push(material);
+        });
+      }
+    });
+    return materials;
   }, [materialConfigs, dispenseOrder]);
 
   // Get stock materials
@@ -396,6 +411,7 @@ const ProtocolPreview = ({
         <div className="preview-steps-list">
           {dispenseOrder.map((operation, idx) => {
             const isDispense = operation.type === 'dispense';
+            const isKit = operation.type === 'kit';
             const material = isDispense ? materialConfigs[operation.materialIndex] : null;
 
             if (isDispense && !material) return null;
@@ -405,7 +421,7 @@ const ProtocolPreview = ({
             return (
               <div
                 key={`step-${idx}`}
-                className={`preview-step-card ${isDispense ? 'dispense' : 'unit-op'}`}
+                className={`preview-step-card ${isDispense || isKit ? 'dispense' : 'unit-op'}`}
               >
                 {/* Step badge + icon */}
                 <div className="preview-step-header">
@@ -432,8 +448,21 @@ const ProtocolPreview = ({
                           )}
                         </span>
                       </>
+                    ) : isKit ? (
+                      <>
+                        <strong>{operation.kitId}</strong>
+                        <span className="preview-step-meta">
+                          {operation.materialIndices?.length || 0} materials
+                          {operation.note && (
+                            <>
+                              {' • '}
+                              {operation.note}
+                            </>
+                          )}
+                        </span>
+                      </>
                     ) : (
-                      <span>{formatOperation(operation)}</span>
+                      <span>{formatOperation(operation, materialConfigs)}</span>
                     )}
                   </span>
                 </div>

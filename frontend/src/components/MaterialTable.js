@@ -1,44 +1,27 @@
 import React, { memo } from "react";
 
-// Helper functions for role_id formatting
-const formatRoleId = (role, number) => {
-  if (!number || (role !== "Reagent" && role !== "Reactant")) return null;
-  const num = parseInt(number);
-  if (isNaN(num) || num < 1 || num > 99) return null;
-  const prefix = role === "Reagent" ? "Reagent" : "Reactant";
-  return `${prefix}_${String(num).padStart(2, '0')}`;
-};
-
-const parseRoleId = (roleId) => {
-  if (!roleId) return "";
-  const match = roleId.match(/_(\d+)$/);
-  return match ? parseInt(match[1]) : "";
-};
-
 const RoleIdInput = ({ material, index, onUpdate }) => {
-  const [value, setValue] = React.useState(parseRoleId(material.role_id) || "");
+  const [value, setValue] = React.useState(material.role_id || "");
 
   // Sync state with prop changes (e.g. from modal updates)
   React.useEffect(() => {
-    setValue(parseRoleId(material.role_id) || "");
+    setValue(material.role_id || "");
   }, [material.role_id]);
 
   const handleBlur = () => {
-    const formatted = formatRoleId(material.role, value);
-    // Only update if value actually changed/is valid
-    if (formatted !== material.role_id) {
-      onUpdate(index, formatted);
+    // Trim whitespace and update if value changed
+    const trimmedValue = value.trim();
+    if (trimmedValue !== material.role_id) {
+      onUpdate(index, trimmedValue || null);
     }
   };
 
   return (
     <input
-      type="number"
-      min="1"
-      max="99"
-      placeholder="1-99"
+      type="text"
+      placeholder="e.g. kit1, Lig"
       className="form-control"
-      style={{ width: "60px", padding: "4px 8px", fontSize: "12px" }}
+      style={{ width: "100px", padding: "4px 8px", fontSize: "12px" }}
       value={value}
       onChange={(e) => setValue(e.target.value)}
       onBlur={handleBlur}
@@ -53,6 +36,13 @@ const RoleIdInput = ({ material, index, onUpdate }) => {
 
 const MaterialTable = memo(({
   materials,
+  filteredMaterials,
+  groupedMaterials,
+  collapseKits,
+  expandedKits = new Set(),
+  onToggleKit,
+  onKitGroupSelect,
+  onRemoveKit,
   roleOptions,
   personalInventoryStatus,
   personalInventoryLoading,
@@ -178,10 +168,139 @@ const MaterialTable = memo(({
     }
   };
 
-  if (materials.length === 0) {
+  // Helper to render collapsed kit row
+  const renderKitGroupRow = (kitId, kitMaterials) => {
+    const allKitIndices = kitMaterials.map(m => m.originalIndex);
+    const allSelected = allKitIndices.every(idx => selectedIndices.has(idx));
+    const someSelected = allKitIndices.some(idx => selectedIndices.has(idx)) && !allSelected;
+
+    return (
+      <React.Fragment key={`kit-${kitId}`}>
+        <tr style={{
+          backgroundColor: '#f8f9fa',
+          borderTop: '2px solid var(--color-border)',
+          borderBottom: expandedKits.has(kitId) ? 'none' : '2px solid var(--color-border)',
+          fontWeight: '500'
+        }}>
+          <td style={{ textAlign: "center", padding: "8px" }}>
+            <input
+              type="checkbox"
+              checked={allSelected}
+              ref={input => {
+                if (input) input.indeterminate = someSelected;
+              }}
+              onChange={() => onKitGroupSelect(kitId)}
+              style={{ cursor: "pointer", width: "16px", height: "16px" }}
+            />
+          </td>
+          <td colSpan="6" style={{ padding: "12px" }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button
+                onClick={() => onToggleKit(kitId)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  padding: '0',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+              >
+                {expandedKits.has(kitId) ? '▼' : '▶'}
+              </button>
+              <span style={{ fontWeight: 'bold', color: '#495057' }}>{kitId}</span>
+              <span style={{ color: '#6c757d', fontSize: '13px' }}>
+                ({kitMaterials.length} materials, Reagent)
+              </span>
+              {allSelected && (
+                <span style={{ color: '#4a90e2', fontSize: '12px', marginLeft: '8px' }}>
+                  ✓ All selected
+                </span>
+              )}
+              {someSelected && (
+                <span style={{ color: '#ffc107', fontSize: '12px', marginLeft: '8px' }}>
+                  ⚠ {allKitIndices.filter(idx => selectedIndices.has(idx)).length} selected
+                </span>
+              )}
+            </div>
+          </td>
+          <td style={{ textAlign: "center", padding: "8px" }}>
+            <button
+              className="btn btn-sm btn-warning"
+              onClick={() => onRemoveKit(kitId)}
+              style={{ fontSize: "12px", padding: "5px 10px" }}
+            >
+              Remove
+            </button>
+          </td>
+        </tr>
+        {expandedKits.has(kitId) && kitMaterials.map(({ originalIndex }) => renderMaterialRow(materials[originalIndex], originalIndex))}
+      </React.Fragment>
+    );
+  };
+
+  // Helper to render a single material row
+  const renderMaterialRow = (material, index) => (
+    <tr
+      key={index}
+      style={{
+        backgroundColor: selectedIndices.has(index)
+          ? 'rgba(74, 144, 226, 0.08)'
+          : material.role_id && material.role_id.startsWith('kit_')
+          ? 'rgba(0, 123, 255, 0.02)'
+          : 'transparent',
+        transition: 'background-color 0.2s ease',
+        borderLeft: material.role_id && material.role_id.startsWith('kit_') && collapseKits && expandedKits.has(material.role_id)
+          ? '3px solid #007bff'
+          : 'none'
+      }}
+    >
+      <td style={{ textAlign: "center", padding: "8px" }}>
+        <input
+          type="checkbox"
+          checked={selectedIndices.has(index)}
+          onChange={(e) => onSelectionChange(index, e)}
+          onClick={(e) => e.stopPropagation()}
+          style={{ cursor: "pointer", width: "16px", height: "16px" }}
+        />
+      </td>
+      <td>{material.alias || material.name}</td>
+      <td>{material.cas}</td>
+      <td>{renderSmilesCell(material)}</td>
+      <td>{material.barcode}</td>
+      <td>
+        <select
+          className="form-control"
+          value={material.role || ""}
+          onChange={(e) => onRoleUpdate(index, e.target.value)}
+          style={{ fontSize: "12px", padding: "4px 8px" }}
+        >
+          <option value="">Select Role</option>
+          {roleOptions.map((role) => (
+            <option key={role} value={role}>
+              {role}
+            </option>
+          ))}
+        </select>
+      </td>
+      <td>
+        <RoleIdInput
+          material={material}
+          index={index}
+          onUpdate={onRoleIdUpdate}
+        />
+      </td>
+      <td style={{ textAlign: "center", width: "280px", minWidth: "280px" }}>{renderActionButtons(material, index)}</td>
+    </tr>
+  );
+
+  if (filteredMaterials.length === 0) {
     return (
       <div style={{ textAlign: "center", color: "var(--color-text-muted)", marginTop: "20px" }}>
-        No materials added yet. Search inventory or add new materials to get started.
+        {materials.length === 0
+          ? "No materials added yet. Search inventory or add new materials to get started."
+          : "No materials match your current filters."}
       </div>
     );
   }
@@ -210,62 +329,32 @@ const MaterialTable = memo(({
           </tr>
         </thead>
         <tbody>
-          {materials.map((material, index) => (
-            <tr
-              key={index}
-              style={{
-                backgroundColor: selectedIndices.has(index)
-                  ? 'rgba(74, 144, 226, 0.08)'
-                  : 'transparent',
-                transition: 'background-color 0.2s ease'
-              }}
-            >
-              <td style={{ textAlign: "center", padding: "8px" }}>
-                <input
-                  type="checkbox"
-                  checked={selectedIndices.has(index)}
-                  onChange={(e) => onSelectionChange(index, e)}
-                  onClick={(e) => {
-                    // This stops default behavior so we can handle it manually
-                    // This ensures onChange gets called with proper shift key state
-                    e.stopPropagation();
-                  }}
-                  style={{ cursor: "pointer", width: "16px", height: "16px" }}
-                />
-              </td>
-              <td>{material.alias || material.name}</td>
-              <td>{material.cas}</td>
-              <td>{renderSmilesCell(material)}</td>
-              <td>{material.barcode}</td>
-              <td>
-                <select
-                  className="form-control"
-                  value={material.role || ""}
-                  onChange={(e) => onRoleUpdate(index, e.target.value)}
-                  style={{ fontSize: "12px", padding: "4px 8px" }}
-                >
-                  <option value="">Select Role</option>
-                  {roleOptions.map((role) => (
-                    <option key={role} value={role}>
-                      {role}
-                    </option>
-                  ))}
-                </select>
-              </td>
-              <td>
-                {(material.role === "Reagent" || material.role === "Reactant") ? (
-                  <RoleIdInput
-                    material={material}
-                    index={index}
-                    onUpdate={onRoleIdUpdate}
-                  />
-                ) : (
-                  <span style={{ color: "#ccc" }}>-</span>
-                )}
-              </td>
-              <td style={{ textAlign: "center", width: "280px", minWidth: "280px" }}>{renderActionButtons(material, index)}</td>
-            </tr>
-          ))}
+          {collapseKits ? (
+            <>
+              {/* Render kit groups */}
+              {Object.entries(groupedMaterials.kits)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([kitId, kitMaterials]) => {
+                  // Only render if any materials in this kit match the filter
+                  const filteredKitMaterials = kitMaterials.filter(m =>
+                    filteredMaterials.some(fm => materials.indexOf(fm) === m.originalIndex)
+                  );
+                  if (filteredKitMaterials.length === 0) return null;
+                  return renderKitGroupRow(kitId, filteredKitMaterials);
+                })}
+
+              {/* Render manual materials */}
+              {groupedMaterials.manual
+                .filter(m => filteredMaterials.some(fm => materials.indexOf(fm) === m.originalIndex))
+                .map(({ originalIndex }) => renderMaterialRow(materials[originalIndex], originalIndex))}
+            </>
+          ) : (
+            /* Normal view - render filtered materials directly */
+            filteredMaterials.map((material) => {
+              const index = materials.indexOf(material);
+              return renderMaterialRow(material, index);
+            })
+          )}
         </tbody>
       </table>
     </div>

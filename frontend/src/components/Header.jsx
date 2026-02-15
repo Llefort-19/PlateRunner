@@ -647,39 +647,30 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
       const context = contextResponse.data;
       const elnNumber = context.eln || 'ELN';
 
-      // Get materials to determine compounds for template
+      // Get selected compounds from analytical data (user's choice)
       let selectedCompounds = [];
       try {
-        const materialsResponse = await axios.get('/api/experiment/materials');
-        const materials = materialsResponse.data || [];
+        const analyticalResponse = await axios.get('/api/experiment/analytical');
+        const analyticalData = analyticalResponse.data || {};
 
-        // Get materials that are typically analyzed (reactants, products, internal standards)
-        const analyticalRoles = ['reactant', 'product', 'target product', 'internal standard'];
-        materials.forEach(material => {
-          const role = (material.role || '').toLowerCase();
-          if (analyticalRoles.some(analyticalRole => role.includes(analyticalRole))) {
-            selectedCompounds.push({
-              name: material.alias || material.name || '',
-              selected: true
-            });
-          }
-        });
+        // Check if user has selected compounds
+        if (analyticalData.selectedCompounds && analyticalData.selectedCompounds.length > 0) {
+          // Use user-selected compounds (they are strings, not objects)
+          selectedCompounds = analyticalData.selectedCompounds.map(name => ({
+            name: name,
+            selected: true
+          }));
+        }
       } catch (error) {
-        console.warn('Could not fetch materials for analytical template:', error);
+        console.warn('Could not fetch analytical data:', error);
       }
 
-      // If no compounds from materials, create default set
+      // If no user-selected compounds, create minimal template with just one empty column
       if (selectedCompounds.length === 0) {
         selectedCompounds = [
-          { name: 'Compound_1', selected: true },
-          { name: 'Compound_2', selected: true },
-          { name: 'Compound_3', selected: true },
-          { name: 'Compound_4', selected: true }
+          { name: '', selected: true }
         ];
       }
-
-      // Limit to reasonable number of compounds (template shows 4)
-      selectedCompounds = selectedCompounds.slice(0, 4);
 
       // Create headers in the exact format: Nr, Well, ID, Name_1, Area_1, Name_2, Area_2, etc.
       const headers = ['Well', 'Sample ID'];

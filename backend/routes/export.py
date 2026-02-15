@@ -134,89 +134,9 @@ def export_experiment():
             
             ws_procedure.append(row)
     
-    # Analytical data sheet - Generate template format matching the provided template
+    # Analytical data sheet - Leave empty (handled by frontend export)
     ws_analytical = wb.create_sheet("Analytical Data")
-    
-    # Get ELN number from context for ID generation
-    eln_number = current_experiment.get('context', {}).get('eln', 'ELN')
-    
-    # Get selected compounds from analytical data to determine column structure
-    analytical_data = current_experiment.get('analytical_data', {})
-    selected_compounds = []
-    
-    # Try to get selected compounds from the analytical data
-    if isinstance(analytical_data, dict) and 'selectedCompounds' in analytical_data:
-        selected_compounds = analytical_data.get('selectedCompounds', [])
-    
-    # If no selected compounds, try to extract from materials with analytical relevance
-    if not selected_compounds:
-        materials = current_experiment.get('materials', [])
-        # Get materials that are typically analyzed (reactants, products, internal standards)
-        analytical_roles = ['reactant', 'product', 'target product', 'internal standard']
-        for material in materials:
-            role = material.get('role', '').lower()
-            if any(analytical_role in role for analytical_role in analytical_roles):
-                selected_compounds.append({
-                    'name': material.get('alias', material.get('name', '')),
-                    'selected': True
-                })
-    
-    # If still no compounds, create a default set
-    if not selected_compounds:
-        selected_compounds = [
-            {'name': 'Compound_1', 'selected': True},
-            {'name': 'Compound_2', 'selected': True},
-            {'name': 'Compound_3', 'selected': True},
-            {'name': 'Compound_4', 'selected': True}
-        ]
-    
-    # Limit to reasonable number of compounds (template shows 4)
-    selected_compounds = selected_compounds[:4]
-    
-    # Create headers in the exact format: Well, Sample ID, Name_1, Area_1, Name_2, Area_2, etc.
-    headers = ['Well', 'Sample ID']
-    for i, compound in enumerate(selected_compounds, 1):
-        headers.extend([f'Name_{i}', f'Area_{i}'])
-    
-    ws_analytical.append(headers)
-    
-    # Get plate type from context to generate appropriate number of wells
-    plate_type = current_experiment.get('context', {}).get('plate_type', '96')
-    
-    def get_plate_config(plate_type):
-        if plate_type == "24":
-            return {
-                'rows': ['A', 'B', 'C', 'D'],
-                'columns': list(range(1, 7))  # 1-6
-            }
-        elif plate_type == "48":
-            return {
-                'rows': ['A', 'B', 'C', 'D', 'E', 'F'],
-                'columns': list(range(1, 9))  # 1-8
-            }
-        else:  # Default to 96-well
-            return {
-                'rows': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
-                'columns': list(range(1, 13))  # 1-12
-            }
-    
-    plate_config = get_plate_config(plate_type)
-    
-    # Generate wells based on plate type
-    for col in plate_config['rows']:
-        for row in plate_config['columns']:
-            well = f'{col}{row}'
-            well_id = f'{eln_number}_{well}'
-            
-            # Create row with Well, Sample ID
-            row_data = [well, well_id]
-            
-            # Add compound name and area placeholders
-            for i, compound in enumerate(selected_compounds, 1):
-                compound_name = compound.get('name', f'Compound_{i}')
-                row_data.extend([compound_name, ''])  # Empty area for template
-            
-            ws_analytical.append(row_data)
+    ws_analytical.append(['Note: This sheet is intentionally empty. Use frontend export for analytical data.'])
     
     # Results sheet
     ws_results = wb.create_sheet("Results (1)")

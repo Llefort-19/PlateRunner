@@ -62,6 +62,13 @@ const Materials = () => {
   const [batchRoleId, setBatchRoleId] = useState(""); // State for batch role_id input
   const [lastClickedIndex, setLastClickedIndex] = useState(null);
 
+  // Filter and view state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("All");
+  const [roleIdFilter, setRoleIdFilter] = useState("All");
+  const collapseKits = true; // Always collapse kits by default
+  const [expandedKits, setExpandedKits] = useState(new Set());
+
   const roleOptions = [
     "Reactant",
     "Target product",
@@ -186,7 +193,7 @@ const Materials = () => {
   };
 
   const handleRoleIdUpdate = (index, value) => {
-    // Value will preserve formatting (e.g. "Reagent_01") from the table component
+    // Value is free-text (e.g. "kit1", "Lig") from the table component
     const updatedMaterials = [...materials];
     updatedMaterials[index] = { ...updatedMaterials[index], role_id: value };
     saveMaterials(updatedMaterials);
@@ -326,10 +333,8 @@ const Materials = () => {
 
   const handleSubRoleUpdate = async (index, subRole) => {
     try {
-      // Format numeric input to sub-role ID (e.g. "1" -> "Reagent_01")
-      // This logic is also handled in the component for display, but ensure it's saved correctly here
-      // Expecting subRole to be the formatted ID string (e.g. "Reagent_01") or empty
-
+      // Note: This function appears to handle legacy sub_role field
+      // Current implementation uses role_id instead
       const updatedMaterials = materials.map((material, i) =>
         i === index ? { ...material, sub_role: subRole } : material
       );
@@ -395,29 +400,18 @@ const Materials = () => {
     }
 
     try {
-      // Helper to format role_id if applicable
-      let formattedRoleId = null;
-      if ((batchRole === "Reagent" || batchRole === "Reactant") && batchRoleId) {
-        const num = parseInt(batchRoleId);
-        if (!isNaN(num) && num >= 1 && num <= 99) {
-          formattedRoleId = `${batchRole}_${String(num).padStart(2, '0')}`;
-        }
-      }
+      // Trim whitespace from role_id
+      const trimmedRoleId = batchRoleId.trim();
 
       const updatedMaterials = materials.map((material, index) => {
         if (selectedMaterialIndices.has(index)) {
           const update = { ...material, role: batchRole };
-          // If a role_id is provided, apply it. 
-          // If NOT provided, we might want to keep existing IF it matches the new role, 
-          // but simpler to just clear it if switching roles usually. 
-          // However, for batch assignment, let's only set role_id if the user entered one.
-          // Or should we clear it if the role changes? 
-          // Common behavior: if changing role, role_id for old role is invalid.
 
-          if (formattedRoleId) {
-            update.role_id = formattedRoleId;
+          // If a role_id is provided, apply it
+          if (trimmedRoleId) {
+            update.role_id = trimmedRoleId;
           } else if (material.role !== batchRole) {
-            // If role changed and no new role_id provided, clear the old invalid role_id
+            // If role changed and no new role_id provided, clear the old role_id
             update.role_id = null;
           }
           return update;
@@ -434,7 +428,7 @@ const Materials = () => {
       setBatchRole("");
       setBatchRoleId("");
 
-      showSuccess(`Role "${batchRole}" assigned to ${count} material(s)${formattedRoleId ? ` with Role_ID ${formattedRoleId}` : ''}`);
+      showSuccess(`Role "${batchRole}" assigned to ${count} material(s)${trimmedRoleId ? ` with Role_ID "${trimmedRoleId}"` : ''}`);
     } catch (error) {
       showError("Error assigning roles: " + error.message);
     }
@@ -837,6 +831,112 @@ const Materials = () => {
     }
   };
 
+  // Helper: Get unique role_ids from materials
+  const getUniqueRoleIds = () => {
+    const roleIds = new Set();
+    materials.forEach(mat => {
+      if (mat.role_id) {
+        roleIds.add(mat.role_id);
+      }
+    });
+    return Array.from(roleIds).sort();
+  };
+
+  // Helper: Group materials by role_id for kit grouping
+  const groupMaterialsByKit = () => {
+    const groups = {
+      kits: {},
+      manual: []
+    };
+
+    materials.forEach((mat, index) => {
+      if (mat.role_id && mat.role_id.startsWith('kit_')) {
+        if (!groups.kits[mat.role_id]) {
+          groups.kits[mat.role_id] = [];
+        }
+        groups.kits[mat.role_id].push({ ...mat, originalIndex: index });
+      } else {
+        groups.manual.push({ ...mat, originalIndex: index });
+      }
+    });
+
+    return groups;
+  };
+
+  // Helper: Filter materials based on search and filters
+  const getFilteredMaterials = () => {
+    return materials.filter((mat, index) => {
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch =
+          (mat.name && mat.name.toLowerCase().includes(query)) ||
+          (mat.alias && mat.alias.toLowerCase().includes(query)) ||
+          (mat.cas && mat.cas.toLowerCase().includes(query)) ||
+          (mat.smiles && mat.smiles.toLowerCase().includes(query));
+        if (!matchesSearch) return false;
+      }
+
+      // Role filter
+      if (roleFilter !== "All" && mat.role !== roleFilter) {
+        return false;
+      }
+
+      // Role_ID filter
+      if (roleIdFilter !== "All") {
+        if (roleIdFilter === "undefined") {
+          // Show only materials without role_id
+          if (mat.role_id) return false;
+        } else {
+          // Show only materials with the specific role_id
+          if (mat.role_id !== roleIdFilter) return false;
+        }
+      }
+
+      return true;
+    });
+  };
+
+  // Helper: Handle kit group selection
+  const handleKitGroupToggle = (kitId) => {
+    const kitMaterials = materials
+      .map((mat, index) => ({ mat, index }))
+      .filter(({ mat }) => mat.role_id === kitId)
+      .map(({ index }) => index);
+
+    const allSelected = kitMaterials.every(idx => selectedMaterialIndices.has(idx));
+
+    setSelectedMaterialIndices(prev => {
+      const newSet = new Set(prev);
+      if (allSelected) {
+        // Deselect all kit materials
+        kitMaterials.forEach(idx => newSet.delete(idx));
+      } else {
+        // Select all kit materials
+        kitMaterials.forEach(idx => newSet.add(idx));
+      }
+      return newSet;
+    });
+  };
+
+  // Helper: Remove all materials in a kit
+  const handleRemoveKit = async (kitId) => {
+    if (window.confirm(`Remove all materials from ${kitId}?`)) {
+      try {
+        const updatedMaterials = materials.filter(mat => mat.role_id !== kitId);
+        await saveMaterials(updatedMaterials);
+        showSuccess(`All materials from ${kitId} removed successfully!`);
+        setSelectedMaterialIndices(new Set());
+      } catch (error) {
+        showError(`Error removing ${kitId}: ` + error.message);
+      }
+    }
+  };
+
+  const filteredMaterials = getFilteredMaterials();
+  const groupedMaterials = groupMaterialsByKit();
+  const uniqueRoleIds = getUniqueRoleIds();
+
   return (
     <div className="card">
       {/* Action buttons */}
@@ -897,28 +997,101 @@ const Materials = () => {
         </div>
       </div>
 
+      {/* Filter Bar */}
+      <div style={{
+        marginBottom: "16px",
+        padding: "16px",
+        backgroundColor: "var(--color-surface)",
+        border: "1px solid var(--color-border)",
+        borderRadius: "8px",
+        display: "flex",
+        gap: "12px",
+        flexWrap: "wrap",
+        alignItems: "center"
+      }}>
+        {/* Search */}
+        <div style={{ flex: "1 1 250px", minWidth: "200px" }}>
+          <input
+            type="text"
+            className="form-control"
+            placeholder="🔍 Search materials..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ fontSize: "14px" }}
+          />
+        </div>
+
+        {/* Role Filter */}
+        <div style={{ flex: "0 0 auto" }}>
+          <select
+            className="form-control"
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            style={{ fontSize: "14px", minWidth: "140px" }}
+          >
+            <option value="All">All Roles</option>
+            {roleOptions.map(role => (
+              <option key={role} value={role}>{role}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Role_ID/Kit Filter */}
+        <div style={{ flex: "0 0 auto" }}>
+          <select
+            className="form-control"
+            value={roleIdFilter}
+            onChange={(e) => setRoleIdFilter(e.target.value)}
+            style={{ fontSize: "14px", minWidth: "140px" }}
+          >
+            <option value="All">All Role_ID</option>
+            <option value="undefined">undefined</option>
+            {uniqueRoleIds.map(roleId => (
+              <option key={roleId} value={roleId}>{roleId}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Results count */}
+        <div style={{
+          marginLeft: "auto",
+          fontSize: "13px",
+          color: "var(--color-text-secondary)",
+          whiteSpace: "nowrap"
+        }}>
+          Showing {filteredMaterials.length} of {materials.length} materials
+        </div>
+      </div>
+
       {/* Batch Actions Toolbar - appears when materials are selected */}
       {selectedMaterialIndices.size > 0 && (
         <div style={{
           marginBottom: "16px",
-          padding: "16px 20px",
+          padding: "12px 16px",
           backgroundColor: "rgba(74, 144, 226, 0.05)",
           border: "2px solid #4a90e2",
           borderRadius: "8px",
           display: "flex",
           alignItems: "center",
-          gap: "16px",
+          gap: "10px",
           boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
-          flexWrap: "wrap"
+          flexWrap: "nowrap",
+          overflow: "auto"
         }}>
-          <span style={{ fontWeight: "600", color: "#4a90e2", fontSize: "14px" }}>
-            ✓ {selectedMaterialIndices.size} material(s) selected
+          <span style={{
+            fontWeight: "600",
+            color: "#4a90e2",
+            fontSize: "14px",
+            whiteSpace: "nowrap",
+            minWidth: "fit-content"
+          }}>
+            ✓ {selectedMaterialIndices.size} selected
           </span>
           <select
             className="form-control"
             value={batchRole}
             onChange={(e) => setBatchRole(e.target.value)}
-            style={{ width: "200px", fontSize: "14px" }}
+            style={{ width: "150px", fontSize: "14px", flexShrink: 0 }}
           >
             <option value="">Select Role</option>
             {roleOptions.map((role) => (
@@ -926,43 +1099,36 @@ const Materials = () => {
             ))}
           </select>
 
-          {/* Batch Role_ID Input */}
-          {(batchRole === "Reagent" || batchRole === "Reactant") && (
-            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-              <span style={{ fontSize: "14px", color: "#666" }}>Role_ID:</span>
-              <input
-                type="number"
-                className="form-control"
-                min="1"
-                max="99"
-                placeholder="#"
-                value={batchRoleId}
-                onChange={(e) => setBatchRoleId(e.target.value)}
-                style={{ width: "60px", fontSize: "14px", padding: "4px 8px" }}
-              />
-            </div>
-          )}
+          {/* Batch Role_ID Input - Optional */}
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Role_ID"
+            value={batchRoleId}
+            onChange={(e) => setBatchRoleId(e.target.value)}
+            style={{ width: "100px", fontSize: "14px", padding: "4px 8px", flexShrink: 0 }}
+          />
           <button
             className="btn btn-primary"
             onClick={handleBatchRoleAssignment}
             disabled={!batchRole}
-            style={{ fontSize: "14px" }}
+            style={{ fontSize: "14px", padding: "6px 12px", whiteSpace: "nowrap", flexShrink: 0 }}
           >
-            Assign Role
+            Assign
           </button>
           <button
             className="btn btn-secondary"
             onClick={handleClearSelection}
-            style={{ fontSize: "14px" }}
+            style={{ fontSize: "14px", padding: "6px 12px", whiteSpace: "nowrap", flexShrink: 0 }}
           >
-            Clear Selection
+            Clear
           </button>
           <button
             className="btn btn-warning"
             onClick={handleBatchDelete}
-            style={{ fontSize: "14px", marginLeft: "auto" }}
+            style={{ fontSize: "14px", padding: "6px 12px", whiteSpace: "nowrap", marginLeft: "auto", flexShrink: 0 }}
           >
-            🗑️ Delete Selected
+            Delete
           </button>
         </div>
       )}
@@ -970,6 +1136,23 @@ const Materials = () => {
       {/* Materials table */}
       <MaterialTable
         materials={materials}
+        filteredMaterials={filteredMaterials}
+        groupedMaterials={groupedMaterials}
+        collapseKits={collapseKits}
+        expandedKits={expandedKits}
+        onToggleKit={(kitId) => {
+          setExpandedKits(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(kitId)) {
+              newSet.delete(kitId);
+            } else {
+              newSet.add(kitId);
+            }
+            return newSet;
+          });
+        }}
+        onKitGroupSelect={handleKitGroupToggle}
+        onRemoveKit={handleRemoveKit}
         roleOptions={roleOptions}
         personalInventoryStatus={personalInventoryStatus}
         personalInventoryLoading={personalInventoryLoading}

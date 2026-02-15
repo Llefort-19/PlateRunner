@@ -71,6 +71,7 @@ const PlatingProtocolModal = ({
             cas: material.cas || '',
             molecular_weight: mw,
             role: material.role || '',
+            role_id: material.role_id || '',
             dispensingMethod: 'neat',
             wellAmounts: {},
             totalAmount: { value: 0, unit: material.unit || 'μmol' },
@@ -100,17 +101,65 @@ const PlatingProtocolModal = ({
   }, [procedure, findMolecularWeight]);
 
   // Helper to migrate old dispenseOrder format (array of indices) to new format (array of operation objects)
-  const migrateDispenseOrder = (order, materialCount) => {
+  const migrateDispenseOrder = (order, materials) => {
     if (!Array.isArray(order) || order.length === 0) {
-      // Fresh initialization with dispense operations
-      return Array.from({ length: materialCount }, (_, i) => ({ type: 'dispense', materialIndex: i }));
+      // Fresh initialization with grouped operations
+      return createInitialDispenseOrder(materials);
     }
+
     // Check if already in new format (first item is an object with 'type')
     if (typeof order[0] === 'object' && order[0].type) {
-      return order;
+      // Check if it already has kit operations
+      const hasKitOps = order.some(op => op.type === 'kit');
+      if (hasKitOps) {
+        return order; // Already has kit operations, use as-is
+      }
+
+      // Has operations but no kit grouping - need to re-group
+      // This handles the case where old saved state has individual dispense ops for kit materials
+      return createInitialDispenseOrder(materials);
     }
-    // Migrate from old format (array of indices)
-    return order.map(idx => ({ type: 'dispense', materialIndex: idx }));
+
+    // Migrate from very old format (array of indices)
+    return createInitialDispenseOrder(materials);
+  };
+
+  // Helper to group materials by kit and create appropriate operations
+  const createInitialDispenseOrder = (materials) => {
+    const kitGroups = {};
+    const regularMaterials = [];
+
+    // Group materials by kit_id
+    materials.forEach((material, index) => {
+      if (material.role_id && material.role_id.startsWith('kit_')) {
+        if (!kitGroups[material.role_id]) {
+          kitGroups[material.role_id] = [];
+        }
+        kitGroups[material.role_id].push(index);
+      } else {
+        regularMaterials.push(index);
+      }
+    });
+
+    // Create operations: kit operations first, then regular dispense operations
+    const operations = [];
+
+    // Add kit operations
+    Object.entries(kitGroups).forEach(([kitId, materialIndices]) => {
+      operations.push({
+        type: 'kit',
+        kitId: kitId,
+        materialIndices: materialIndices,
+        note: '' // User can add notes about how kit is used
+      });
+    });
+
+    // Add regular material dispense operations
+    regularMaterials.forEach(index => {
+      operations.push({ type: 'dispense', materialIndex: index });
+    });
+
+    return operations;
   };
 
   // Initialize material configs when modal opens or restore from localStorage
@@ -122,10 +171,14 @@ const PlatingProtocolModal = ({
       try {
         const savedState = localStorage.getItem('platingProtocolState');
         if (savedState) {
-          const { signature, materialConfigs: savedConfigs, dispenseOrder: savedOrder, currentStep: savedStep } = JSON.parse(savedState);
+          const parsed = JSON.parse(savedState);
+          const { signature, materialConfigs: savedConfigs, dispenseOrder: savedOrder, currentStep: savedStep, version } = parsed;
+
+          // Check if this is old state without kit grouping (version 1 or undefined)
+          const needsUpgrade = !version || version < 2;
 
           // Only restore if the procedure context hasn't changed (based on initial materials)
-          if (signature === currentSignature) {
+          if (signature === currentSignature && !needsUpgrade) {
             // Update molecular weights from current materials prop before restoring
             const updatedConfigs = savedConfigs.map(config => {
               const updatedMW = findMolecularWeight(config.name, config.cas, config.alias);
@@ -136,8 +189,8 @@ const PlatingProtocolModal = ({
             });
 
             setMaterialConfigs(updatedConfigs);
-            // Migrate old format if needed
-            setDispenseOrder(migrateDispenseOrder(savedOrder, updatedConfigs.length));
+            // Migrate old format if needed (pass materials for kit grouping)
+            setDispenseOrder(migrateDispenseOrder(savedOrder, updatedConfigs));
             setCurrentStep(savedStep);
             return;
           }
@@ -146,9 +199,9 @@ const PlatingProtocolModal = ({
         console.warn('Failed to restore plating protocol state:', e);
       }
 
-      // Fallback to fresh initialization with operation objects
+      // Fallback to fresh initialization with operation objects (grouped by kit)
       setMaterialConfigs(parsedMaterials);
-      setDispenseOrder(parsedMaterials.map((_, index) => ({ type: 'dispense', materialIndex: index })));
+      setDispenseOrder(createInitialDispenseOrder(parsedMaterials));
       setCurrentStep(1);
     }
   }, [visible, procedure, parseMaterialsFromProcedure, findMolecularWeight]);
@@ -177,6 +230,7 @@ const PlatingProtocolModal = ({
       const signature = JSON.stringify(initialMaterials);
 
       const state = {
+        version: 2, // Version 2: includes kit grouping
         signature,
         materialConfigs,
         dispenseOrder,

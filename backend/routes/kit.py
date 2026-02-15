@@ -281,11 +281,33 @@ def apply_kit():
         # Get current experiment data
         current_materials = current_experiment.get('materials', [])
         current_procedure = current_experiment.get('procedure', [])
-        
+
+        # Determine the next kit number by counting existing kits
+        # Count materials with role_id starting with "kit_"
+        existing_kit_numbers = set()
+        for mat in current_materials:
+            role_id = mat.get('role_id', '')
+            if role_id and role_id.startswith('kit_'):
+                # Extract number from kit_XX format
+                try:
+                    kit_num = int(role_id.split('_')[1])
+                    existing_kit_numbers.add(kit_num)
+                except (IndexError, ValueError):
+                    pass
+
+        # Find next available kit number
+        next_kit_num = 1
+        while next_kit_num in existing_kit_numbers:
+            next_kit_num += 1
+
+        # Format kit ID as kit_01, kit_02, etc.
+        kit_id = f"kit_{str(next_kit_num).zfill(2)}"
+        print(f"Assigning kit ID: {kit_id}")
+
         # Add materials to experiment (avoiding duplicates)
         added_materials = []
         skipped_materials = []
-        
+
         for material in materials:
             # Check if material already exists (by name, CAS, or SMILES)
             is_duplicate = any(
@@ -294,13 +316,21 @@ def apply_kit():
                 (existing.get('smiles') and material.get('smiles') and existing.get('smiles') == material.get('smiles'))
                 for existing in current_materials
             )
-            
+
             if is_duplicate:
                 skipped_materials.append(material.get('alias') or material.get('name', 'Unknown'))
             else:
+                # Assign Reagent role and kit_XX role_id to all materials from this kit
+                material['role'] = 'Reagent'
+                material['role_id'] = kit_id
                 added_materials.append(material)
                 current_materials.append(material)
-        
+
+        # Update design materials with kit_id before applying to procedure
+        for well, well_materials in design.items():
+            for mat in well_materials:
+                mat['role_id'] = kit_id
+
         # Apply design to procedure based on position
         new_procedure_data = apply_kit_design_to_procedure(design, position, kit_size, current_procedure, destination_plate)
         
@@ -309,7 +339,8 @@ def apply_kit():
         current_experiment['procedure'] = new_procedure_data
         
         return jsonify({
-            'message': 'Kit applied successfully',
+            'message': f'Kit applied successfully with ID: {kit_id}',
+            'kit_id': kit_id,
             'added_materials': len(added_materials),
             'skipped_materials': len(skipped_materials),
             'procedure_wells_updated': len([w for w in new_procedure_data if any(m.get('source') == 'kit_upload' for m in w.get('materials', []))])
