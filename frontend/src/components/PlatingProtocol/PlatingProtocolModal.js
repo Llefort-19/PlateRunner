@@ -109,15 +109,21 @@ const PlatingProtocolModal = ({
 
     // Check if already in new format (first item is an object with 'type')
     if (typeof order[0] === 'object' && order[0].type) {
-      // Check if it already has kit operations
+      // Check if kit materials exist but aren't grouped yet
+      const hasKitMaterials = materials.some(m => m.role_id && m.role_id.startsWith('kit_'));
       const hasKitOps = order.some(op => op.type === 'kit');
-      if (hasKitOps) {
-        return order; // Already has kit operations, use as-is
+
+      if (hasKitMaterials && !hasKitOps) {
+        // Kit materials exist but the saved order has individual dispense ops for them.
+        // Rebuild: preserve user-added unit operations (wait, stir, etc.) and re-group kits.
+        const unitOps = order.filter(op => !['dispense', 'kit'].includes(op.type));
+        const freshOrder = createInitialDispenseOrder(materials);
+        // Append user's unit operations at the positions they were relative to the end
+        return [...freshOrder, ...unitOps];
       }
 
-      // Has operations but no kit grouping - need to re-group
-      // This handles the case where old saved state has individual dispense ops for kit materials
-      return createInitialDispenseOrder(materials);
+      // Already in correct format — return as-is (preserves all user steps)
+      return order;
     }
 
     // Migrate from very old format (array of indices)

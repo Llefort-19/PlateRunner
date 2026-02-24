@@ -9,7 +9,7 @@ echo.
 REM Check if virtual environment exists
 if not exist ".venv\Scripts\activate.bat" (
     echo ERROR: Virtual environment not found at .venv
-    pause
+    REM pause
     exit /b 1
 )
 
@@ -24,7 +24,7 @@ cd ..
 
 if not exist "frontend\build\index.html" (
     echo ERROR: React build failed!
-    pause
+    REM pause
     exit /b 1
 )
 
@@ -34,7 +34,7 @@ pyinstaller --clean --noconfirm hte_app_onefile.spec
 
 if errorlevel 1 (
     echo ERROR: PyInstaller build failed!
-    pause
+    REM pause
     exit /b 1
 )
 
@@ -62,4 +62,4 @@ echo   Build completed successfully!
 echo   Output: dist\Standalone_Distribution\
 echo ============================================
 echo.
-pause
+REM pause

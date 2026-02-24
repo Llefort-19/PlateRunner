@@ -207,6 +207,7 @@ def _build_protocol_steps(operations, materials):
         step_num = idx + 1
         op_type = op.get('type', '')
         is_dispense = (op_type == 'dispense')
+        is_kit = (op_type == 'kit')
 
         # Build step content
         if is_dispense:
@@ -217,12 +218,16 @@ def _build_protocol_steps(operations, materials):
             material = materials[mat_idx]
             name = material.get('alias') or material.get('name', 'Material')
             method = material.get('dispensing_method', 'neat')
+            total_unit = material.get('total_amount_unit', 'μmol')
+            mat_is_solvent = total_unit in ('μL', 'mL')
 
             # Build description
             desc_parts = [f"<b>Dispense: {name}</b>"]
             detail_parts = []
 
-            if method == 'stock':
+            if mat_is_solvent:
+                detail_parts.append('Solvent')
+            elif method == 'stock':
                 detail_parts.append('Stock')
             else:
                 detail_parts.append('Neat')
@@ -234,6 +239,11 @@ def _build_protocol_steps(operations, materials):
                 vol_range = _format_volume_range(material)
                 if vol_range != '—':
                     detail_parts.append(vol_range)
+            elif mat_is_solvent:
+                # For solvents, show volume range in μL
+                sol_range = _format_solvent_volume_range(material)
+                if sol_range != '—':
+                    detail_parts.append(sol_range)
             else:
                 # For neat materials, show mass range
                 mass_range = _format_mass_range(material)
@@ -243,6 +253,11 @@ def _build_protocol_steps(operations, materials):
             desc = f"{desc_parts[0]}<br/><font size='7' color='#666666'>{' • '.join(detail_parts)}</font>"
             bg_color = colors.HexColor('#f0f7ff')
             border_color = colors.HexColor('#2563eb')
+        elif is_kit:
+            label = _format_operation(op)
+            desc = f"<b>{label}</b>"
+            bg_color = colors.HexColor('#f0fff0')
+            border_color = colors.HexColor('#27ae60')
         else:
             label = _format_operation(op)
             desc = f"<font size='8'>{label}</font>"
@@ -265,7 +280,12 @@ def _build_protocol_steps(operations, materials):
             colWidths=[6*mm, 82*mm]
         )
 
-        badge_bg = colors.HexColor('#2563eb') if is_dispense else colors.HexColor('#9ca3af')
+        if is_dispense:
+            badge_bg = colors.HexColor('#2563eb')
+        elif is_kit:
+            badge_bg = colors.HexColor('#27ae60')
+        else:
+            badge_bg = colors.HexColor('#9ca3af')
 
         step_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (0, 0), badge_bg),
@@ -364,8 +384,12 @@ def _build_single_plate_map(material, plate_cfg, styles):
     well_amounts = material.get('well_amounts', {})
 
     # Determine unit
+    total_unit = material.get('total_amount_unit', 'μmol')
+    is_solvent = total_unit in ('μL', 'mL')
     if method == 'stock':
         unit_label = 'μL'
+    elif is_solvent:
+        unit_label = 'μL'  # Solvents are always in volume
     else:
         unit_label = 'mg'  # Show mass for neat materials
 
@@ -449,6 +473,12 @@ def _build_single_plate_map(material, plate_cfg, styles):
                     # For stock: show volume (always 1 decimal)
                     volume = float(value) / concentration
                     cell_value = f"{volume:.1f}"
+                elif is_solvent:
+                    # For solvents: values are already in μL/mL, show in μL
+                    vol = float(value)
+                    if total_unit == 'mL':
+                        vol *= 1000  # Convert to μL
+                    cell_value = f"{vol:.1f}"
                 else:
                     # For neat: show mass (always 2 decimals)
                     # mass (mg) = amount (μmol) × MW (g/mol) / 1000
@@ -619,6 +649,37 @@ def _format_volume_range(material):
         return '—'
 
 
+def _format_solvent_volume_range(material):
+    """Format volume range for solvents (amounts already in μL/mL)."""
+    well_amounts = material.get('well_amounts', {})
+    total_unit = material.get('total_amount_unit', 'μL')
+
+    if not well_amounts:
+        return '—'
+
+    try:
+        values = []
+        for well in well_amounts.values():
+            if isinstance(well, dict) and well.get('value'):
+                val = float(well['value'])
+                # Convert to μL if in mL
+                if total_unit == 'mL':
+                    val *= 1000
+                values.append(val)
+
+        if not values:
+            return '—'
+
+        min_val = min(values)
+        max_val = max(values)
+
+        if min_val == max_val:
+            return f"{min_val:.1f} μL"
+        return f"{min_val:.1f} - {max_val:.1f} μL"
+    except (ValueError, TypeError, ZeroDivisionError):
+        return '—'
+
+
 def _format_mass_range(material):
     """Format mass range for neat materials."""
     if material.get('dispensing_method') != 'neat':
@@ -655,7 +716,15 @@ def _format_mass_range(material):
 def _format_operation(op):
     """Format operation description."""
     op_type = op.get('type', '')
-    if op_type == 'wait':
+    if op_type == 'kit':
+        count = len(op.get('materialIndices', []))
+        kit_id = op.get('kitId', 'Kit')
+        text = f"{kit_id} ({count} materials)"
+        note = op.get('note', '')
+        if note:
+            text += f" - {note}"
+        return text
+    elif op_type == 'wait':
         return f"Wait {op.get('duration', '—')} {op.get('unit', 'min')}"
     elif op_type == 'stir':
         text = f"Stir at {op.get('temperature', '—')}°C for {op.get('duration', '—')} {op.get('unit', 'min')}"

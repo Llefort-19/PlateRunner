@@ -60,6 +60,22 @@ const PlateGridView = ({ material, plateType = '96', showTitle = true }) => {
     return wellAmount.value / concentration;
   };
 
+  // Check if material is a solvent (volume-based unit)
+  const isSolvent = () => {
+    const unit = material?.totalAmount?.unit || '';
+    return unit === 'μL' || unit === 'mL';
+  };
+
+  // Calculate volume (μL) for a solvent well
+  const calculateSolventVolumeForWell = (wellId) => {
+    const wellAmount = wellAmounts[wellId];
+    if (!wellAmount?.value) return null;
+
+    const unit = material?.totalAmount?.unit || 'μL';
+    // Convert to μL if in mL
+    return unit === 'mL' ? wellAmount.value * 1000 : wellAmount.value;
+  };
+
   // Calculate mass (mg) for a neat material well
   const calculateMassForWell = (wellId) => {
     if (material?.dispensingMethod !== 'neat') {
@@ -83,6 +99,14 @@ const PlateGridView = ({ material, plateType = '96', showTitle = true }) => {
       const num = parseFloat(volume);
       if (isNaN(num)) return null;
       return num.toFixed(1);
+    } else if (isSolvent()) {
+      // For solvents, show volume in μL (always 1 decimal)
+      const volume = calculateSolventVolumeForWell(wellId);
+      if (volume === null || volume === undefined) return null;
+
+      const num = parseFloat(volume);
+      if (isNaN(num)) return null;
+      return num.toFixed(1);
     } else {
       // For neat materials, show mass (always 2 decimals)
       const mass = calculateMassForWell(wellId);
@@ -99,6 +123,11 @@ const PlateGridView = ({ material, plateType = '96', showTitle = true }) => {
     if (!material) return '';
 
     if (material.dispensingMethod === 'stock') {
+      return 'μL';
+    }
+
+    // For solvents, show μL
+    if (isSolvent()) {
       return 'μL';
     }
 
@@ -139,6 +168,9 @@ const PlateGridView = ({ material, plateType = '96', showTitle = true }) => {
               if (displayValue) {
                 if (material?.dispensingMethod === 'stock') {
                   const volume = calculateVolumeForWell(wellId);
+                  tooltipText = `${wellId}: ${volume?.toFixed(1)} μL`;
+                } else if (isSolvent()) {
+                  const volume = calculateSolventVolumeForWell(wellId);
                   tooltipText = `${wellId}: ${volume?.toFixed(1)} μL`;
                 } else {
                   const mass = calculateMassForWell(wellId);

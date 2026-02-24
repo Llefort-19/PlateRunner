@@ -137,12 +137,22 @@ def export_to_excel(protocol):
                 material.get('molecular_weight')
             )
 
+        total_unit = material.get('total_amount_unit', 'μmol')
+        is_solvent = total_unit in ('μL', 'mL')
+
+        if material.get('dispensing_method') == 'stock':
+            method_label = 'Stock'
+        elif is_solvent:
+            method_label = 'Solvent'
+        else:
+            method_label = 'Neat'
+
         row_data = [
             idx,
             material.get('name', ''),
             material.get('alias', ''),
             material.get('molecular_weight', ''),
-            'Stock' if material.get('dispensing_method') == 'stock' else 'Neat',
+            method_label,
             stock.get('solvent_name', '') if stock else '',
             f"{stock.get('amount_per_well_value', '')} {stock.get('amount_per_well_unit', '')}" if stock and stock.get('amount_per_well_value') else '',
             f"{stock.get('excess', '')}%" if stock and stock.get('excess') is not None else '',
@@ -180,8 +190,15 @@ def export_to_excel(protocol):
         ws_material.merge_cells('A1:L1')
 
         # Material info
+        mat_total_unit = material.get('total_amount_unit', 'μmol')
+        mat_is_solvent = mat_total_unit in ('μL', 'mL')
         ws_material['A3'] = 'Method:'
-        ws_material['B3'] = 'Stock Solution' if material.get('dispensing_method') == 'stock' else 'Neat'
+        if material.get('dispensing_method') == 'stock':
+            ws_material['B3'] = 'Stock Solution'
+        elif mat_is_solvent:
+            ws_material['B3'] = 'Solvent (Neat)'
+        else:
+            ws_material['B3'] = 'Neat'
 
         stock = material.get('stock_solution', {}) or {}
         if material.get('dispensing_method') == 'stock' and stock:

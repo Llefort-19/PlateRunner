@@ -166,25 +166,33 @@ const MaterialConfigStep = ({ materialConfigs, onConfigChange }) => {
           {totalMgDisplay}
         </td>
         <td>
-          <div className="dispense-method-toggle">
-            <button
-              className={`method-btn neat ${material.dispensingMethod === 'neat' ? 'active' : ''}`}
-              onClick={() => onConfigChange(index, 'dispensingMethod', 'neat')}
-            >
-              Neat
-            </button>
-            <button
-              className={`method-btn stock ${material.dispensingMethod === 'stock' ? 'active' : ''}`}
-              onClick={() => onConfigChange(index, 'dispensingMethod', 'stock')}
-              disabled={!material.molecular_weight}
-            >
-              Stock
-            </button>
-          </div>
-          {!material.molecular_weight && (
-            <div style={{ fontSize: '11px', color: 'var(--color-warning)', marginTop: '4px' }}>
-              Stock requires MW
+          {isVolumeUnit ? (
+            <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>
+              Neat (solvent)
             </div>
+          ) : (
+            <>
+              <div className="dispense-method-toggle">
+                <button
+                  className={`method-btn neat ${material.dispensingMethod === 'neat' ? 'active' : ''}`}
+                  onClick={() => onConfigChange(index, 'dispensingMethod', 'neat')}
+                >
+                  Neat
+                </button>
+                <button
+                  className={`method-btn stock ${material.dispensingMethod === 'stock' ? 'active' : ''}`}
+                  onClick={() => onConfigChange(index, 'dispensingMethod', 'stock')}
+                  disabled={!material.molecular_weight}
+                >
+                  Stock
+                </button>
+              </div>
+              {!material.molecular_weight && (
+                <div style={{ fontSize: '11px', color: 'var(--color-warning)', marginTop: '4px' }}>
+                  Stock requires MW
+                </div>
+              )}
+            </>
           )}
         </td>
       </tr>

@@ -65,6 +65,19 @@ const ProtocolPreview = ({
     return materials;
   }, [materialConfigs, dispenseOrder]);
 
+  // Get materials for plate maps (exclude kit materials since they're pre-dispensed)
+  const getMaterialsForPlateMaps = useCallback(() => {
+    const materials = [];
+    dispenseOrder.forEach(op => {
+      if (op.type === 'dispense') {
+        const material = materialConfigs[op.materialIndex];
+        if (material) materials.push(material);
+      }
+      // Exclude kit materials - they're pre-dispensed
+    });
+    return materials;
+  }, [materialConfigs, dispenseOrder]);
+
   // Get stock materials
   const getStockMaterials = useCallback(() => {
     return getDispenseOperations().filter(m => m.dispensingMethod === 'stock');
@@ -197,12 +210,25 @@ const ProtocolPreview = ({
     return `${formatNumber(minVolumeUL, 1)} - ${formatNumber(maxVolumeUL, 1)} μL`;
   };
 
+  // Check if a material is a solvent (volume-based unit)
+  const isSolvent = (material) => {
+    const unit = material?.totalAmount?.unit || '';
+    return unit === 'μL' || unit === 'mL';
+  };
+
   // Get mass range for neat materials
   const formatMassRange = (material) => {
-    if (!material.wellAmounts || !material.molecular_weight) return '--';
+    if (!material.wellAmounts) return '--';
 
     const wellAmountsArray = Object.values(material.wellAmounts);
     if (wellAmountsArray.length === 0) return '--';
+
+    // For solvents, show volume in μL
+    if (isSolvent(material)) {
+      return formatSolventVolumeRange(material);
+    }
+
+    if (!material.molecular_weight) return '--';
 
     // Calculate mass for each well: mass (mg) = amount (μmol) × MW (g/mol) / 1000
     const masses = wellAmountsArray.map(w => (w.value * material.molecular_weight) / 1000);
@@ -214,6 +240,30 @@ const ProtocolPreview = ({
       return `${formatNumber(minMass, 2)} mg`;
     }
     return `${formatNumber(minMass, 2)} - ${formatNumber(maxMass, 2)} mg`;
+  };
+
+  // Get volume range for solvents (amounts are already in μL/mL)
+  const formatSolventVolumeRange = (material) => {
+    if (!material.wellAmounts) return '--';
+
+    const wellAmountsArray = Object.values(material.wellAmounts);
+    if (wellAmountsArray.length === 0) return '--';
+
+    const unit = material.totalAmount?.unit || 'μL';
+    const values = wellAmountsArray.map(w => w.value);
+    let minVal = Math.min(...values);
+    let maxVal = Math.max(...values);
+
+    // Convert to μL if in mL
+    if (unit === 'mL') {
+      minVal *= 1000;
+      maxVal *= 1000;
+    }
+
+    if (minVal === maxVal) {
+      return `${formatNumber(minVal, 1)} μL`;
+    }
+    return `${formatNumber(minVal, 1)} - ${formatNumber(maxVal, 1)} μL`;
   };
 
   // Build protocol data for export
@@ -432,7 +482,7 @@ const ProtocolPreview = ({
                       <>
                         <strong>Dispense: {material.alias || material.name}</strong>
                         <span className="preview-step-meta">
-                          {material.dispensingMethod === 'stock' ? 'Stock' : 'Neat'}
+                          {isSolvent(material) ? 'Solvent' : material.dispensingMethod === 'stock' ? 'Stock' : 'Neat'}
                           {' • '}
                           {Object.keys(material.wellAmounts).length} wells
                           {material.dispensingMethod === 'stock' ? (
@@ -476,7 +526,7 @@ const ProtocolPreview = ({
       <div className="preview-section">
         <h4>🗺️ Plate Maps</h4>
         <div className="preview-plate-maps">
-          {getDispenseOperations().map((material, idx) => (
+          {getMaterialsForPlateMaps().map((material, idx) => (
             <PlateGridView
               key={idx}
               material={material}
