@@ -34,6 +34,7 @@ const Materials = () => {
   const [kitData, setKitData] = useState(null);
   const [kitSize, setKitSize] = useState(null);
   const [destinationPlateType, setDestinationPlateType] = useState("96");
+  const [smilesWarningAliases, setSmilesWarningAliases] = useState(new Set());
 
   // File upload state - Materials from previous experiment
   const [selectedUploadFile, setSelectedUploadFile] = useState(null);
@@ -814,15 +815,30 @@ const Materials = () => {
     setDestinationPlateType("96");
   };
 
-  const handleApplyKit = async () => {
+  const handleApplyKit = async (smilesWarnings = []) => {
     // Reload materials to get the updated list
     await loadMaterials();
     closeKitPositionModal();
+
+    // Populate SMILES warning aliases for highlighting in the table
+    if (smilesWarnings.length > 0) {
+      setSmilesWarningAliases(prev => {
+        const newSet = new Set(prev);
+        smilesWarnings.forEach(w => {
+          if (w.alias_a) newSet.add(w.alias_a);
+          if (w.alias_b) newSet.add(w.alias_b);
+        });
+        return newSet;
+      });
+    }
   };
 
   const handleRemoveAllMaterials = async () => {
     if (window.confirm("Are you sure you want to remove all materials from your list?")) {
       try {
+        // Clean up procedure data (remove all materials from all wells)
+        await cleanProcedureData(materials);
+
         await saveMaterials([]); // Save an empty array to remove all materials
         showSuccess("All materials removed successfully!");
       } catch (error) {
@@ -923,7 +939,13 @@ const Materials = () => {
   const handleRemoveKit = async (kitId) => {
     if (window.confirm(`Remove all materials from ${kitId}?`)) {
       try {
+        // Collect kit materials for procedure cleanup
+        const kitMaterials = materials.filter(mat => mat.role_id === kitId);
         const updatedMaterials = materials.filter(mat => mat.role_id !== kitId);
+
+        // Clean up procedure data (remove kit materials from all wells)
+        await cleanProcedureData(kitMaterials);
+
         await saveMaterials(updatedMaterials);
         showSuccess(`All materials from ${kitId} removed successfully!`);
         setSelectedMaterialIndices(new Set());
@@ -1169,6 +1191,7 @@ const Materials = () => {
         selectedIndices={selectedMaterialIndices}
         onSelectionChange={handleSelectionChange}
         onSelectAll={handleSelectAll}
+        smilesWarningAliases={smilesWarningAliases}
       />
 
       {/* Material Form Modal */}

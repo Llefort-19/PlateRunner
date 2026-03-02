@@ -39,7 +39,7 @@ const formatValidationDetails = (details) => {
 export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
 
-  const showToast = useCallback((message, type = 'info', duration = 3000) => {
+  const showToast = useCallback((message, type = 'info', duration = 5000) => {
     const id = Date.now() + Math.random();
     const newToast = {
       id,
@@ -62,19 +62,19 @@ export const ToastProvider = ({ children }) => {
     setToasts(prev => prev.filter(toast => toast.id !== id));
   }, []);
 
-  const showSuccess = useCallback((message, duration) => {
+  const showSuccess = useCallback((message, duration = 5000) => {
     return showToast(message, 'success', duration);
   }, [showToast]);
 
-  const showError = useCallback((message, duration) => {
+  const showError = useCallback((message, duration = 8000) => {
     return showToast(message, 'error', duration);
   }, [showToast]);
 
-  const showInfo = useCallback((message, duration) => {
+  const showInfo = useCallback((message, duration = 6000) => {
     return showToast(message, 'info', duration);
   }, [showToast]);
 
-  const showWarning = useCallback((message, duration) => {
+  const showWarning = useCallback((message, duration = 6000) => {
     return showToast(message, 'warning', duration);
   }, [showToast]);
 

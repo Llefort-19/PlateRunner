@@ -58,7 +58,8 @@ const MaterialTable = memo(({
   currentMolecule,
   selectedIndices = new Set(),
   onSelectionChange,
-  onSelectAll
+  onSelectAll,
+  smilesWarningAliases = new Set()
 }) => {
 
   const renderActionButtons = (material, index) => (
@@ -248,12 +249,19 @@ const MaterialTable = memo(({
         backgroundColor: selectedIndices.has(index)
           ? 'rgba(74, 144, 226, 0.08)'
           : material.role_id && material.role_id.startsWith('kit_')
-          ? 'rgba(0, 123, 255, 0.02)'
-          : 'transparent',
+            ? 'rgba(0, 123, 255, 0.02)'
+            : 'transparent',
         transition: 'background-color 0.2s ease',
-        borderLeft: material.role_id && material.role_id.startsWith('kit_') && collapseKits && expandedKits.has(material.role_id)
-          ? '3px solid #007bff'
-          : 'none'
+        borderLeft: (() => {
+          const alias = material.alias || material.name || '';
+          if (smilesWarningAliases.has(alias)) {
+            return '3px solid #f0ad4e';
+          }
+          if (material.role_id && material.role_id.startsWith('kit_') && collapseKits && expandedKits.has(material.role_id)) {
+            return '3px solid #007bff';
+          }
+          return 'none';
+        })()
       }}
     >
       <td style={{ textAlign: "center", padding: "8px" }}>
@@ -265,7 +273,22 @@ const MaterialTable = memo(({
           style={{ cursor: "pointer", width: "16px", height: "16px" }}
         />
       </td>
-      <td>{material.alias || material.name}</td>
+      <td>
+        {material.alias || material.name}
+        {smilesWarningAliases.has(material.alias || material.name || '') && (
+          <span
+            title="This material shares the same SMILES structure with another material in this kit"
+            style={{
+              marginLeft: '6px',
+              color: '#f0ad4e',
+              cursor: 'help',
+              fontSize: '14px'
+            }}
+          >
+            ⚠
+          </span>
+        )}
+      </td>
       <td>{material.cas}</td>
       <td>{renderSmilesCell(material)}</td>
       <td>{material.barcode}</td>

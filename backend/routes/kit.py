@@ -116,60 +116,81 @@ def analyze_kit():
         if not materials:
             return jsonify({'error': 'No valid materials found in the Materials sheet'}), 400
         
-        # Extract design data from the Design sheet
+        # Extract design data from the Design sheet (long format)
+        # Columns: well, material_nr, material_alias, amount, dispense_order
         design_data = {}
         kit_wells = set()
-        
-        for index, row in design_df.iterrows():
-            # Skip empty rows
-            if pd.isna(row.iloc[0]) or str(row.iloc[0]).strip() == '':
-                continue
-            
-            well = str(row.get('Well', row.iloc[0])).strip()
+
+        # Build lookup: Nr (1-based) → material dict
+        nr_to_material = {i + 1: m for i, m in enumerate(materials)}
+
+        # Also build name/alias lookup for fallback
+        name_lookup = {}
+        alias_lookup = {}
+        for m in materials:
+            n = (m.get('name') or '').strip().lower()
+            a = (m.get('alias') or '').strip().lower()
+            if n:
+                name_lookup[n] = m
+            if a:
+                alias_lookup[a] = m
+
+        for _, row in design_df.iterrows():
+            well_val = row.get('well', row.iloc[0]) if 'well' in design_df.columns else row.iloc[0]
+            well = str(well_val).strip() if pd.notna(well_val) else ''
             if not well or well == 'nan':
                 continue
-            
+
             kit_wells.add(well)
-            
-            # Extract compounds and amounts from the row
-            well_materials = []
-            
-            # Look for compound columns (e.g., "Compound 1 name", "Compound 1 amount")
-            col_index = 2  # Start after Well and ID columns
-            while col_index < len(row):
-                if col_index + 1 < len(row):
-                    compound_name = str(row.iloc[col_index]).strip()
-                    compound_amount = str(row.iloc[col_index + 1]).strip()
-                    
-                    if compound_name and compound_name != 'nan' and compound_amount and compound_amount != 'nan':
-                        # Find the material in our materials list
-                        material = next((m for m in materials if m.get('name') == compound_name or m.get('alias') == compound_name), None)
-                        if material:
-                            # Include all material fields to ensure proper matching with materials list
-                            well_materials.append({
-                                'name': material.get('name', ''),
-                                'alias': material.get('alias', ''),
-                                'cas': material.get('cas', ''),
-                                'smiles': material.get('smiles', ''),
-                                'molecular_weight': material.get('molecular_weight', ''),
-                                'barcode': material.get('barcode', ''),
-                                'role': material.get('role', ''),
-                                'amount': compound_amount,
-                                'unit': 'μmol'  # Default unit
-                            })
-                            if well in ['A1', 'A12', 'B1', 'B12']:  # Debug corner wells
-                                safe_cname = compound_name.encode('ascii', 'replace').decode('ascii')
-                                safe_alias = material.get('alias', '').encode('ascii', 'replace').decode('ascii')
-                                print(f"DEBUG: Well {well}: Added '{safe_cname}' -> material '{safe_alias}'")
-                        else:
-                            if well in ['A1', 'A12', 'B1', 'B12']:  # Debug corner wells
-                                safe_cname = compound_name.encode('ascii', 'replace').decode('ascii')
-                                print(f"DEBUG: Well {well}: Compound '{safe_cname}' NOT FOUND in materials")
-                
-                col_index += 2  # Move to next compound pair
-            
-            if well_materials:
-                design_data[well] = well_materials
+
+            # Read material_nr
+            mat_nr = None
+            if 'material_nr' in design_df.columns and pd.notna(row.get('material_nr')):
+                try:
+                    mat_nr = int(float(row['material_nr']))
+                except (ValueError, TypeError):
+                    mat_nr = None
+
+            # Read alias
+            alias_val = ''
+            if 'material_alias' in design_df.columns and pd.notna(row.get('material_alias')):
+                alias_val = str(row['material_alias']).strip()
+
+            # Read amount
+            amt = ''
+            if 'amount' in design_df.columns and pd.notna(row.get('amount')):
+                amt = str(row['amount']).strip()
+
+            if not amt or amt == 'nan':
+                continue
+
+            # Resolve material
+            material = None
+            if mat_nr and mat_nr in nr_to_material:
+                material = nr_to_material[mat_nr]
+            elif alias_val:
+                alias_lower = alias_val.lower()
+                material = alias_lookup.get(alias_lower) or name_lookup.get(alias_lower)
+
+            if material:
+                role = (material.get('role', '') or '').lower()
+                unit = 'μL' if role == 'solvent' else 'μmol'
+                entry = {
+                    'name': material.get('name', ''),
+                    'alias': material.get('alias', ''),
+                    'cas': material.get('cas', ''),
+                    'smiles': material.get('smiles', ''),
+                    'molecular_weight': material.get('molecular_weight', ''),
+                    'barcode': material.get('barcode', ''),
+                    'role': material.get('role', ''),
+                    'amount': amt,
+                    'unit': unit,
+                }
+                design_data.setdefault(well, []).append(entry)
+            else:
+                if well in ['A1', 'A12', 'B1', 'B12']:
+                    safe_alias = alias_val.encode('ascii', 'replace').decode('ascii')
+                    print(f"DEBUG: Well {well}: material_nr={mat_nr} alias='{safe_alias}' NOT FOUND")
         
         # Apply amount override if provided
         amount_override = request.form.get('amount_override', '').strip()
@@ -304,27 +325,74 @@ def apply_kit():
         kit_id = f"kit_{str(next_kit_num).zfill(2)}"
         print(f"Assigning kit ID: {kit_id}")
 
-        # Add materials to experiment (avoiding duplicates)
-        added_materials = []
-        skipped_materials = []
+        # ── Step 1: Deduplicate within the kit's own Materials list ─────────────────
+        # Two materials in the same kit that share a name or real CAS are treated
+        # as duplicates.  We keep the first occurrence and inform the user about any
+        # that were dropped.  The Design sheet is NOT affected – the same material can
+        # legitimately appear in many wells.
+        # NOTE: SMILES alone is NOT used for dedup because different materials can
+        # share a SMILES representation.  SMILES-only matches are surfaced as
+        # warnings instead (see Step 1b below).
+        PLACEHOLDER_CAS = {'na', 'n/a', 'unknown', 'none', ''}
 
+        def is_same_material(a, b):
+            if a.get('name') and b.get('name') and a['name'].strip().lower() == b['name'].strip().lower():
+                return True
+            cas_a = (a.get('cas') or '').strip().lower()
+            cas_b = (b.get('cas') or '').strip().lower()
+            if cas_a and cas_b and cas_a not in PLACEHOLDER_CAS and cas_b not in PLACEHOLDER_CAS and cas_a == cas_b:
+                return True
+            return False
+
+        unique_kit_materials = []
+        skipped_in_kit = []          # duplicates within the kit file itself
         for material in materials:
-            # Check if material already exists (by name, CAS, or SMILES)
-            is_duplicate = any(
-                (existing.get('name') and material.get('name') and existing.get('name') == material.get('name')) or
-                (existing.get('cas') and material.get('cas') and existing.get('cas') == material.get('cas')) or
-                (existing.get('smiles') and material.get('smiles') and existing.get('smiles') == material.get('smiles'))
+            if any(is_same_material(material, seen) for seen in unique_kit_materials):
+                label = material.get('alias') or material.get('name', 'Unknown')
+                skipped_in_kit.append(label)
+                print(f"Intra-kit duplicate dropped: '{label}' (same name/CAS as an earlier entry)")
+            else:
+                unique_kit_materials.append(material)
+
+        # ── Step 1b: Detect SMILES-only matches (warn but keep both) ────────────────
+        smiles_warnings = []
+        for i, mat_a in enumerate(unique_kit_materials):
+            smiles_a = (mat_a.get('smiles') or '').strip()
+            if not smiles_a:
+                continue
+            for mat_b in unique_kit_materials[i + 1:]:
+                smiles_b = (mat_b.get('smiles') or '').strip()
+                if smiles_a == smiles_b:
+                    alias_a = mat_a.get('alias') or mat_a.get('name', 'Unknown')
+                    alias_b = mat_b.get('alias') or mat_b.get('name', 'Unknown')
+                    smiles_warnings.append({
+                        'alias_a': alias_a,
+                        'alias_b': alias_b,
+                        'smiles': smiles_a[:80]
+                    })
+                    print(f"SMILES-only match (kept both): '{alias_a}' and '{alias_b}'")
+
+        # ── Step 2: Check deduplicated kit list against pre-existing experiment materials
+        added_materials = []
+        skipped_already_in_experiment = []  # already present before this kit upload
+
+        for material in unique_kit_materials:
+            already_present = any(
+                is_same_material(material, existing)
                 for existing in current_materials
             )
-
-            if is_duplicate:
-                skipped_materials.append(material.get('alias') or material.get('name', 'Unknown'))
+            if already_present:
+                label = material.get('alias') or material.get('name', 'Unknown')
+                skipped_already_in_experiment.append(label)
             else:
                 # Assign Reagent role and kit_XX role_id to all materials from this kit
                 material['role'] = 'Reagent'
                 material['role_id'] = kit_id
                 added_materials.append(material)
                 current_materials.append(material)
+
+        # Combined list for backward-compat response field
+        all_skipped = skipped_in_kit + skipped_already_in_experiment
 
         # Update design materials with kit_id before applying to procedure
         for well, well_materials in design.items():
@@ -342,7 +410,10 @@ def apply_kit():
             'message': f'Kit applied successfully with ID: {kit_id}',
             'kit_id': kit_id,
             'added_materials': len(added_materials),
-            'skipped_materials': len(skipped_materials),
+            'skipped_materials': len(all_skipped),
+            'skipped_in_kit': skipped_in_kit,
+            'skipped_already_in_experiment': skipped_already_in_experiment,
+            'smiles_warnings': smiles_warnings,
             'procedure_wells_updated': len([w for w in new_procedure_data if any(m.get('source') == 'kit_upload' for m in w.get('materials', []))])
         }), 200
         

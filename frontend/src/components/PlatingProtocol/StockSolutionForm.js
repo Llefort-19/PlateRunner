@@ -1,11 +1,27 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
+import SolventSearchDropdown from './SolventSearchDropdown';
+import StockFormInputs from './StockFormInputs';
+import {
+  formatNumber,
+  toMicroliters,
+  calculateStockConcentration,
+  calculateStockTotalVolume,
+  calculateTotalMass,
+  formatConcentration,
+  formatVolume,
+  getVolumeRange,
+  formatRange
+} from './stockCalculations';
+import { useToast } from '../ToastContext';
 
-const StockSolutionForm = ({ materialConfigs, onStockSolutionChange, allMaterialConfigs }) => {
+const StockSolutionForm = ({ materialConfigs, onStockSolutionChange, onCombineStocks, onUncombineStocks, allMaterialConfigs }) => {
+  const { showError } = useToast();
   const [solventSearches, setSolventSearches] = useState({});
   const [solventResults, setSolventResults] = useState({});
   const [showDropdown, setShowDropdown] = useState({});
   const searchTimeoutRef = useRef({});
+  const [expandedKits, setExpandedKits] = useState(new Set());
 
   // Batch solvent selection
   const [batchSolventSearch, setBatchSolventSearch] = useState('');
@@ -171,6 +187,78 @@ const StockSolutionForm = ({ materialConfigs, onStockSolutionChange, allMaterial
     }
   };
 
+  // Validate if selected materials can be combined
+  const getCombinationError = () => {
+    const selectedList = materialConfigs.filter(m => selectedMaterials[`${m.name}_${m.cas}`]);
+    if (selectedList.length < 2) {
+      return "Select at least 2 materials to combine.";
+    }
+
+    // 1. Validate identical destination wells
+    const referenceWells = Object.keys(selectedList[0].wellAmounts).sort();
+    const referenceWellsString = referenceWells.join(',');
+
+    for (let i = 1; i < selectedList.length; i++) {
+      const compareWells = Object.keys(selectedList[i].wellAmounts).sort();
+      if (compareWells.join(',') !== referenceWellsString) {
+        return "Selected materials must be dispensed into the exact same set of wells.";
+      }
+    }
+
+    // 2. Validate constant ratio of amounts across all shared wells
+    if (referenceWells.length > 0) {
+      // We check the ratio of [Material i] / [Reference Material(0)] for each well
+      for (let i = 1; i < selectedList.length; i++) {
+        const material = selectedList[i];
+        let targetRatio = null;
+
+        for (const well of referenceWells) {
+          const refAmount = selectedList[0].wellAmounts[well].value;
+          const matAmount = material.wellAmounts[well].value;
+
+          // If either is zero, both must be zero
+          if (refAmount === 0 || matAmount === 0) {
+            if (refAmount !== 0 || matAmount !== 0) {
+              return `Ratio mismatch detected for ${material.alias || material.name} in well ${well}.`;
+            }
+            continue;
+          }
+
+          const ratio = matAmount / refAmount;
+          if (targetRatio === null) {
+            targetRatio = ratio;
+          } else {
+            // Allow a small floating point tolerance (e.g. 0.1%)
+            const percentDiff = Math.abs((ratio - targetRatio) / targetRatio);
+            if (percentDiff > 0.001) {
+              return `Ratio mismatch detected for ${material.alias || material.name}. The ratio must be constant across all shared wells.`;
+            }
+          }
+        }
+      }
+    }
+
+    return null; // Valid
+  };
+
+  const handleCombineStocks = () => {
+    const error = getCombinationError();
+    if (error) {
+      showError(error);
+      return;
+    }
+
+    // Get selected keys before clearing
+    const selectedKeys = Object.keys(selectedMaterials).filter(k => selectedMaterials[k]);
+
+    if (onCombineStocks) {
+      onCombineStocks(selectedKeys);
+    }
+
+    // Clear selection
+    setSelectedMaterials({});
+  };
+
   // Handle numeric input changes
   const handleValueChange = (material, field, value, subField = 'value') => {
     const index = findMaterialIndex(material);
@@ -203,140 +291,31 @@ const StockSolutionForm = ({ materialConfigs, onStockSolutionChange, allMaterial
     onStockSolutionChange(index, updatedConfig);
   };
 
-  // Calculate total amount of material in mg (including excess)
-  const calculateMass = (material) => {
+  // ─── Thin wrappers delegating to shared utilities ──────────────────────────
+
+  /** Mass (mg) = totalAmount * (1 + excess%) * MW / 1000 */
+  const calcMass = (material) => {
+    if (material.isCocktail) return null;
     const stock = material.stockSolution;
-    if (!material.totalAmount?.value || !material.molecular_weight || stock?.excess === undefined) {
-      return null;
-    }
-
-    // totalAmount is in µmol, apply excess, convert to mg
-    const totalAmountUmol = material.totalAmount.value;
-    const excessPercent = stock.excess || 0;
-    const molecularWeight = material.molecular_weight;
-
-    // Total amount including excess
-    const totalAmountWithExcess = totalAmountUmol * (1 + excessPercent / 100);
-
-    // mass (mg) = amount (µmol) × MW (g/mol) / 1000
-    return totalAmountWithExcess * molecularWeight / 1000;
+    if (!material.totalAmount?.value || !material.molecular_weight || stock?.excess === undefined) return null;
+    return calculateTotalMass(material.totalAmount.value, stock.excess || 0, material.molecular_weight);
   };
 
-  // Calculate total volume
-  const calculateTotalVolume = (material) => {
+  /** Total volume in μL (including excess) */
+  const calcTotalVolume = (material) => {
     const stock = material.stockSolution;
-    if (!stock?.amountPerWell?.value || stock.excess === undefined || !material.wellAmounts) {
-      return null;
-    }
-
-    const volumePerWell = stock.amountPerWell.value;
-    const unit = stock.amountPerWell.unit;
-    const excessPercent = stock.excess;
-
-    // Convert to μL
-    const volumePerWellUL = unit === 'mL' ? volumePerWell * 1000 : volumePerWell;
-
-    // Calculate concentration (based on minimum amount)
-    const wellAmountsArray = Object.values(material.wellAmounts);
-    if (wellAmountsArray.length === 0) return null;
-
-    const minAmountUmol = Math.min(...wellAmountsArray.map(w => w.value));
-    const concentrationM = minAmountUmol / volumePerWellUL;
-
-    // Calculate actual volume needed for each well and sum them
-    let totalVolumeNeeded = 0;
-    for (const wellAmount of wellAmountsArray) {
-      const volumeForWell = wellAmount.value / concentrationM;
-      totalVolumeNeeded += volumeForWell;
-    }
-
-    // Add excess percentage
-    const totalVolumeUL = totalVolumeNeeded * (1 + excessPercent / 100);
-    return totalVolumeUL;
+    if (!stock?.amountPerWell?.value || stock.excess === undefined || !material.wellAmounts) return null;
+    const vpwUL = toMicroliters(stock.amountPerWell.value, stock.amountPerWell.unit);
+    return calculateStockTotalVolume(material.wellAmounts, vpwUL, stock.excess, material.isCocktail);
   };
 
-  // Calculate concentration (not affected by excess)
-  // IMPORTANT: The volume entered by the user corresponds to the SMALLEST amount to be dispensed
-  const calculateConcentration = (material) => {
+  /** Concentration in M (from minimum well amount / volume per well) */
+  const calcConcentration = (material) => {
+    if (material.isCocktail) return null;
     const stock = material.stockSolution;
-    if (!stock?.amountPerWell?.value || !material.wellAmounts) {
-      return null;
-    }
-
-    const volumePerWell = stock.amountPerWell.value;
-    const unit = stock.amountPerWell.unit;
-
-    // Convert to μL
-    const volumePerWellUL = unit === 'mL' ? volumePerWell * 1000 : volumePerWell;
-
-    // Find the MINIMUM amount across all wells (in µmol)
-    const wellAmountsArray = Object.values(material.wellAmounts);
-    if (wellAmountsArray.length === 0) {
-      return null;
-    }
-
-    const minAmountUmol = Math.min(...wellAmountsArray.map(w => w.value));
-
-    // concentration (M) = µmol (minimum) / µL (user-entered volume) = mol / L
-    // This means: user's entered volume dispenses the minimum amount
-    const concentrationM = minAmountUmol / volumePerWellUL;
-    return concentrationM;
-  };
-
-  // Format number for display
-  const formatNumber = (num, decimals = 2) => {
-    if (num === null || num === undefined || isNaN(num)) return '--';
-    return num.toFixed(decimals);
-  };
-
-  // Format volume for display
-  const formatVolume = (volumeUL) => {
-    if (!volumeUL) return '--';
-    if (volumeUL >= 1000) {
-      return `${formatNumber(volumeUL / 1000, 2)} mL`;
-    }
-    return `${formatNumber(volumeUL, 0)} μL`;
-  };
-
-  // Format concentration for display
-  const formatConcentration = (concentrationM) => {
-    if (!concentrationM) return '--';
-    if (concentrationM < 0.1) {
-      return `${formatNumber(concentrationM * 1000, 2)} mM`;
-    }
-    return `${formatNumber(concentrationM, 3)} M`;
-  };
-
-  // Get min and max volumes to be dispensed per well (based on concentration)
-  const getVolumeRange = (material) => {
-    const stock = material.stockSolution;
-    const concentration = calculateConcentration(material);
-
-    if (!concentration || !material.wellAmounts) {
-      return { min: null, max: null, unit: stock?.amountPerWell?.unit || 'μL' };
-    }
-
-    // Get all well amounts
-    const wellAmountsArray = Object.values(material.wellAmounts);
-    if (wellAmountsArray.length === 0) {
-      return { min: null, max: null, unit: stock?.amountPerWell?.unit || 'μL' };
-    }
-
-    const amounts = wellAmountsArray.map(w => w.value);
-    const minAmount = Math.min(...amounts);
-    const maxAmount = Math.max(...amounts);
-
-    // Calculate volumes needed: volume = amount / concentration
-    // concentration is in M (mol/L), amount is in μmol
-    // volume (μL) = amount (μmol) / concentration (mol/L) = amount / concentration
-    const minVolumeUL = minAmount / concentration;
-    const maxVolumeUL = maxAmount / concentration;
-
-    return {
-      min: minVolumeUL,
-      max: maxVolumeUL,
-      unit: 'μL'
-    };
+    if (!stock?.amountPerWell?.value || !material.wellAmounts) return null;
+    const vpwUL = toMicroliters(stock.amountPerWell.value, stock.amountPerWell.unit);
+    return calculateStockConcentration(material.wellAmounts, vpwUL);
   };
 
   if (materialConfigs.length === 0) {
@@ -354,7 +333,7 @@ const StockSolutionForm = ({ materialConfigs, onStockSolutionChange, allMaterial
   return (
     <div className="stock-solution-step">
       {/* Unified Batch Operations Panel */}
-      {materialConfigs.length > 1 && (
+      {materialConfigs.length > 0 && (
         <div className="batch-operations-panel">
           <div className="batch-compact-row">
             {/* Left Column: Title on top, Badge + Select All below */}
@@ -367,7 +346,7 @@ const StockSolutionForm = ({ materialConfigs, onStockSolutionChange, allMaterial
                 <label className="batch-select-all">
                   <input
                     type="checkbox"
-                    checked={materialConfigs.every(m => selectedMaterials[`${m.name}_${m.cas}`])}
+                    checked={materialConfigs.length > 0 && materialConfigs.every(m => selectedMaterials[`${m.name}_${m.cas}`])}
                     onChange={toggleAllMaterials}
                   />
                   <span>Select All</span>
@@ -381,68 +360,22 @@ const StockSolutionForm = ({ materialConfigs, onStockSolutionChange, allMaterial
               {/* Solvent Field */}
               <div className="batch-field-compact">
                 <label>Solvent</label>
-                <div className="solvent-search-container">
-                  <input
-                    ref={(el) => {
-                      if (el) {
-                        el.dataset.dropdownAnchor = 'batch-solvent';
-                      }
-                    }}
-                    type="text"
-                    className="batch-input-compact"
-                    placeholder="Search solvents..."
-                    value={batchSolventSearch}
-                    onChange={(e) => handleBatchSolventSearch(e.target.value)}
-                    onFocus={(e) => {
-                      setShowBatchDropdown(true);
-                      // Store position for dropdown
-                      const rect = e.target.getBoundingClientRect();
-                      e.target.dataset.dropdownTop = rect.bottom;
-                      e.target.dataset.dropdownLeft = rect.left;
-                      e.target.dataset.dropdownWidth = rect.width;
-                    }}
-                    onBlur={() => setTimeout(() => setShowBatchDropdown(false), 200)}
-                  />
-                  {showBatchDropdown && batchSolventSearch.length >= 2 && (() => {
-                    const input = document.querySelector('[data-dropdown-anchor="batch-solvent"]');
-                    const rect = input?.getBoundingClientRect();
-                    return rect ? (
-                      <div
-                        className="solvent-dropdown"
-                        style={{
-                          top: `${rect.bottom + 2}px`,
-                          left: `${rect.left}px`,
-                          width: `${rect.width}px`
-                        }}
-                      >
-                        {batchSolventResults.length > 0 ? (
-                          batchSolventResults.map((solvent, idx) => (
-                            <div
-                              key={idx}
-                              className="solvent-option"
-                              onClick={() => {
-                                setBatchSolventSearch(solvent.name);
-                                setSelectedBatchSolvent(solvent);
-                                setShowBatchDropdown(false);
-                              }}
-                            >
-                              <div className="solvent-option-name">{solvent.name}</div>
-                              <div className="solvent-option-details">
-                                {solvent.alias && `${solvent.alias}`}
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="solvent-option no-clickable">
-                            <div className="solvent-option-name" style={{ color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>
-                              No solvents found
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ) : null;
-                  })()}
-                </div>
+                <SolventSearchDropdown
+                  value={batchSolventSearch}
+                  results={batchSolventResults}
+                  showDropdown={showBatchDropdown}
+                  anchorId="batch-solvent"
+                  inputClassName="batch-input-compact"
+                  placeholder="Search solvents..."
+                  onSearch={handleBatchSolventSearch}
+                  onSelect={(solvent) => {
+                    setBatchSolventSearch(solvent.name);
+                    setSelectedBatchSolvent(solvent);
+                    setShowBatchDropdown(false);
+                  }}
+                  onFocus={() => setShowBatchDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowBatchDropdown(false), 200)}
+                />
               </div>
 
               {/* Volume Field */}
@@ -483,244 +416,374 @@ const StockSolutionForm = ({ materialConfigs, onStockSolutionChange, allMaterial
                 />
               </div>
 
-              {/* Apply Button */}
-              <button
-                className="btn btn-primary batch-apply-compact"
-                onClick={() => {
-                  // Determine solvent to apply (priority: selected object > exact match in results > none)
-                  let solventToApply = selectedBatchSolvent;
-                  if (!solventToApply && batchSolventSearch && batchSolventResults.length > 0) {
-                    solventToApply = batchSolventResults.find(s => s.name === batchSolventSearch);
-                  }
-
-                  materialConfigs.forEach((material) => {
-                    const materialKey = `${material.name}_${material.cas}`;
-                    if (selectedMaterials[materialKey]) {
-                      const index = findMaterialIndex(material);
-                      const currentStock = material.stockSolution || {};
-
-                      const updatedConfig = {
-                        ...currentStock,
-                        // Apply solvent if one is selected
-                        ...(solventToApply ? {
-                          solvent: {
-                            name: solventToApply.name,
-                            cas: solventToApply.cas,
-                            density: solventToApply.density
-                          }
-                        } : {}),
-                        // Apply volume/excess if configured
-                        ...(batchVolumePerWell ? {
-                          amountPerWell: {
-                            value: parseFloat(batchVolumePerWell) || '',
-                            unit: batchVolumeUnit
-                          }
-                        } : {}),
-                        ...(batchExcess !== '' ? {
-                          excess: parseFloat(batchExcess) || 0
-                        } : {})
-                      };
-
-                      onStockSolutionChange(index, updatedConfig);
+              <div style={{ marginLeft: '10px', display: 'flex', flexDirection: 'column', gap: '6px', justifyContent: 'flex-end', height: '100%' }}>
+                <button
+                  className="btn btn-primary batch-apply-compact"
+                  onClick={handleCombineStocks}
+                  disabled={Object.values(selectedMaterials).filter(Boolean).length < 2}
+                  style={{ backgroundColor: 'var(--color-accent)', border: 'none', width: '100%', fontSize: '13px', padding: '6px' }}
+                >
+                  Combine
+                </button>
+                <button
+                  className="btn btn-primary batch-apply-compact"
+                  onClick={() => {
+                    // Determine solvent to apply (priority: selected object > exact match in results > none)
+                    let solventToApply = selectedBatchSolvent;
+                    if (!solventToApply && batchSolventSearch && batchSolventResults.length > 0) {
+                      solventToApply = batchSolventResults.find(s => s.name === batchSolventSearch);
                     }
-                  });
 
-                  // Clear solvent search after apply
-                  setBatchSolventSearch('');
-                  setBatchSolventResults([]);
-                  setSelectedBatchSolvent(null);
-                }}
-                disabled={Object.values(selectedMaterials).filter(Boolean).length === 0}
-              >
-                Apply
-              </button>
+                    materialConfigs.forEach((material) => {
+                      const materialKey = `${material.name}_${material.cas}`;
+                      if (selectedMaterials[materialKey]) {
+                        const index = findMaterialIndex(material);
+                        const currentStock = material.stockSolution || {};
+
+                        const updatedConfig = {
+                          ...currentStock,
+                          // Apply solvent if one is selected
+                          ...(solventToApply ? {
+                            solvent: {
+                              name: solventToApply.name,
+                              cas: solventToApply.cas,
+                              density: solventToApply.density
+                            }
+                          } : {}),
+                          // Apply volume/excess if configured
+                          ...(batchVolumePerWell ? {
+                            amountPerWell: {
+                              value: parseFloat(batchVolumePerWell) || '',
+                              unit: batchVolumeUnit
+                            }
+                          } : {}),
+                          ...(batchExcess !== '' ? {
+                            excess: parseFloat(batchExcess) || 0
+                          } : {})
+                        };
+
+                        // If it's a cocktail, we need to mathematically propagate these global settings down 
+                        // into each component to recalculate their respective mass/concentrations.
+                        let updatedComponents = undefined;
+                        if (material.isCocktail && material.components) {
+                          const volVal = updatedConfig.amountPerWell?.value;
+                          const volUnit = updatedConfig.amountPerWell?.unit;
+                          const excess = updatedConfig.excess;
+
+                          if (volVal && volUnit && excess !== undefined) {
+                            const volUL = volUnit === 'mL' ? volVal * 1000 : volVal;
+
+                            updatedComponents = material.components.map(c => {
+                              const newC = { ...c };
+                              newC.stockSolution = { ...(newC.stockSolution || {}) };
+
+                              // Propagate structural config downstream
+                              newC.stockSolution.amountPerWell = { value: volVal, unit: volUnit };
+                              newC.stockSolution.excess = excess;
+                              if (solventToApply) newC.stockSolution.solvent = { ...solventToApply };
+
+                              // Recalculate component Concentration
+                              const wellArr = Object.values(newC.wellAmounts || {});
+                              if (wellArr.length > 0) {
+                                const minAmountUmol = Math.min(...wellArr.map(w => w.value));
+                                const concentrationM = minAmountUmol / volUL;
+                                newC.stockSolution.concentration = { value: concentrationM, unit: 'M' };
+                              }
+
+                              // Recalculate component Mass
+                              if (newC.totalAmount?.value && newC.molecular_weight) {
+                                const totalAmtUmol = newC.totalAmount.value;
+                                const amtWithExcess = totalAmtUmol * (1 + excess / 100);
+                                const mg = (amtWithExcess * newC.molecular_weight) / 1000;
+                                newC.stockSolution.calculatedMass = { value: mg, unit: 'mg' };
+                              }
+                              return newC;
+                            });
+                          }
+                        }
+
+                        onStockSolutionChange(index, updatedConfig, updatedComponents);
+                      }
+                    });
+
+                    // Clear solvent search after apply
+                    setBatchSolventSearch('');
+                    setBatchSolventResults([]);
+                    setSelectedBatchSolvent(null);
+                  }}
+                  disabled={Object.values(selectedMaterials).filter(Boolean).length === 0}
+                  style={{ width: '100%' }}
+                >
+                  Apply
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {materialConfigs.map((material) => {
-        const materialKey = `${material.name}_${material.cas}`;
-        const stock = material.stockSolution || {};
-        const wellCount = Object.keys(material.wellAmounts).length;
+      {(() => {
+        // Group materials: kit members grouped by role_id, non-kit individually
+        const kitGroups = {};
+        const individualMaterials = [];
+        materialConfigs.forEach((material) => {
+          if (material.role_id && material.role_id.startsWith('kit_')) {
+            if (!kitGroups[material.role_id]) {
+              kitGroups[material.role_id] = [];
+            }
+            kitGroups[material.role_id].push(material);
+          } else {
+            individualMaterials.push(material);
+          }
+        });
 
-        // Calculate derived values
-        const totalMass = calculateMass(material);
-        const totalVolumeUL = calculateTotalVolume(material);
-        const concentration = calculateConcentration(material);
+        const allItems = [];
 
-        return (
-          <div key={materialKey} className="stock-material-card">
-            {/* Compact Header: Checkbox + Name + Meta on left, Badge on right */}
-            <div className="stock-material-header">
-              {materialConfigs.length > 1 && (
-                <input
-                  type="checkbox"
-                  className="material-checkbox"
-                  checked={!!selectedMaterials[materialKey]}
-                  onChange={() => toggleMaterialSelection(materialKey)}
-                  title="Select for batch operations"
-                />
-              )}
-              <div className="stock-material-info-row">
-                <span className="stock-material-name">{material.alias || material.name}</span>
-                <span className="meta-separator-main">•</span>
-                <span className="meta-item">MW: {material.molecular_weight} g/mol</span>
-                <span className="meta-separator">•</span>
-                <span className="meta-item">{wellCount} wells</span>
-                <span className="meta-separator">•</span>
-                <span className="meta-item">{formatNumber(material.totalAmount.value / wellCount, 2)} {material.totalAmount.unit || 'μmol'}/well</span>
-                <span className="meta-separator">•</span>
-                <span className="meta-item">{formatNumber(material.totalAmount.value, 2)} {material.totalAmount.unit || 'μmol'} total</span>
+        // Render kit group cards
+        Object.entries(kitGroups).forEach(([kitId, kitMaterials]) => {
+          // Use first member as reference for shared stock config
+          const refMaterial = kitMaterials[0];
+          const kitKey = `kit_${kitId}`;
+          const stock = refMaterial.stockSolution || {};
+          const totalKitWells = kitMaterials.reduce((sum, m) => sum + Object.keys(m.wellAmounts).length, 0);
+
+          // Sum total volume across all kit members
+          const totalVolumeUL = kitMaterials.reduce((sum, m) => {
+            const vol = calcTotalVolume(m);
+            return sum + (vol || 0);
+          }, 0) || null;
+
+          // Concentration is the same for all (shared volume per well / min amount)
+          const concentration = calcConcentration(refMaterial);
+
+          // Volume range across all kit members
+          const allVolRanges = kitMaterials.map(m => getVolumeRange(m));
+          const allMins = allVolRanges.filter(r => r.min !== null).map(r => r.min);
+          const allMaxes = allVolRanges.filter(r => r.max !== null).map(r => r.max);
+          const kitVolRange = allMins.length > 0
+            ? { min: Math.min(...allMins), max: Math.max(...allMaxes), unit: 'μL' }
+            : { min: null, max: null, unit: 'μL' };
+
+          // Kit-level solvent / volume change: propagate to all members
+          const handleKitSolventSearch = (value) => {
+            handleSolventSearch(refMaterial, value);
+          };
+
+          const handleKitSolventSelect = (solvent) => {
+            // Apply to all members
+            kitMaterials.forEach(m => {
+              const idx = findMaterialIndex(m);
+              const updatedConfig = { ...(m.stockSolution || {}), solvent: { name: solvent.name, cas: solvent.cas, density: solvent.density } };
+              onStockSolutionChange(idx, updatedConfig);
+            });
+            const refKey = `${refMaterial.name}_${refMaterial.cas}`;
+            setShowDropdown(prev => ({ ...prev, [refKey]: false }));
+            setSolventSearches(prev => ({ ...prev, [refKey]: solvent.name }));
+          };
+
+          const handleKitValueChange = (field, value, subField = 'value') => {
+            kitMaterials.forEach(m => {
+              handleValueChange(m, field, value, subField);
+            });
+          };
+
+          const refKey = `${refMaterial.name}_${refMaterial.cas}`;
+
+          allItems.push(
+            <div key={kitKey} className="stock-material-card">
+              {/* Kit Header */}
+              <div className="stock-material-header">
+                <div className="stock-material-info-row">
+                  <span className="stock-material-name">📦 {kitId}</span>
+                  <span className="meta-separator-main">•</span>
+                  <span className="meta-item">{kitMaterials.length} materials</span>
+                  <span className="meta-separator">•</span>
+                  <span className="meta-item">{totalKitWells} wells total</span>
+                  <span
+                    className="meta-item"
+                    style={{ cursor: 'pointer', color: 'var(--color-primary)', marginLeft: '4px' }}
+                    onClick={() => {
+                      setExpandedKits(prev => {
+                        const n = new Set(prev);
+                        n.has(kitId) ? n.delete(kitId) : n.add(kitId);
+                        return n;
+                      });
+                    }}
+                  >
+                    {expandedKits.has(kitId) ? '▲ Hide' : '▼ Show'} materials
+                  </span>
+                </div>
+                <span className="method-badge stock">Stock Solution</span>
               </div>
-              <span className="method-badge stock">Stock Solution</span>
-            </div>
 
-            {/* 2-Column Layout: Inputs (Left) + Summary (Right) */}
-            <div className="stock-form-container">
-              {/* Left Column: Form Inputs */}
-              <div className="stock-form-inputs">
-                {/* Solvent, Volume, and Excess in a single row */}
-                {/* Solvent, Volume, and Excess in a single row */}
-                <div className="stock-input-row">
-                  <div className="stock-form-row">
-                    <label className="form-label-large">Solvent</label>
-                    <div className="solvent-search-container">
-                      <input
-                        ref={(el) => {
-                          if (el) {
-                            el.dataset.dropdownAnchor = `material-solvent-${materialKey}`;
-                          }
-                        }}
-                        type="text"
-                        className="solvent-search-input"
-                        placeholder="Search solvents..."
-                        value={solventSearches[materialKey] !== undefined ? solventSearches[materialKey] : (stock.solvent?.name || '')}
-                        onChange={(e) => handleSolventSearch(material, e.target.value)}
-                        onFocus={(e) => {
-                          setShowDropdown(prev => ({ ...prev, [materialKey]: true }));
-                        }}
-                        onBlur={() => setTimeout(() => setShowDropdown(prev => ({ ...prev, [materialKey]: false })), 200)}
-                      />
-                      {showDropdown[materialKey] && solventSearches[materialKey]?.length >= 2 && (() => {
-                        const input = document.querySelector(`[data-dropdown-anchor="material-solvent-${materialKey}"]`);
-                        const rect = input?.getBoundingClientRect();
-                        return rect ? (
-                          <div
-                            className="solvent-dropdown"
-                            style={{
-                              top: `${rect.bottom + 2}px`,
-                              left: `${rect.left}px`,
-                              width: `${rect.width}px`
-                            }}
-                          >
-                            {solventResults[materialKey]?.length > 0 ? (
-                              solventResults[materialKey].map((solvent, idx) => (
-                                <div
-                                  key={idx}
-                                  className="solvent-option"
-                                  onClick={() => handleSolventSelect(material, solvent)}
-                                >
-                                  <div className="solvent-option-name">{solvent.name}</div>
-                                  <div className="solvent-option-details">
-                                    {solvent.alias && `${solvent.alias}`}
-                                  </div>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="solvent-option no-clickable">
-                                <div className="solvent-option-name" style={{ color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>
-                                  No solvents found
-                                </div>
-                              </div>
-                            )}
+              {/* Expandable member list — full detail rows */}
+              {expandedKits.has(kitId) && (
+                <div style={{ padding: '0 16px 8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {kitMaterials.map((m, i) => {
+                    const mWellCount = Object.keys(m.wellAmounts).length;
+                    const mMass = calcMass(m);
+                    const mTotalVol = calcTotalVolume(m);
+                    const mConc = calcConcentration(m);
+                    const mVolRange = getVolumeRange(m);
+                    const mStock = m.stockSolution || {};
+                    return (
+                      <div key={i} style={{ background: 'var(--color-background)', borderRadius: '6px', padding: '8px 12px', border: '1px solid var(--color-border)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
+                            <strong>{m.alias || m.name}</strong>
+                            <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>MW: {m.molecular_weight || '--'} g/mol</span>
+                            <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>•</span>
+                            <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>{mWellCount} wells</span>
                           </div>
-                        ) : null;
-                      })()}
-                    </div>
-                  </div>
-
-                  <div className="stock-form-row">
-                    <label className="form-label-large" title="Volume to dispense for the smallest amount in your design">
-                      Volume per Well
-                    </label>
-                    <div className="input-with-unit">
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        placeholder="e.g., 100"
-                        value={stock.amountPerWell?.value ?? ''}
-                        onChange={(e) => handleValueChange(material, 'amountPerWell', e.target.value)}
-                        title="Enter the volume to dispense for the smallest μmol amount in your design"
-                      />
-                      <select
-                        value={stock.amountPerWell?.unit || 'μL'}
-                        onChange={(e) => handleValueChange(material, 'amountPerWell', e.target.value, 'unit')}
-                      >
-                        <option value="μL">μL</option>
-                        <option value="mL">mL</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Excess Percentage */}
-                  <div className="stock-form-row">
-                    <label className="form-label-large">Excess %</label>
-                    <input
-                      type="number"
-                      step="1"
-                      min="0"
-                      max="100"
-                      placeholder="10"
-                      value={stock.excess ?? ''}
-                      onChange={(e) => handleValueChange(material, 'excess', e.target.value)}
-                      style={{ width: '80px', height: '38px', padding: '0 12px', fontSize: '14px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: 'var(--color-surface)', color: 'var(--color-text-primary)' }}
-                    />
-                  </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: 'var(--color-text-secondary)', flexWrap: 'wrap' }}>
+                          <span>Solvent: <strong style={{ color: 'var(--color-text-primary)' }}>{mStock.solvent?.name || '--'}</strong></span>
+                          <span>Vol/Well: <strong style={{ color: 'var(--color-text-primary)' }}>{mStock.amountPerWell?.value ?? '--'} {mStock.amountPerWell?.unit || 'μL'}</strong></span>
+                          <span>Excess: <strong style={{ color: 'var(--color-text-primary)' }}>{mStock.excess ?? '--'}%</strong></span>
+                          <span>Total Vol: <strong style={{ color: 'var(--color-text-primary)' }}>{formatVolume(mTotalVol)}</strong></span>
+                          <span>Conc: <strong style={{ color: 'var(--color-text-primary)' }}>{formatConcentration(mConc)}</strong></span>
+                          <span>Mass: <strong style={{ color: 'var(--color-text-primary)' }}>{mMass !== null ? `${formatNumber(mMass, 2)} mg` : '--'}</strong></span>
+                          <span>Vol Range: <strong style={{ color: 'var(--color-text-primary)' }}>
+                            {formatRange(mVolRange, 1)}
+                          </strong></span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+              )}
 
-                {/* Right Column: Sticky Summary Panel */}
-                <div className="stock-form-summary">
-                  <div className="calculation-display">
-                    <div className="calculation-row">
-                      <span className="calculation-label">Total Volume</span>
-                      <span className="calculation-value">
-                        {formatVolume(totalVolumeUL)}
-                      </span>
-                    </div>
-                    <div className="calculation-row">
-                      <span className="calculation-label">Concentration</span>
-                      <span className="calculation-value">
-                        {formatConcentration(concentration)}
-                      </span>
-                    </div>
-                    <div className="calculation-row">
-                      <span className="calculation-label">Total Amount</span>
-                      <span className="calculation-value">
-                        {totalMass !== null ? `${formatNumber(totalMass, 2)} mg` : '--'}
-                      </span>
-                    </div>
-                    <div className="calculation-row">
-                      <span className="calculation-label">Volume Range</span>
-                      <span className="calculation-value">
-                        {(() => {
-                          const volRange = getVolumeRange(material);
-                          if (volRange.min === null || volRange.max === null) return '--';
-                          if (volRange.min === volRange.max) {
-                            return `${formatNumber(volRange.min, 1)} ${volRange.unit}`;
-                          }
-                          return `${formatNumber(volRange.min, 1)} - ${formatNumber(volRange.max, 1)} ${volRange.unit}`;
-                        })()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              {/* Shared inputs */}
+              <StockFormInputs
+                solventSearchValue={solventSearches[refKey] !== undefined ? solventSearches[refKey] : (stock.solvent?.name || '')}
+                solventResults={solventResults[refKey] || []}
+                showSolventDropdown={showDropdown[refKey]}
+                solventAnchorId={`material-solvent-${refKey}`}
+                onSolventSearch={handleKitSolventSearch}
+                onSolventSelect={handleKitSolventSelect}
+                onSolventFocus={() => setShowDropdown(prev => ({ ...prev, [refKey]: true }))}
+                onSolventBlur={() => setTimeout(() => setShowDropdown(prev => ({ ...prev, [refKey]: false })), 200)}
+                volumePerWell={stock.amountPerWell?.value ?? ''}
+                volumeUnit={stock.amountPerWell?.unit || 'μL'}
+                onVolumeChange={(val) => handleKitValueChange('amountPerWell', val)}
+                onVolumeUnitChange={(val) => handleKitValueChange('amountPerWell', val, 'unit')}
+                excess={stock.excess ?? ''}
+                onExcessChange={(val) => handleKitValueChange('excess', val)}
+                totalVolumeUL={totalVolumeUL}
+                concentrationM={concentration}
+                totalAmountMg={null}
+                volumeRange={kitVolRange}
+              />
             </div>
-          </div>
-        );
-      })}
+          );
+        });
+
+        // Render individual (non-kit) material cards — unchanged
+        individualMaterials.forEach((material) => {
+          const materialKey = `${material.name}_${material.cas}`;
+          const stock = material.stockSolution || {};
+          const wellCount = Object.keys(material.wellAmounts).length;
+          const totalMass = calcMass(material);
+          const totalVolumeUL = calcTotalVolume(material);
+          const concentration = calcConcentration(material);
+
+          allItems.push(
+            <div key={materialKey} className="stock-material-card">
+              <div className="stock-material-header">
+                {!material.isCocktail && (
+                  <input
+                    type="checkbox"
+                    className="material-checkbox"
+                    checked={!!selectedMaterials[materialKey]}
+                    onChange={() => toggleMaterialSelection(materialKey)}
+                    title="Select for batch operations or combining"
+                  />
+                )}
+                <div className="stock-material-info-row" style={{ flexWrap: 'wrap', gap: '4px' }}>
+                  <span className="stock-material-name">{material.alias || material.name}</span>
+                  <span className="meta-separator-main">•</span>
+                  {!material.isCocktail && (
+                    <>
+                      <span className="meta-item">MW: {material.molecular_weight} g/mol</span>
+                      <span className="meta-separator">•</span>
+                    </>
+                  )}
+                  <span className="meta-item">{wellCount} wells</span>
+                  {material.isCocktail ? (
+                    <>
+                      <span className="meta-separator">•</span>
+                      <span className="meta-item">{
+                        material.components.map(c => {
+                          const wellCountC = Object.keys(c.wellAmounts).length;
+                          const umol = c.totalAmount?.value / wellCountC;
+                          return `${formatNumber(umol, 2)} μmol ${c.alias || c.name}`;
+                        }).join(' + ')
+                      }</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="meta-separator">•</span>
+                      <span className="meta-item">{formatNumber(material.totalAmount.value / wellCount, 2)} {material.totalAmount.unit || 'μmol'}/well</span>
+                      <span className="meta-separator">•</span>
+                      <span className="meta-item">{formatNumber(material.totalAmount.value, 2)} {material.totalAmount.unit || 'μmol'} total</span>
+                    </>
+                  )}
+                </div>
+                {material.isCocktail ? (
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <button
+                      className="btn"
+                      style={{
+                        backgroundColor: '#fd7e14',
+                        border: 'none',
+                        color: 'white',
+                        padding: '6px 12px',
+                        fontSize: '11px',
+                        minWidth: 'auto',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        height: 'auto',
+                        minHeight: 'auto',
+                        lineHeight: 'normal',
+                        borderRadius: '10px'
+                      }}
+                      onClick={() => onUncombineStocks(`${material.name}_${material.cas}`)}
+                    >
+                      Split
+                    </button>
+                    <span className="method-badge neat" style={{ backgroundColor: 'var(--color-accent)', color: 'white' }}>Premixed</span>
+                  </div>
+                ) : (
+                  <span className="method-badge stock">Stock Solution</span>
+                )}
+              </div>
+
+              <StockFormInputs
+                solventSearchValue={solventSearches[materialKey] !== undefined ? solventSearches[materialKey] : (stock.solvent?.name || '')}
+                solventResults={solventResults[materialKey] || []}
+                showSolventDropdown={showDropdown[materialKey]}
+                solventAnchorId={`material-solvent-${materialKey}`}
+                onSolventSearch={(val) => handleSolventSearch(material, val)}
+                onSolventSelect={(solvent) => handleSolventSelect(material, solvent)}
+                onSolventFocus={() => setShowDropdown(prev => ({ ...prev, [materialKey]: true }))}
+                onSolventBlur={() => setTimeout(() => setShowDropdown(prev => ({ ...prev, [materialKey]: false })), 200)}
+                volumePerWell={stock.amountPerWell?.value ?? ''}
+                volumeUnit={stock.amountPerWell?.unit || 'μL'}
+                onVolumeChange={(val) => handleValueChange(material, 'amountPerWell', val)}
+                onVolumeUnitChange={(val) => handleValueChange(material, 'amountPerWell', val, 'unit')}
+                excess={stock.excess ?? ''}
+                onExcessChange={(val) => handleValueChange(material, 'excess', val)}
+                totalVolumeUL={totalVolumeUL}
+                concentrationM={concentration}
+                totalAmountMg={totalMass}
+                volumeRange={getVolumeRange(material)}
+              />
+            </div>
+          );
+        });
+
+        return allItems;
+      })()}
     </div>
   );
 };

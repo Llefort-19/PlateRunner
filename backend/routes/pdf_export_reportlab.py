@@ -46,9 +46,13 @@ def export_to_pdf(protocol):
     story.append(Spacer(1, 2*mm))
 
     # Section 1: Stock Solution Preparation
-    stock_mats = [m for m in materials if m.get('dispensing_method') == 'stock']
+    # Non-kit stock materials + kit-level stock entries
+    kit_stock_entries = protocol.get('kit_stock_entries', [])
+    kit_role_ids = set(e.get('kit_id', '') for e in kit_stock_entries)
+    non_kit_stock = [m for m in materials if m.get('dispensing_method') == 'stock' and m.get('role_id', '') not in kit_role_ids]
+    stock_mats = kit_stock_entries + non_kit_stock
     if stock_mats:
-        story.extend(_build_stock_table(stock_mats))
+        story.extend(_build_stock_table(stock_mats, materials))
         story.append(Spacer(1, 2*mm))
 
     # Section 2: Protocol Steps (2-column)
@@ -116,9 +120,10 @@ def _build_header(context, plate_type):
     return elements
 
 
-def _build_stock_table(stock_mats):
+def _build_stock_table(stock_mats, all_materials=None):
     """Build stock solution preparation table."""
     elements = []
+    all_materials = all_materials or []
 
     # Section heading
     styles = getSampleStyleSheet()
@@ -134,24 +139,131 @@ def _build_stock_table(stock_mats):
     # Table data
     data = [['Material', 'Solvent', 'Mass', 'Total Volume', 'Concentration', 'Volume Range', 'Excess']]
 
+    # Prepare cell style for wrapping text
+    cell_style = ParagraphStyle(
+        'WrappingCell',
+        parent=styles['Normal'],
+        fontSize=8,
+        fontName='Helvetica-Bold',
+        leading=10
+    )
+    comp_style = ParagraphStyle(
+        'CompCell',
+        parent=styles['Normal'],
+        fontSize=8,
+        fontName='Helvetica',
+        leading=10,
+        leftIndent=8
+    )
+
     for m in stock_mats:
         stock = m.get('stock_solution') or {}
-        mass = _calculate_mass(m)
-        mass_str = f"{mass:.1f} mg" if mass else '—'
+        is_kit = m.get('is_kit', False)
+        is_cocktail = m.get('is_cocktail', False) or m.get('isCocktail', False)
+        
+        if is_kit:
+            mass_str = '—'
+            mat_name = m.get('kit_id') or m.get('name', '')
+            vol_range_str = _format_kit_volume_range(m, all_materials)
+        elif is_cocktail:
+            mass_str = ''
+            mat_name = f"{m.get('alias') or m.get('name', '')} (Premixed)"
+            vol_range_str = ''
+        else:
+            mass = _calculate_mass(m)
+            mass_str = f"{mass:.1f} mg" if mass else '—'
+            mat_name = m.get('alias') or m.get('name', '')
+            vol_range_str = _format_volume_range(m)
+            
         vol_str = _format_volume(m)
         conc_str = _format_concentration(m)
-        vol_range_str = _format_volume_range(m)
         excess = stock.get('excess', 0)
 
         data.append([
-            m.get('alias') or m.get('name', ''),
-            stock.get('solvent_name', '—'),
+            Paragraph(mat_name, cell_style),
+            stock.get('solvent_name', '') if is_cocktail else stock.get('solvent_name', '—'),
             mass_str,
             vol_str,
-            conc_str,
+            '' if is_cocktail else conc_str,
             vol_range_str,
             f"{excess}%"
         ])
+        
+        # Add components if it's a cocktail
+        if is_cocktail:
+            # Get the cocktail's shared amountPerWell so we can compute each
+            # component's concentration correctly (cocktail components share one
+            # stock solution; their own stockSolution.concentration is stale).
+            cocktail_stock = m.get('stock_solution') or {}
+            parent_vpw = cocktail_stock.get('amount_per_well_value')
+            parent_vpw_unit = cocktail_stock.get('amount_per_well_unit', 'μL')
+            parent_vpw_ul = None
+            if parent_vpw:
+                try:
+                    parent_vpw_ul = (float(parent_vpw) * 1000
+                                     if parent_vpw_unit == 'mL'
+                                     else float(parent_vpw))
+                except (ValueError, TypeError):
+                    parent_vpw_ul = None
+
+            for comp in m.get('components', []):
+                c_stock = comp.get('stockSolution') or {}
+
+                # --- Mass (prefer pre-calculated value from buildProtocolData) ---
+                c_mass_val = comp.get('calculated_mass_value')
+                if c_mass_val is None:
+                    c_mass_dict = (c_stock.get('calculatedMass')
+                                   or comp.get('calculatedMass') or {})
+                    c_mass_val = (c_mass_dict.get('value')
+                                  if isinstance(c_mass_dict, dict) else None)
+                c_mass_str = f"{float(c_mass_val):.1f} mg" if c_mass_val is not None else ""
+
+                # --- Concentration (prefer pre-calculated; fallback to live compute) ---
+                c_conc_m = comp.get('calculated_concentration_value')
+
+                if c_conc_m is None and parent_vpw_ul:
+                    # Live compute: min(wellAmounts) / amountPerWell
+                    well_amounts = (comp.get('well_amounts')
+                                    or comp.get('wellAmounts') or {})
+                    if well_amounts:
+                        try:
+                            amounts = [
+                                float(w.get('value', 0))
+                                for w in well_amounts.values()
+                                if isinstance(w, dict) and w.get('value')
+                            ]
+                            if amounts:
+                                c_conc_m = min(amounts) / parent_vpw_ul
+                        except (ValueError, TypeError, ZeroDivisionError):
+                            c_conc_m = None
+
+                # Last resort: stale stored concentration
+                if c_conc_m is None:
+                    c_stored = c_stock.get('concentration') or {}
+                    c_conc_m = c_stored.get('value')
+
+                if c_conc_m is not None:
+                    try:
+                        c_conc_f = float(c_conc_m)
+                        if c_conc_f < 0.1:
+                            c_conc_str = f"{c_conc_f * 1000:.2f} mM"
+                        else:
+                            c_conc_str = f"{c_conc_f:.3f} M"
+                    except (ValueError, TypeError):
+                        c_conc_str = ""
+                else:
+                    c_conc_str = ""
+
+                comp_name = comp.get('alias') or comp.get('name', '')
+                data.append([
+                    Paragraph(f"↳ {comp_name}", comp_style),
+                    (c_stock.get('solvent') or {}).get('name', ''),
+                    c_mass_str,
+                    "",
+                    c_conc_str,
+                    "",
+                    ""
+                ])
 
     # Create table
     table = Table(data, colWidths=[35*mm, 30*mm, 18*mm, 25*mm, 25*mm, 25*mm, 15*mm])
@@ -197,10 +309,9 @@ def _build_protocol_steps(operations, materials):
     )
     elements.append(Paragraph('📋 Protocol Steps', heading_style))
 
-    # Split into two columns
-    mid = (len(operations) + 1) // 2
-    col1_ops = list(enumerate(operations[:mid]))
-    col2_ops = [(i + mid, op) for i, op in enumerate(operations[mid:])]
+    # Split into two columns horizontally (1, 2) (3, 4)
+    col1_ops = [(i, op) for i, op in enumerate(operations) if i % 2 == 0]
+    col2_ops = [(i, op) for i, op in enumerate(operations) if i % 2 != 0]
 
     # Build step items for each column
     def build_step_cell(idx, op):
@@ -256,6 +367,7 @@ def _build_protocol_steps(operations, materials):
         elif is_kit:
             label = _format_operation(op)
             desc = f"<b>{label}</b>"
+            # Add neat/stock info from first member if available in operations
             bg_color = colors.HexColor('#f0fff0')
             border_color = colors.HexColor('#27ae60')
         else:
@@ -341,19 +453,43 @@ def _build_plate_maps(operations, materials, plate_cfg):
     )
     elements.append(Paragraph('🗺️ Plate Maps', heading_style))
 
-    # Collect dispense operations
-    dispense_ops = []
+    # Collect materials for plate maps (individual + merged kits)
+    plate_map_items = []
+    processed_kit_ids = set()
     for idx, op in enumerate(operations):
-        if op.get('type') != 'dispense':
-            continue
-        mat_idx = op.get('materialIndex', 0)
-        if mat_idx >= len(materials):
-            continue
-        dispense_ops.append(materials[mat_idx])
+        op_type = op.get('type', '')
+        if op_type == 'dispense':
+            mat_idx = op.get('materialIndex', 0)
+            if mat_idx >= len(materials):
+                continue
+            plate_map_items.append(materials[mat_idx])
+        elif op_type == 'kit':
+            kit_id = op.get('kitId', '')
+            if kit_id in processed_kit_ids:
+                continue
+            processed_kit_ids.add(kit_id)
+            # Merge well_amounts from all kit members into one virtual material
+            mat_indices = op.get('materialIndices', [])
+            merged_wells = {}
+            first_mat = None
+            for mi in mat_indices:
+                if mi < len(materials):
+                    mat = materials[mi]
+                    if first_mat is None:
+                        first_mat = mat
+                    for well_id, well_data in (mat.get('well_amounts') or {}).items():
+                        if well_id not in merged_wells and isinstance(well_data, dict) and well_data.get('value'):
+                            merged_wells[well_id] = well_data
+            if first_mat:
+                kit_virtual = dict(first_mat)
+                kit_virtual['name'] = kit_id
+                kit_virtual['alias'] = kit_id
+                kit_virtual['well_amounts'] = merged_wells
+                plate_map_items.append(kit_virtual)
 
     # Build 2 maps per row
     map_tables = []
-    for material in dispense_ops:
+    for material in plate_map_items:
         map_table = _build_single_plate_map(material, plate_cfg, styles)
         map_tables.append(map_table)
 
@@ -637,6 +773,45 @@ def _format_volume_range(material):
 
         min_amount = min(amounts)
         max_amount = max(amounts)
+        concentration = min_amount / volume_per_well_ul
+
+        min_volume = min_amount / concentration
+        max_volume = max_amount / concentration
+
+        if min_volume == max_volume:
+            return f"{min_volume:.1f} μL"
+        return f"{min_volume:.1f} - {max_volume:.1f} μL"
+    except (ValueError, TypeError, ZeroDivisionError):
+        return '—'
+
+
+def _format_kit_volume_range(kit_entry, all_materials):
+    """Format volume range for a kit entry by aggregating well amounts from all members."""
+    stock = kit_entry.get('stock_solution') or {}
+    kit_id = kit_entry.get('kit_id', '')
+
+    if not stock.get('amount_per_well_value') or not kit_id:
+        return '—'
+
+    try:
+        volume_per_well = float(stock['amount_per_well_value'])
+        unit = stock.get('amount_per_well_unit', 'μL')
+        volume_per_well_ul = volume_per_well * 1000 if unit == 'mL' else volume_per_well
+
+        # Collect all well amounts across kit members
+        all_amounts = []
+        for mat in all_materials:
+            if mat.get('role_id', '') == kit_id:
+                well_amounts = mat.get('well_amounts', {})
+                for w in well_amounts.values():
+                    if isinstance(w, dict) and w.get('value'):
+                        all_amounts.append(float(w['value']))
+
+        if not all_amounts:
+            return '—'
+
+        min_amount = min(all_amounts)
+        max_amount = max(all_amounts)
         concentration = min_amount / volume_per_well_ul
 
         min_volume = min_amount / concentration

@@ -1,4 +1,12 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import {
+  calculateStockConcentration,
+  calculateVolumeForWell,
+  calculateSolventVolumeForWell,
+  calculateNeatMassForWell,
+  isSolvent,
+  toMicroliters
+} from './stockCalculations';
 
 const PlateGridView = ({ material, plateType = '96', showTitle = true }) => {
   // Get plate configuration
@@ -25,115 +33,73 @@ const PlateGridView = ({ material, plateType = '96', showTitle = true }) => {
   const config = getPlateConfig(plateType);
   const wellAmounts = material?.wellAmounts || {};
 
-  // Calculate concentration for stock materials
-  // IMPORTANT: The volume entered by the user corresponds to the SMALLEST amount to be dispensed
-  const calculateConcentration = () => {
-    if (material?.dispensingMethod !== 'stock' || !material.stockSolution?.amountPerWell?.value || !material.wellAmounts) {
-      return null;
+  // Pre-compute all well display values and unit label in one pass
+  const { wellDisplayValues, unitLabel } = useMemo(() => {
+    const values = {};
+    const isKit = material?.isCocktail && material?.role_id?.startsWith('kit_');
+    const isStockMaterial = !isKit && material?.dispensingMethod === 'stock';
+    const isSolventMaterial = !isKit && isSolvent(material);
+
+    let concentrationM = null;
+    if (isStockMaterial && material.stockSolution?.amountPerWell?.value && material.wellAmounts) {
+      const vpwUL = toMicroliters(
+        material.stockSolution.amountPerWell.value,
+        material.stockSolution.amountPerWell.unit || '\u03bcL'
+      );
+      concentrationM = calculateStockConcentration(material.wellAmounts, vpwUL);
     }
 
-    const volumePerWell = material.stockSolution.amountPerWell.value;
-    const unit = material.stockSolution.amountPerWell.unit || 'μL';
-    const volumePerWellUL = unit === 'mL' ? volumePerWell * 1000 : volumePerWell;
-
-    // Find the MINIMUM amount across all wells (in µmol)
-    const wellAmountsArray = Object.values(material.wellAmounts);
-    if (wellAmountsArray.length === 0) return null;
-
-    const minAmountUmol = Math.min(...wellAmountsArray.map(w => w.value));
-    return minAmountUmol / volumePerWellUL; // concentration in M
-  };
-
-  // Calculate volume to dispense for a given well
-  const calculateVolumeForWell = (wellId) => {
-    if (material?.dispensingMethod !== 'stock') {
-      return null;
-    }
-
-    const concentration = calculateConcentration();
-    if (!concentration) return null;
-
-    const wellAmount = wellAmounts[wellId];
-    if (!wellAmount?.value) return null;
-
-    // volume (μL) = amount (μmol) / concentration (M)
-    return wellAmount.value / concentration;
-  };
-
-  // Check if material is a solvent (volume-based unit)
-  const isSolvent = () => {
-    const unit = material?.totalAmount?.unit || '';
-    return unit === 'μL' || unit === 'mL';
-  };
-
-  // Calculate volume (μL) for a solvent well
-  const calculateSolventVolumeForWell = (wellId) => {
-    const wellAmount = wellAmounts[wellId];
-    if (!wellAmount?.value) return null;
-
-    const unit = material?.totalAmount?.unit || 'μL';
-    // Convert to μL if in mL
-    return unit === 'mL' ? wellAmount.value * 1000 : wellAmount.value;
-  };
-
-  // Calculate mass (mg) for a neat material well
-  const calculateMassForWell = (wellId) => {
-    if (material?.dispensingMethod !== 'neat') {
-      return null;
-    }
-
-    const wellAmount = wellAmounts[wellId];
-    if (!wellAmount?.value || !material?.molecular_weight) return null;
-
-    // mass (mg) = amount (μmol) × MW (g/mol) / 1000
-    return (wellAmount.value * material.molecular_weight) / 1000;
-  };
-
-  // Format amount for display in cell
-  const formatCellAmount = (wellId) => {
-    if (material?.dispensingMethod === 'stock') {
-      // For stock materials, show volume (always 1 decimal)
-      const volume = calculateVolumeForWell(wellId);
-      if (volume === null || volume === undefined) return null;
-
-      const num = parseFloat(volume);
-      if (isNaN(num)) return null;
-      return num.toFixed(1);
-    } else if (isSolvent()) {
-      // For solvents, show volume in μL (always 1 decimal)
-      const volume = calculateSolventVolumeForWell(wellId);
-      if (volume === null || volume === undefined) return null;
-
-      const num = parseFloat(volume);
-      if (isNaN(num)) return null;
-      return num.toFixed(1);
+    // Determine unit label
+    let unit = '';
+    if (isKit) {
+      const firstWell = Object.values(material.wellAmounts || {})[0];
+      unit = firstWell?.unit || '\u03bcmol';
+    } else if (isStockMaterial) {
+      unit = '\u03bcL';
+    } else if (isSolventMaterial) {
+      unit = '\u03bcL';
     } else {
-      // For neat materials, show mass (always 2 decimals)
-      const mass = calculateMassForWell(wellId);
-      if (mass === null || mass === undefined) return null;
-
-      const num = parseFloat(mass);
-      if (isNaN(num)) return null;
-      return num.toFixed(2);
-    }
-  };
-
-  // Get unit label
-  const getUnitLabel = () => {
-    if (!material) return '';
-
-    if (material.dispensingMethod === 'stock') {
-      return 'μL';
+      unit = 'mg';
     }
 
-    // For solvents, show μL
-    if (isSolvent()) {
-      return 'μL';
+    // Calculate display value for each well
+    for (const [wellId, wellData] of Object.entries(wellAmounts)) {
+      const amount = wellData?.value;
+      if (!amount) continue;
+
+      let displayValue = null;
+      let tooltipValue = null;
+
+      if (isKit) {
+        displayValue = amount.toFixed(2);
+        tooltipValue = `${wellId}: ${amount.toFixed(2)} ${unit}`;
+      } else if (isStockMaterial) {
+        const volume = calculateVolumeForWell(amount, concentrationM);
+        if (volume !== null && !isNaN(volume)) {
+          displayValue = volume.toFixed(1);
+          tooltipValue = `${wellId}: ${volume.toFixed(1)} \u03bcL`;
+        }
+      } else if (isSolventMaterial) {
+        const volume = calculateSolventVolumeForWell(amount, material.totalAmount?.unit || '\u03bcL');
+        if (volume !== null && !isNaN(volume)) {
+          displayValue = volume.toFixed(1);
+          tooltipValue = `${wellId}: ${volume.toFixed(1)} \u03bcL`;
+        }
+      } else {
+        const mass = calculateNeatMassForWell(amount, material?.molecular_weight);
+        if (mass !== null && !isNaN(mass)) {
+          displayValue = mass.toFixed(2);
+          tooltipValue = `${wellId}: ${mass.toFixed(2)} mg`;
+        }
+      }
+
+      if (displayValue) {
+        values[wellId] = { displayValue, tooltipValue };
+      }
     }
 
-    // For neat materials, show mg
-    return 'mg';
-  };
+    return { wellDisplayValues: values, unitLabel: unit };
+  }, [material, wellAmounts]);
 
   return (
     <div className="plate-grid-preview">
@@ -141,7 +107,7 @@ const PlateGridView = ({ material, plateType = '96', showTitle = true }) => {
         <div className="plate-grid-title">
           {material?.alias || material?.name || 'Material'}
           <span style={{ marginLeft: '8px', fontWeight: 'normal', color: 'var(--color-text-secondary)' }}>
-            (amounts in {getUnitLabel()})
+            (amounts in {unitLabel})
           </span>
         </div>
       )}
@@ -161,22 +127,9 @@ const PlateGridView = ({ material, plateType = '96', showTitle = true }) => {
             <div className="plate-grid-row-header">{row}</div>
             {config.columns.map(col => {
               const wellId = `${row}${col}`;
-              const displayValue = formatCellAmount(wellId);
-
-              // Get tooltip info
-              let tooltipText = wellId;
-              if (displayValue) {
-                if (material?.dispensingMethod === 'stock') {
-                  const volume = calculateVolumeForWell(wellId);
-                  tooltipText = `${wellId}: ${volume?.toFixed(1)} μL`;
-                } else if (isSolvent()) {
-                  const volume = calculateSolventVolumeForWell(wellId);
-                  tooltipText = `${wellId}: ${volume?.toFixed(1)} μL`;
-                } else {
-                  const mass = calculateMassForWell(wellId);
-                  tooltipText = `${wellId}: ${mass?.toFixed(2)} mg`;
-                }
-              }
+              const wellData = wellDisplayValues[wellId];
+              const displayValue = wellData?.displayValue || null;
+              const tooltipText = wellData?.tooltipValue || wellId;
 
               return (
                 <div

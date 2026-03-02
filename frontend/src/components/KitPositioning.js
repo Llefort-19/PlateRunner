@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 
-const KitPositioning = ({ 
+const KitPositioning = ({
   kitData,
-  kitSize, 
+  kitSize,
   destinationPlateType,
   setDestinationPlateType,
   onApplyKit,
@@ -33,9 +33,9 @@ const KitPositioning = ({
 
   const getKitType = (kitRows, kitCols) => {
     const totalWells = kitRows * kitCols;
-    
+
     console.log(`Kit Type Detection: ${kitRows} rows × ${kitCols} columns = ${totalWells} wells`);
-    
+
     if (totalWells === 24 && kitRows === 4 && kitCols === 6) {
       console.log("Detected kit type: 4x6_24well");
       return "4x6_24well";
@@ -52,7 +52,7 @@ const KitPositioning = ({
       console.log("Detected kit type: 8x12_96well");
       return "8x12_96well";
     }
-    
+
     console.warn(`Unknown kit type: ${kitRows}×${kitCols} (${totalWells} wells)`);
     return "unknown";
   };
@@ -78,7 +78,7 @@ const KitPositioning = ({
       default:
         validPlates = [];
     }
-    
+
     console.log(`Valid plates for kit type '${kitType}':`, validPlates);
     return validPlates;
   };
@@ -92,8 +92,8 @@ const KitPositioning = ({
           return { strategy: 'exact_match', options: [] };
           // Note: 4x6 kit exactly fits in 48-well plate (6x8) at A1-D6, no positioning choice needed
         } else if (plateType === "96") {
-          return { 
-            strategy: 'quadrant_selection', 
+          return {
+            strategy: 'quadrant_selection',
             options: [
               { id: "top-left", name: "Top-Left", description: "A1-D6" },
               { id: "top-right", name: "Top-Right", description: "A7-D12" },
@@ -103,10 +103,10 @@ const KitPositioning = ({
           };
         }
         break;
-        
+
       case "2x12_24well":
-        return { 
-          strategy: 'row_pair_selection', 
+        return {
+          strategy: 'row_pair_selection',
           options: [
             { id: "AB", name: "Rows A-B", description: "A1-B12" },
             { id: "CD", name: "Rows C-D", description: "C1-D12" },
@@ -114,22 +114,22 @@ const KitPositioning = ({
             { id: "GH", name: "Rows G-H", description: "G1-H12" }
           ]
         };
-        
+
       case "6x8_48well":
         return { strategy: 'exact_match', options: [] };
-        
+
       case "4x12_48well":
-        return { 
-          strategy: 'half_selection', 
+        return {
+          strategy: 'half_selection',
           options: [
             { id: "upper", name: "Upper Half", description: "A1-D12" },
             { id: "lower", name: "Lower Half", description: "E1-H12" }
           ]
         };
-        
+
       case "8x12_96well":
         return { strategy: 'exact_match', options: [] };
-        
+
       default:
         return { strategy: 'unsupported', options: [] };
     }
@@ -153,10 +153,10 @@ const KitPositioning = ({
     const positionInfo = getPositionOptions(kitType, destinationPlateType);
 
     if (positionInfo.strategy === 'exact_match') {
-      return { 
-        strategy: 'exact_placement', 
-        position: 'A1', 
-        destination_plate: destinationPlateType 
+      return {
+        strategy: 'exact_placement',
+        position: 'A1',
+        destination_plate: destinationPlateType
       };
     }
 
@@ -170,7 +170,7 @@ const KitPositioning = ({
           destination_plate: destinationPlateType,
           kit_size: { rows: kitRows, cols: kitCols }
         };
-        
+
       case 'row_pair_selection':
         return {
           strategy: 'row_pair_placement',
@@ -178,7 +178,7 @@ const KitPositioning = ({
           destination_plate: destinationPlateType,
           kit_size: { rows: kitRows, cols: kitCols }
         };
-        
+
       case 'half_selection':
         return {
           strategy: 'half_placement',
@@ -186,7 +186,7 @@ const KitPositioning = ({
           destination_plate: destinationPlateType,
           kit_size: { rows: kitRows, cols: kitCols }
         };
-        
+
       default:
         return null;
     }
@@ -196,7 +196,7 @@ const KitPositioning = ({
     try {
       const procedureResponse = await axios.get("/api/experiment/procedure");
       const currentProcedure = procedureResponse.data || [];
-      
+
       await axios.post("/api/experiment/procedure/update-plate-type", {
         plate_type: plateType,
         current_procedure: currentProcedure
@@ -211,7 +211,7 @@ const KitPositioning = ({
       showError("No kit data available");
       return;
     }
-    
+
     const backendPosition = convertVisualPositionsToBackendFormat();
     if (!backendPosition) {
       showError("Please select a position for your kit");
@@ -220,7 +220,7 @@ const KitPositioning = ({
 
     setApplying(true);
     try {
-      await axios.post("/api/experiment/kit/apply", {
+      const response = await axios.post("/api/experiment/kit/apply", {
         materials: kitData.materials,
         design: kitData.design,
         position: backendPosition,
@@ -229,9 +229,37 @@ const KitPositioning = ({
       });
 
       await updateProcedurePlateType(destinationPlateType);
-      showSuccess("Kit successfully applied to experiment!");
-      onApplyKit();
-      
+
+      const { added_materials, skipped_in_kit = [], skipped_already_in_experiment = [], smiles_warnings = [] } = response.data;
+
+      // Warn about intra-kit duplicates (same material listed twice in the kit file)
+      if (skipped_in_kit.length > 0) {
+        showError(
+          `⚠️ ${skipped_in_kit.length} duplicate(s) found in the kit file and dropped: ${skipped_in_kit.join(", ")}. ` +
+          `Only the first occurrence of each material is kept in the materials list.`
+        );
+      }
+
+      // Warn about materials already present in the experiment before this kit upload
+      if (skipped_already_in_experiment.length > 0) {
+        showError(
+          `⚠️ ${skipped_already_in_experiment.length} material(s) already in your experiment were skipped: ` +
+          `${skipped_already_in_experiment.join(", ")}.`
+        );
+      }
+
+      // Warn about SMILES-only matches (materials kept but flagged)
+      if (smiles_warnings.length > 0) {
+        const pairs = smiles_warnings.map(w => `${w.alias_a} ↔ ${w.alias_b}`).join("; ");
+        showError(
+          `⚠️ ${smiles_warnings.length} pair(s) share the same SMILES structure: ${pairs}. ` +
+          `Both materials were kept — please verify they are intended to be distinct.`
+        );
+      }
+
+      showSuccess(`Kit successfully applied! ${added_materials} material(s) added to the experiment.`);
+      onApplyKit(smiles_warnings);
+
     } catch (error) {
       console.error("Error applying kit:", error);
       showError("Error applying kit: " + (error.response?.data?.error || error.message));
@@ -242,11 +270,11 @@ const KitPositioning = ({
 
   const renderDestinationPlateSelector = () => {
     if (!kitSize) return null;
-    
+
     const { rows: kitRows, columns: kitCols } = kitSize;
     const kitType = getKitType(kitRows, kitCols);
     const validPlates = getValidPlatesForKit(kitType);
-    
+
     return (
       <div style={{ marginBottom: "25px" }}>
         <h4>Select Destination Plate:</h4>
@@ -254,7 +282,7 @@ const KitPositioning = ({
           {["24", "48", "96"].map(plateType => {
             const isValid = validPlates.includes(plateType);
             const plateConfig = getPlateConfig(plateType);
-            
+
             return (
               <button
                 key={plateType}
@@ -266,14 +294,14 @@ const KitPositioning = ({
                   }
                 }}
                 disabled={!isValid}
-                style={{ 
-                  fontSize: "14px", 
+                style={{
+                  fontSize: "14px",
                   padding: "10px 15px",
                   opacity: isValid ? 1 : 0.5,
                   cursor: isValid ? "pointer" : "not-allowed"
                 }}
-                title={isValid ? 
-                  `${plateConfig.name} (${plateConfig.rows}×${plateConfig.cols})` : 
+                title={isValid ?
+                  `${plateConfig.name} (${plateConfig.rows}×${plateConfig.cols})` :
                   `Kit not compatible with ${plateConfig.name}`
                 }
               >
@@ -297,8 +325,8 @@ const KitPositioning = ({
         <p style={{ fontSize: "14px", color: "var(--color-text-secondary)", marginBottom: "15px" }}>
           Click on one or more positions to place your 4×6 kit. Multiple selections allowed.
         </p>
-        
-        <div style={{ 
+
+        <div style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
           gap: "15px",
@@ -311,7 +339,7 @@ const KitPositioning = ({
         }}>
           {options.map(option => {
             const isSelected = selectedVisualPositions.includes(option.id);
-            
+
             return (
               <div
                 key={option.id}
@@ -354,7 +382,7 @@ const KitPositioning = ({
             );
           })}
         </div>
-        
+
         <div style={{ textAlign: "center", fontSize: "14px", color: "var(--color-text-secondary)" }}>
           Selected: {selectedVisualPositions.length} position{selectedVisualPositions.length !== 1 ? 's' : ''}
         </div>
@@ -369,9 +397,9 @@ const KitPositioning = ({
         <p style={{ fontSize: "14px", color: "var(--color-text-secondary)", marginBottom: "15px" }}>
           Click on one or more row pairs to place your 2×12 kit. Multiple selections allowed.
         </p>
-        
-        <div style={{ 
-          maxWidth: "500px", 
+
+        <div style={{
+          maxWidth: "500px",
           margin: "0 auto 20px",
           border: "2px solid var(--color-border)",
           borderRadius: "8px",
@@ -380,7 +408,7 @@ const KitPositioning = ({
         }}>
           {options.map(option => {
             const isSelected = selectedVisualPositions.includes(option.id);
-            
+
             return (
               <div
                 key={option.id}
@@ -399,8 +427,8 @@ const KitPositioning = ({
                 onClick={() => toggleVisualPosition(option.id)}
               >
                 <div>
-                  <div style={{ 
-                    fontWeight: "bold", 
+                  <div style={{
+                    fontWeight: "bold",
                     fontSize: "16px",
                     color: isSelected ? "var(--color-primary)" : "var(--color-text)"
                   }}>
@@ -410,12 +438,12 @@ const KitPositioning = ({
                     {option.description}
                   </div>
                 </div>
-                
+
                 {/* Visual representation of 2 rows × 12 columns */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "2px", marginRight: "15px" }}>
                   {[0, 1].map(row => (
                     <div key={row} style={{ display: "flex", gap: "2px" }}>
-                      {Array.from({length: 12}, (_, col) => (
+                      {Array.from({ length: 12 }, (_, col) => (
                         <div
                           key={col}
                           style={{
@@ -431,7 +459,7 @@ const KitPositioning = ({
                     </div>
                   ))}
                 </div>
-                
+
                 {isSelected && (
                   <div style={{
                     color: "var(--color-primary)",
@@ -445,7 +473,7 @@ const KitPositioning = ({
             );
           })}
         </div>
-        
+
         <div style={{ textAlign: "center", fontSize: "14px", color: "var(--color-text-secondary)" }}>
           Selected: {selectedVisualPositions.length} row pair{selectedVisualPositions.length !== 1 ? 's' : ''}
         </div>
@@ -460,8 +488,8 @@ const KitPositioning = ({
         <p style={{ fontSize: "14px", color: "var(--color-text-secondary)", marginBottom: "15px" }}>
           Select upper or lower half of the 96-well plate for your 4×12 kit.
         </p>
-        
-        <div style={{ 
+
+        <div style={{
           display: "flex",
           flexDirection: "column",
           gap: "15px",
@@ -474,7 +502,7 @@ const KitPositioning = ({
         }}>
           {options.map(option => {
             const isSelected = selectedVisualPositions.includes(option.id);
-            
+
             return (
               <div
                 key={option.id}
@@ -569,7 +597,7 @@ const KitPositioning = ({
         onCancel();
       }
     };
-    
+
     if (visible) {
       document.addEventListener('keydown', handleEscKey);
       return () => document.removeEventListener('keydown', handleEscKey);
@@ -596,7 +624,7 @@ const KitPositioning = ({
             <p><strong>Kit Size:</strong> {kitRows} rows × {kitCols} columns ({kitSize.total_wells} wells)</p>
             <p><strong>Kit Type:</strong> {kitType.replace('_', ' ').replace('well', '-well')}</p>
           </div>
-          
+
           <div style={{ marginBottom: "20px" }}>
             {renderDestinationPlateSelector()}
             {renderPositionSelection()}

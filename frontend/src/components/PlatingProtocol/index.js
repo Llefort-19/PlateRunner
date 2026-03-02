@@ -7,3 +7,7 @@ export { default as StockSolutionForm } from './StockSolutionForm';
 export { default as DispenseOrderStep } from './DispenseOrderStep';
 export { default as ProtocolPreview } from './ProtocolPreview';
 export { default as PlateGridView } from './PlateGridView';
+export { default as SolventSearchDropdown } from './SolventSearchDropdown';
+export { default as StockFormInputs } from './StockFormInputs';
+export * from './stockCalculations';
+export * from './constants';

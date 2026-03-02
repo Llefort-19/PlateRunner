@@ -1,38 +1,20 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import axios from 'axios';
 import PlateGridView from './PlateGridView';
-
-// Operation type definitions (matching DispenseOrderStep.js)
-const OPERATION_TYPES = {
-  dispense: { icon: '💧', label: 'Dispense' },
-  kit: { icon: '📦', label: 'Kit' },
-  wait: { icon: '⏳', label: 'Wait' },
-  stir: { icon: '🌀', label: 'Stir' },
-  evaporate: { icon: '🔥', label: 'Evaporate' },
-  note: { icon: '📝', label: 'Note' }
-};
-
-// Format operation for display
-const formatOperation = (op, materialConfigs) => {
-  switch (op.type) {
-    case 'kit':
-      const count = op.materialIndices?.length || 0;
-      const kitText = `${op.kitId} (${count} materials)`;
-      return op.note ? `${kitText} - ${op.note}` : kitText;
-    case 'wait':
-      return `Wait ${op.duration || '--'} ${op.unit || 'min'}`;
-    case 'stir':
-      let stirText = `Stir at ${op.temperature || '--'}°C for ${op.duration || '--'} ${op.unit || 'min'}`;
-      if (op.rpm) stirText += ` @ ${op.rpm} RPM`;
-      return stirText;
-    case 'evaporate':
-      return 'Evaporate solvents';
-    case 'note':
-      return op.text || 'Note';
-    default:
-      return 'Unknown operation';
-  }
-};
+import { OPERATION_TYPES, formatOperation } from './constants';
+import {
+  formatNumber,
+  isSolvent,
+  toMicroliters,
+  calculateStockConcentration,
+  calculateStockTotalVolume,
+  calculateStockMass,
+  formatConcentration,
+  formatVolume,
+  formatVolumeRange,
+  formatMassRange,
+  getVolumeRange
+} from './stockCalculations';
 
 const ProtocolPreview = ({
   materialConfigs,
@@ -46,6 +28,7 @@ const ProtocolPreview = ({
   onExportPDF
 }) => {
   const [exportError, setExportError] = useState(null);
+  const [expandedStockKits, setExpandedStockKits] = useState(new Set());
 
   // Get all materials that will be dispensed (including from kits)
   const getDispenseOperations = useCallback(() => {
@@ -65,270 +48,294 @@ const ProtocolPreview = ({
     return materials;
   }, [materialConfigs, dispenseOrder]);
 
-  // Get materials for plate maps (exclude kit materials since they're pre-dispensed)
+  // Get materials for plate maps (include kit materials merged into one visual item)
   const getMaterialsForPlateMaps = useCallback(() => {
     const materials = [];
     dispenseOrder.forEach(op => {
       if (op.type === 'dispense') {
         const material = materialConfigs[op.materialIndex];
         if (material) materials.push(material);
+      } else if (op.type === 'kit') {
+        const kitId = op.kitId;
+        const kitMembers = (op.materialIndices || []).map(idx => materialConfigs[idx]).filter(Boolean);
+
+        if (kitMembers.length > 0) {
+          // Merge kit members into a single "cocktail-like" object for the plate map
+          const refMaterial = kitMembers[0];
+
+          // Combine all wellAmounts from all members so the entire kit footprint is shown
+          const combinedWellAmounts = {};
+          kitMembers.forEach(member => {
+            if (member.wellAmounts) {
+              Object.entries(member.wellAmounts).forEach(([wellId, wellData]) => {
+                // If multiple members are in the same well, we just need one of them to provide the unit and value (assuming constant ratios)
+                if (!combinedWellAmounts[wellId]) {
+                  combinedWellAmounts[wellId] = { ...wellData };
+                }
+              });
+            }
+          });
+
+          materials.push({
+            name: `${kitId}`,
+            alias: `${kitId}`,
+            role_id: kitId,
+            isCocktail: true,
+            components: kitMembers,
+            wellAmounts: combinedWellAmounts,
+            dispensingMethod: refMaterial.dispensingMethod,
+            stockSolution: refMaterial.stockSolution
+          });
+        }
       }
-      // Exclude kit materials - they're pre-dispensed
     });
     return materials;
   }, [materialConfigs, dispenseOrder]);
 
-  // Get stock materials
-  const getStockMaterials = useCallback(() => {
-    return getDispenseOperations().filter(m => m.dispensingMethod === 'stock');
+  // Get stock items: individual stock materials + collapsed kit groups
+  const getStockItems = useCallback(() => {
+    const items = [];
+    const processedKits = new Set();
+    const allMats = getDispenseOperations();
+
+    allMats.forEach(m => {
+      if (m.dispensingMethod !== 'stock') return;
+      if (m.role_id && m.role_id.startsWith('kit_')) {
+        if (processedKits.has(m.role_id)) return;
+        processedKits.add(m.role_id);
+        // Collect all kit members
+        const members = allMats.filter(x => x.role_id === m.role_id && x.dispensingMethod === 'stock');
+        items.push({ isKit: true, kitId: m.role_id, members, refMaterial: members[0] });
+      } else {
+        items.push({ isKit: false, material: m });
+      }
+    });
+    return items;
   }, [getDispenseOperations]);
 
-  // Format number for display
-  const formatNumber = (num, decimals = 2) => {
-    if (num === null || num === undefined || isNaN(num)) return '--';
-    return Number(num).toFixed(decimals);
-  };
+  // ─── Thin wrappers: extract stock params → shared formatters ──────────────
 
-  // Calculate mass for a stock material
-  // IMPORTANT: The volume entered by the user corresponds to the SMALLEST amount to be dispensed
-  const calculateMass = useCallback((material) => {
-    const stock = material.stockSolution;
-    if (!material.wellAmounts || !material.molecular_weight) return null;
-
-    const amountPerWell = stock?.amountPerWell?.value;
-    const unit = stock?.amountPerWell?.unit || 'μL';
-    const excessPercent = stock?.excess || 0;
-
-    if (!amountPerWell) return null;
-
-    // Convert volume per well to μL
-    const volumePerWellUL = unit === 'mL' ? amountPerWell * 1000 : amountPerWell;
-
-    // Find the MINIMUM amount across all wells (in µmol)
-    const wellAmountsArray = Object.values(material.wellAmounts);
-    if (wellAmountsArray.length === 0) return null;
-
-    const minAmountUmol = Math.min(...wellAmountsArray.map(w => w.value));
-    const concentrationM = minAmountUmol / volumePerWellUL;
-
-    // Calculate actual volume needed for each well and sum them
-    let totalVolumeNeeded = 0;
-    for (const wellAmount of wellAmountsArray) {
-      const volumeForWell = wellAmount.value / concentrationM;
-      totalVolumeNeeded += volumeForWell;
-    }
-
-    // Add excess percentage
-    const totalVolumeUL = totalVolumeNeeded * (1 + excessPercent / 100);
-
-    // mass (mg) = concentration(M) * volume(L) * MW(g/mol) * 1000
-    const totalVolumeL = totalVolumeUL / 1e6;
-    return concentrationM * totalVolumeL * material.molecular_weight * 1000;
-  }, []);
-
-  // Format volume for display
-  const formatVolume = (material) => {
+  /** Format total volume for a stock material (extracts params from material config) */
+  const formatMaterialVolume = (material) => {
     const stock = material.stockSolution;
     if (!stock?.amountPerWell?.value || !material.wellAmounts) return '--';
-
-    const volumePerWell = stock.amountPerWell.value;
-    const unit = stock.amountPerWell.unit || 'μL';
-    const excessPercent = stock.excess || 0;
-
-    const volumePerWellUL = unit === 'mL' ? volumePerWell * 1000 : volumePerWell;
-
-    // Calculate concentration (based on minimum amount)
-    const wellAmountsArray = Object.values(material.wellAmounts);
-    if (wellAmountsArray.length === 0) return '--';
-
-    const minAmountUmol = Math.min(...wellAmountsArray.map(w => w.value));
-    const concentrationM = minAmountUmol / volumePerWellUL;
-
-    // Calculate actual volume needed for each well and sum them
-    let totalVolumeNeeded = 0;
-    for (const wellAmount of wellAmountsArray) {
-      const volumeForWell = wellAmount.value / concentrationM;
-      totalVolumeNeeded += volumeForWell;
-    }
-
-    // Add excess percentage
-    const totalVolumeUL = totalVolumeNeeded * (1 + excessPercent / 100);
-
-    if (totalVolumeUL >= 1000) return `${formatNumber(totalVolumeUL / 1000, 2)} mL`;
-    return `${formatNumber(totalVolumeUL, 0)} μL`;
+    const vpwUL = toMicroliters(stock.amountPerWell.value, stock.amountPerWell.unit);
+    const totalVolumeUL = calculateStockTotalVolume(
+      material.wellAmounts, vpwUL, stock.excess || 0, material.isCocktail
+    );
+    return formatVolume(totalVolumeUL);
   };
 
-  // Format concentration for display
-  // IMPORTANT: The volume entered by the user corresponds to the SMALLEST amount to be dispensed
-  const formatConcentration = (material) => {
+  /** Format concentration for a stock material (extracts params from material config) */
+  const formatMaterialConcentration = (material) => {
+    if (material.isCocktail) return '--';
     const stock = material.stockSolution;
     if (!stock?.amountPerWell?.value || !material.wellAmounts) return '--';
-
-    const volumePerWell = stock.amountPerWell.value;
-    const unit = stock.amountPerWell.unit || 'μL';
-
-    const volumePerWellUL = unit === 'mL' ? volumePerWell * 1000 : volumePerWell;
-
-    // Find the MINIMUM amount across all wells (in µmol)
-    const wellAmountsArray = Object.values(material.wellAmounts);
-    if (wellAmountsArray.length === 0) return '--';
-
-    const minAmountUmol = Math.min(...wellAmountsArray.map(w => w.value));
-    const concentrationM = minAmountUmol / volumePerWellUL;
-
-    if (concentrationM < 0.1) return `${formatNumber(concentrationM * 1000, 2)} mM`;
-    return `${formatNumber(concentrationM, 3)} M`;
-  };
-
-  // Get volume range to be dispensed per well
-  const formatVolumeRange = (material) => {
-    const stock = material.stockSolution;
-    if (!stock?.amountPerWell?.value || !material.wellAmounts) return '--';
-
-    const volumePerWell = stock.amountPerWell.value;
-    const unit = stock.amountPerWell.unit || 'μL';
-    const volumePerWellUL = unit === 'mL' ? volumePerWell * 1000 : volumePerWell;
-
-    // Find the MINIMUM amount across all wells (in µmol)
-    const wellAmountsArray = Object.values(material.wellAmounts);
-    if (wellAmountsArray.length === 0) return '--';
-
-    const minAmountUmol = Math.min(...wellAmountsArray.map(w => w.value));
-    const maxAmountUmol = Math.max(...wellAmountsArray.map(w => w.value));
-
-    // Calculate concentration
-    const concentrationM = minAmountUmol / volumePerWellUL;
-
-    // Calculate volume range
-    const minVolumeUL = minAmountUmol / concentrationM;
-    const maxVolumeUL = maxAmountUmol / concentrationM;
-
-    // Format the range
-    if (minVolumeUL === maxVolumeUL) {
-      return `${formatNumber(minVolumeUL, 1)} μL`;
-    }
-    return `${formatNumber(minVolumeUL, 1)} - ${formatNumber(maxVolumeUL, 1)} μL`;
-  };
-
-  // Check if a material is a solvent (volume-based unit)
-  const isSolvent = (material) => {
-    const unit = material?.totalAmount?.unit || '';
-    return unit === 'μL' || unit === 'mL';
-  };
-
-  // Get mass range for neat materials
-  const formatMassRange = (material) => {
-    if (!material.wellAmounts) return '--';
-
-    const wellAmountsArray = Object.values(material.wellAmounts);
-    if (wellAmountsArray.length === 0) return '--';
-
-    // For solvents, show volume in μL
-    if (isSolvent(material)) {
-      return formatSolventVolumeRange(material);
-    }
-
-    if (!material.molecular_weight) return '--';
-
-    // Calculate mass for each well: mass (mg) = amount (μmol) × MW (g/mol) / 1000
-    const masses = wellAmountsArray.map(w => (w.value * material.molecular_weight) / 1000);
-    const minMass = Math.min(...masses);
-    const maxMass = Math.max(...masses);
-
-    // Format the range (always 2 decimals for mass)
-    if (minMass === maxMass) {
-      return `${formatNumber(minMass, 2)} mg`;
-    }
-    return `${formatNumber(minMass, 2)} - ${formatNumber(maxMass, 2)} mg`;
-  };
-
-  // Get volume range for solvents (amounts are already in μL/mL)
-  const formatSolventVolumeRange = (material) => {
-    if (!material.wellAmounts) return '--';
-
-    const wellAmountsArray = Object.values(material.wellAmounts);
-    if (wellAmountsArray.length === 0) return '--';
-
-    const unit = material.totalAmount?.unit || 'μL';
-    const values = wellAmountsArray.map(w => w.value);
-    let minVal = Math.min(...values);
-    let maxVal = Math.max(...values);
-
-    // Convert to μL if in mL
-    if (unit === 'mL') {
-      minVal *= 1000;
-      maxVal *= 1000;
-    }
-
-    if (minVal === maxVal) {
-      return `${formatNumber(minVal, 1)} μL`;
-    }
-    return `${formatNumber(minVal, 1)} - ${formatNumber(maxVal, 1)} μL`;
+    const vpwUL = toMicroliters(stock.amountPerWell.value, stock.amountPerWell.unit);
+    return formatConcentration(calculateStockConcentration(material.wellAmounts, vpwUL));
   };
 
   // Build protocol data for export
   const buildProtocolData = useCallback(() => {
     const dispenseOperations = getDispenseOperations();
-    return {
-      materials: dispenseOperations.map((m) => {
-        // Compute concentration and total volume for backend
-        let concentrationValue = null;
-        let concentrationUnit = 'M';
-        let totalVolumeValue = null;
-        let totalVolumeUnit = 'mL';
+    const processedKits = new Set();
+    const kitStockEntries = [];
 
-        if (m.dispensingMethod === 'stock' && m.stockSolution?.amountPerWell?.value && m.wellAmounts) {
-          const volumePerWell = m.stockSolution.amountPerWell.value;
-          const volUnit = m.stockSolution.amountPerWell.unit || 'μL';
-          const excessPercent = m.stockSolution?.excess || 0;
+    // Build individual material entries (preserving original indices for operations)
+    const materialEntries = dispenseOperations.map((m) => {
+      let concentrationValue = null;
+      let concentrationUnit = 'M';
+      let totalVolumeValue = null;
+      let totalVolumeUnit = 'mL';
 
-          const volumePerWellUL = volUnit === 'mL' ? volumePerWell * 1000 : volumePerWell;
-
-          // IMPORTANT: The volume entered by the user corresponds to the SMALLEST amount to be dispensed
-          const wellAmountsArray = Object.values(m.wellAmounts);
-          const minAmountUmol = wellAmountsArray.length > 0
-            ? Math.min(...wellAmountsArray.map(w => w.value))
-            : 0;
-
-          concentrationValue = minAmountUmol / volumePerWellUL; // M
-
-          // Calculate actual volume needed for each well and sum them
+      if (m.dispensingMethod === 'stock' && m.stockSolution?.amountPerWell?.value && m.wellAmounts) {
+        const volumePerWell = m.stockSolution.amountPerWell.value;
+        const volUnit = m.stockSolution.amountPerWell.unit || 'μL';
+        const excessPercent = m.stockSolution?.excess || 0;
+        const volumePerWellUL = toMicroliters(volumePerWell, volUnit);
+        const wellAmountsArray = Object.values(m.wellAmounts);
+        const minAmountUmol = wellAmountsArray.length > 0 ? Math.min(...wellAmountsArray.map(w => w.value)) : 0;
+        if (minAmountUmol > 0) {
+          concentrationValue = minAmountUmol / volumePerWellUL;
           let totalVolumeNeeded = 0;
-          for (const wellAmount of wellAmountsArray) {
-            const volumeForWell = wellAmount.value / concentrationValue;
-            totalVolumeNeeded += volumeForWell;
-          }
+          for (const wellAmount of wellAmountsArray) totalVolumeNeeded += wellAmount.value / concentrationValue;
+          totalVolumeValue = (totalVolumeNeeded * (1 + excessPercent / 100)) / 1000;
+        }
+      }
 
-          // Add excess percentage and convert to mL
-          totalVolumeValue = (totalVolumeNeeded * (1 + excessPercent / 100)) / 1000; // mL
+      // Neat material total mass: totalAmount (μmol) × MW (g/mol) / 1000 → mg
+      const neatMassValue = (
+        m.dispensingMethod !== 'stock' &&
+        !m.isCocktail &&
+        !isSolvent(m) &&
+        m.molecular_weight &&
+        m.totalAmount?.value
+      ) ? m.totalAmount.value * m.molecular_weight / 1000 : null;
+
+      return {
+        name: m.name,
+        alias: m.alias,
+        cas: m.cas,
+        molecular_weight: m.molecular_weight,
+        dispensing_method: m.dispensingMethod,
+        role_id: m.role_id || '',
+        stock_solution: m.dispensingMethod === 'stock' ? {
+          solvent_name: m.stockSolution?.solvent?.name || null,
+          solvent_cas: m.stockSolution?.solvent?.cas || null,
+          solvent_density: m.stockSolution?.solvent?.density || null,
+          amount_per_well_value: m.stockSolution?.amountPerWell?.value || null,
+          amount_per_well_unit: m.stockSolution?.amountPerWell?.unit || 'μL',
+          excess: m.stockSolution?.excess || 0,
+          concentration_value: concentrationValue,
+          concentration_unit: concentrationUnit,
+          total_volume_value: totalVolumeValue,
+          total_volume_unit: totalVolumeUnit,
+        } : null,
+        well_amounts: m.wellAmounts,
+        total_amount_value: m.totalAmount?.value || null,
+        total_amount_unit: m.totalAmount?.unit || 'μmol',
+        // Stock mass from concentration×volume formula; neat mass from totalAmount×MW/1000
+        calculated_mass_value: m.dispensingMethod === 'stock' && !m.isCocktail
+          ? calculateStockMass(m)
+          : neatMassValue,
+        calculated_mass_unit: 'mg',
+        is_cocktail: m.isCocktail || false,
+        components: m.isCocktail ? (m.components || []).map(c => {
+          // Use the COCKTAIL's shared amountPerWell for component calculations
+          const vpwUL = m.stockSolution?.amountPerWell?.value
+            ? toMicroliters(m.stockSolution.amountPerWell.value, m.stockSolution.amountPerWell.unit)
+            : null;
+          // Concentration for this component with the cocktail's shared volume
+          const cConc = (c.wellAmounts && vpwUL)
+            ? calculateStockConcentration(c.wellAmounts, vpwUL)
+            : null;
+          // Mass using cocktail's shared stock params
+          const cMass = calculateStockMass(c, m.stockSolution);
+          return {
+            ...c,
+            // Provide pre-calculated values at the top level for easy backend reading
+            calculated_mass_value: cMass,
+            calculated_concentration_value: cConc,  // always in M
+            // Keep legacy field for backward compatibility
+            calculatedMass: cMass !== null ? { value: cMass, unit: 'mg' } : null
+          };
+        }) : []
+      };
+    });
+
+    // Build separate kit stock entries for the stock preparation table
+    dispenseOperations.forEach((m) => {
+      if (m.role_id && m.role_id.startsWith('kit_') && m.dispensingMethod === 'stock') {
+        if (processedKits.has(m.role_id)) return;
+        processedKits.add(m.role_id);
+
+        const kitMembers = dispenseOperations.filter(x => x.role_id === m.role_id && x.dispensingMethod === 'stock');
+        const ref = kitMembers[0];
+        const stock = ref.stockSolution;
+
+        let totalVolumeMl = null;
+        let concentrationValue = null;
+
+        if (stock?.amountPerWell?.value) {
+          const vpwUL = toMicroliters(stock.amountPerWell.value, stock.amountPerWell.unit);
+          const excessPercent = stock.excess || 0;
+
+          // Global minimum across ALL kit members determines shared stock concentration
+          const allKitWellValues = kitMembers.flatMap(km =>
+            Object.values(km.wellAmounts || {}).map(w => w.value).filter(v => v > 0)
+          );
+          const globalMinAmount = allKitWellValues.length > 0 ? Math.min(...allKitWellValues) : null;
+
+          if (globalMinAmount) {
+            concentrationValue = globalMinAmount / vpwUL;
+            // Total volume: sum(wellAmount / globalConc) across all kit members
+            let totalNeeded = 0;
+            kitMembers.forEach(km => {
+              for (const wa of Object.values(km.wellAmounts || {})) {
+                totalNeeded += wa.value / concentrationValue;
+              }
+            });
+            totalVolumeMl = (totalNeeded * (1 + excessPercent / 100)) / 1000;
+          }
         }
 
-        return {
-          name: m.name,
-          alias: m.alias,
-          cas: m.cas,
-          molecular_weight: m.molecular_weight,
-          dispensing_method: m.dispensingMethod,
-          stock_solution: m.dispensingMethod === 'stock' ? {
-            solvent_name: m.stockSolution?.solvent?.name || null,
-            solvent_cas: m.stockSolution?.solvent?.cas || null,
-            solvent_density: m.stockSolution?.solvent?.density || null,
-            amount_per_well_value: m.stockSolution?.amountPerWell?.value || null,
-            amount_per_well_unit: m.stockSolution?.amountPerWell?.unit || 'μL',
-            excess: m.stockSolution?.excess || 0,
+        kitStockEntries.push({
+          is_kit: true,
+          kit_id: m.role_id,
+          member_names: kitMembers.map(km => km.alias || km.name),
+          name: m.role_id,
+          alias: m.role_id,
+          dispensing_method: 'stock',
+          stock_solution: {
+            solvent_name: stock?.solvent?.name || null,
+            solvent_cas: stock?.solvent?.cas || null,
+            solvent_density: stock?.solvent?.density || null,
+            amount_per_well_value: stock?.amountPerWell?.value || null,
+            amount_per_well_unit: stock?.amountPerWell?.unit || 'μL',
+            excess: stock?.excess || 0,
             concentration_value: concentrationValue,
-            concentration_unit: concentrationUnit,
-            total_volume_value: totalVolumeValue,
-            total_volume_unit: totalVolumeUnit,
-          } : null,
-          well_amounts: m.wellAmounts,
-          total_amount_value: m.totalAmount?.value || null,
-          total_amount_unit: m.totalAmount?.unit || 'μmol',
-          calculated_mass_value: m.dispensingMethod === 'stock' ? calculateMass(m) : null,
+            concentration_unit: 'M',
+            total_volume_value: totalVolumeMl,
+            total_volume_unit: 'mL',
+          },
+          well_amounts: {},
+          total_amount_value: null,
+          total_amount_unit: 'μmol',
+          calculated_mass_value: null,
           calculated_mass_unit: 'mg'
-        };
-      }),
-      operations: dispenseOrder,
+        });
+      }
+    });
+
+    // Remap operation indices to match the flattened materials array.
+    // dispenseOrder uses materialIndex/materialIndices that reference materialConfigs (React state),
+    // but the exported materials array is flattened from getDispenseOperations() with different indices.
+    const configToFlatIndex = new Map();
+    let flatIdx = 0;
+    dispenseOrder.forEach(op => {
+      if (op.type === 'dispense') {
+        const material = materialConfigs[op.materialIndex];
+        if (material) {
+          configToFlatIndex.set(op.materialIndex, flatIdx);
+          flatIdx++;
+        }
+      } else if (op.type === 'kit') {
+        (op.materialIndices || []).forEach(idx => {
+          const material = materialConfigs[idx];
+          if (material) {
+            configToFlatIndex.set(idx, flatIdx);
+            flatIdx++;
+          }
+        });
+      }
+    });
+
+    const remappedOperations = [];
+    dispenseOrder.forEach(op => {
+      if (op.type === 'dispense') {
+        const material = materialConfigs[op.materialIndex];
+        // Only include operations that point to a valid material
+        if (material) {
+          remappedOperations.push({
+            ...op,
+            materialIndex: configToFlatIndex.get(op.materialIndex) ?? op.materialIndex
+          });
+        }
+      } else if (op.type === 'kit') {
+        remappedOperations.push({
+          ...op,
+          materialIndices: (op.materialIndices || []).map(idx => configToFlatIndex.get(idx) ?? idx)
+        });
+      } else {
+        // keep unit operations
+        remappedOperations.push(op);
+      }
+    });
+
+    return {
+      materials: materialEntries,
+      kit_stock_entries: kitStockEntries,
+      operations: remappedOperations,
       plate_type: plateType,
       context: {
         eln: context?.eln || '',
@@ -339,75 +346,66 @@ const ProtocolPreview = ({
       created_at: new Date().toISOString(),
       exported_at: null
     };
-  }, [getDispenseOperations, dispenseOrder, plateType, context, calculateMass]);
+  }, [getDispenseOperations, materialConfigs, dispenseOrder, plateType, context]);
 
-  // Export to Excel
-  const handleExportExcel = async () => {
+  // ─── Unified export handler ───────────────────────────────────────────────
+  const handleExport = useCallback(async (format) => {
     setIsExporting(true);
     setExportError(null);
     try {
       const protocolData = buildProtocolData();
+      // Persist to experiment state (fire-and-forget, don't block export)
+      axios.post('/api/experiment/plating-protocol', protocolData).catch(() => { });
+
       const response = await axios.post(
         '/api/experiment/plating-protocol/export',
-        { protocol: protocolData, format: 'excel' },
+        { protocol: protocolData, format },
         { responseType: 'blob' }
       );
-      const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+      const isExcel = format === 'excel';
+      const mimeType = isExcel
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : 'application/pdf';
+      const ext = isExcel ? 'xlsx' : 'pdf';
+
+      const blob = new Blob([response.data], { type: mimeType });
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
       const eln = context?.eln || 'Protocol';
       const date = new Date().toISOString().split('T')[0];
-      link.download = `Plating_Protocol_${eln}_${date}.xlsx`;
+      const filename = `Plating_Protocol_${eln}_${date}.${ext}`;
+      const link = document.createElement('a');
+      link.style.display = 'none';
+      link.href = url;
+      link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      // Delay cleanup so the browser has time to start the download
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 100);
     } catch (error) {
-      console.error('Error exporting to Excel:', error);
-      setExportError('Failed to export to Excel. Please try again.');
+      console.error(`Error exporting to ${format}:`, error);
+      setExportError(`Failed to export to ${format}. Please try again.`);
     } finally {
       setIsExporting(false);
     }
-  };
+  }, [buildProtocolData, context]);
 
-  // ─────── PDF Export via backend ───────
-  const handleExportPDF = async () => {
-    setIsExporting(true);
-    setExportError(null);
-    try {
-      const protocolData = buildProtocolData();
-      const response = await axios.post(
-        '/api/experiment/plating-protocol/export',
-        { protocol: protocolData, format: 'pdf' },
-        { responseType: 'blob' }
-      );
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      const eln = context?.eln || 'Protocol';
-      const date = new Date().toISOString().split('T')[0];
-      link.download = `Plating_Protocol_${eln}_${date}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error exporting to PDF:', error);
-      setExportError('Failed to export to PDF. Please try again.');
-    } finally {
-      setIsExporting(false);
-    }
-  };
+  const stockItems = getStockItems();
 
-  const stockMaterials = getStockMaterials();
+  // Use ref for export handler to avoid infinite re-render cycle.
+  // The parent's onExportExcel/onExportPDF are inline functions that call setState,
+  // so we can't put them in useEffect deps. Instead, register stable wrappers once on mount.
+  const exportHandlerRef = useRef(handleExport);
+  exportHandlerRef.current = handleExport;
 
-  // Expose export handlers to parent
   useEffect(() => {
-    if (onExportExcel) onExportExcel(handleExportExcel);
-    if (onExportPDF) onExportPDF(handleExportPDF);
-  }, [onExportExcel, onExportPDF, handleExportExcel, handleExportPDF]);
+    if (onExportExcel) onExportExcel(() => exportHandlerRef.current('excel'));
+    if (onExportPDF) onExportPDF(() => exportHandlerRef.current('pdf'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="protocol-preview-step">
@@ -419,7 +417,7 @@ const ProtocolPreview = ({
       )}
 
       {/* ─── Section 1: Stock Solution Preparation ─── */}
-      {stockMaterials.length > 0 && (
+      {stockItems.length > 0 && (
         <div className="preview-section">
           <h4>🧪 Stock Solution Preparation</h4>
           <table className="preview-stock-table">
@@ -435,20 +433,125 @@ const ProtocolPreview = ({
               </tr>
             </thead>
             <tbody>
-              {stockMaterials.map((material, idx) => {
-                const mass = calculateMass(material);
-                const stock = material.stockSolution;
-                return (
-                  <tr key={idx}>
-                    <td className="stock-table-name">{material.alias || material.name}</td>
-                    <td>{stock?.solvent?.name || '-'}</td>
-                    <td>{mass !== null ? `${formatNumber(mass, 2)} mg` : '-'}</td>
-                    <td>{formatVolume(material)}</td>
-                    <td>{formatConcentration(material)}</td>
-                    <td>{formatVolumeRange(material)}</td>
-                    <td>{stock?.excess || 0}%</td>
-                  </tr>
-                );
+              {stockItems.map((item, idx) => {
+                if (item.isKit) {
+                  const { kitId, members, refMaterial } = item;
+                  const stock = refMaterial.stockSolution;
+
+                  // Aggregate total volume across members using shared utility
+                  const kitTotalVolUL = members.reduce((sum, m) => {
+                    const s = m.stockSolution;
+                    if (!s?.amountPerWell?.value || !m.wellAmounts) return sum;
+                    const vpwUL = toMicroliters(s.amountPerWell.value, s.amountPerWell.unit);
+                    const vol = calculateStockTotalVolume(m.wellAmounts, vpwUL, s.excess || 0);
+                    return sum + (vol || 0);
+                  }, 0);
+
+                  // Volume range across all members using shared utility
+                  const memberRanges = members.map(m => getVolumeRange(m));
+                  const allMins = memberRanges.filter(r => r.min !== null).map(r => r.min);
+                  const allMaxes = memberRanges.filter(r => r.max !== null).map(r => r.max);
+                  const kitVolMin = allMins.length > 0 ? Math.min(...allMins) : null;
+                  const kitVolMax = allMaxes.length > 0 ? Math.max(...allMaxes) : null;
+                  const kitVolRangeStr = kitVolMin === null ? '--' :
+                    kitVolMin === kitVolMax ? `${formatNumber(kitVolMin, 1)} μL` :
+                      `${formatNumber(kitVolMin, 1)} - ${formatNumber(kitVolMax, 1)} μL`;
+
+                  const kitVolStr = kitTotalVolUL > 0 ? formatVolume(kitTotalVolUL) : '--';
+
+                  const isExpanded = expandedStockKits.has(kitId);
+                  return (
+                    <React.Fragment key={`kit-${kitId}`}>
+                      <tr
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => setExpandedStockKits(prev => {
+                          const n = new Set(prev);
+                          n.has(kitId) ? n.delete(kitId) : n.add(kitId);
+                          return n;
+                        })}
+                      >
+                        <td className="stock-table-name">
+                          📦 {kitId}
+                          <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginLeft: '6px' }}>
+                            ({members.length} materials {isExpanded ? '▲' : '▼'})
+                          </span>
+                        </td>
+                        <td>{stock?.solvent?.name || '-'}</td>
+                        <td style={{ fontStyle: 'italic', color: 'var(--color-text-tertiary)' }}>—</td>
+                        <td>{kitVolStr}</td>
+                        <td>{formatMaterialConcentration(refMaterial)}</td>
+                        <td>{kitVolRangeStr}</td>
+                        <td>{stock?.excess || 0}%</td>
+                      </tr>
+                      {isExpanded && members.map((m, mIdx) => {
+                        const mMass = calculateStockMass(m);
+                        const mStock = m.stockSolution;
+                        return (
+                          <tr key={`${kitId}-${mIdx}`} style={{ backgroundColor: 'rgba(0,123,255,0.03)' }}>
+                            <td style={{ paddingLeft: '28px', fontSize: '12px' }}>{m.alias || m.name}</td>
+                            <td style={{ fontSize: '12px' }}>{mStock?.solvent?.name || '-'}</td>
+                            <td style={{ fontSize: '12px' }}>{mMass !== null ? `${formatNumber(mMass, 2)} mg` : '-'}</td>
+                            <td style={{ fontSize: '12px' }}>{formatMaterialVolume(m)}</td>
+                            <td style={{ fontSize: '12px' }}>{formatMaterialConcentration(m)}</td>
+                            <td style={{ fontSize: '12px' }}>{formatVolumeRange(m)}</td>
+                            <td style={{ fontSize: '12px' }}>{mStock?.excess || 0}%</td>
+                          </tr>
+                        );
+                      })}
+                    </React.Fragment>
+                  );
+                } else {
+                  const material = item.material;
+                  const stock = material.stockSolution;
+                  if (material.isCocktail) {
+                    return (
+                      <React.Fragment key={idx}>
+                        <tr>
+                          <td className="stock-table-name" style={{ backgroundColor: 'var(--color-surface-hover)' }}>
+                            {material.alias || material.name} (Premixed)
+                          </td>
+                          <td style={{ backgroundColor: 'var(--color-surface-hover)' }}>-</td>
+                          <td style={{ backgroundColor: 'var(--color-surface-hover)', fontStyle: 'italic', color: 'var(--color-text-tertiary)' }}>—</td>
+                          <td style={{ backgroundColor: 'var(--color-surface-hover)' }}>{formatMaterialVolume(material)}</td>
+                          <td style={{ backgroundColor: 'var(--color-surface-hover)' }}>-</td>
+                          <td style={{ backgroundColor: 'var(--color-surface-hover)' }}>{formatVolumeRange(material)}</td>
+                          <td style={{ backgroundColor: 'var(--color-surface-hover)' }}>{stock?.excess || 0}%</td>
+                        </tr>
+                        {material.components && material.components.map((c, cIdx) => {
+                          const mMass = calculateStockMass(c, material.stockSolution);
+                          // Use the COCKTAIL's shared amountPerWell for concentration — not the component's own
+                          const parentVpwUL = material.stockSolution?.amountPerWell?.value
+                            ? toMicroliters(material.stockSolution.amountPerWell.value, material.stockSolution.amountPerWell.unit)
+                            : null;
+                          const cConc = (c.wellAmounts && parentVpwUL)
+                            ? calculateStockConcentration(c.wellAmounts, parentVpwUL)
+                            : null;
+                          return (
+                            <tr key={`${idx}-comp-${cIdx}`} style={{ backgroundColor: 'rgba(23, 162, 184, 0.03)' }}>
+                              <td style={{ paddingLeft: '28px', fontSize: '12px' }}>{c.alias || c.name}</td>
+                              <td colSpan={6} style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
+                                Mass: {mMass !== null ? `${formatNumber(mMass, 2)} mg` : '-'} • Concentration: {cConc !== null ? formatConcentration(cConc) : '--'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </React.Fragment>
+                    );
+                  }
+
+                  const mass = calculateStockMass(material);
+                  return (
+                    <tr key={idx}>
+                      <td className="stock-table-name">{material.alias || material.name}</td>
+                      <td>{stock?.solvent?.name || '-'}</td>
+                      <td>{mass !== null ? `${formatNumber(mass, 2)} mg` : '-'}</td>
+                      <td>{formatMaterialVolume(material)}</td>
+                      <td>{formatMaterialConcentration(material)}</td>
+                      <td>{formatVolumeRange(material)}</td>
+                      <td>{stock?.excess || 0}%</td>
+                    </tr>
+                  );
+                }
               })}
             </tbody>
           </table>
@@ -459,66 +562,80 @@ const ProtocolPreview = ({
       <div className="preview-section">
         <h4>📋 Protocol Steps</h4>
         <div className="preview-steps-list">
-          {dispenseOrder.map((operation, idx) => {
-            const isDispense = operation.type === 'dispense';
-            const isKit = operation.type === 'kit';
-            const material = isDispense ? materialConfigs[operation.materialIndex] : null;
+          {(() => {
+            let visualIndex = 0;
+            return dispenseOrder.map((operation, idx) => {
+              const isDispense = operation.type === 'dispense';
+              const isKit = operation.type === 'kit';
+              const material = isDispense ? materialConfigs[operation.materialIndex] : null;
 
-            if (isDispense && !material) return null;
+              if (isDispense && !material) return null;
 
-            const opConfig = OPERATION_TYPES[operation.type] || {};
+              const currentVisualIndex = visualIndex++;
+              const opConfig = OPERATION_TYPES[operation.type] || {};
 
-            return (
-              <div
-                key={`step-${idx}`}
-                className={`preview-step-card ${isDispense || isKit ? 'dispense' : 'unit-op'}`}
-              >
-                {/* Step badge + icon */}
-                <div className="preview-step-header">
-                  <span className="preview-step-badge">{idx + 1}</span>
-                  <span className="preview-step-icon">{opConfig.icon}</span>
-                  <span className="preview-step-label">
-                    {isDispense ? (
-                      <>
-                        <strong>Dispense: {material.alias || material.name}</strong>
-                        <span className="preview-step-meta">
-                          {isSolvent(material) ? 'Solvent' : material.dispensingMethod === 'stock' ? 'Stock' : 'Neat'}
-                          {' • '}
-                          {Object.keys(material.wellAmounts).length} wells
-                          {material.dispensingMethod === 'stock' ? (
-                            <>
-                              {' • '}
-                              {formatVolumeRange(material)}
-                            </>
-                          ) : (
-                            <>
-                              {' • '}
-                              {formatMassRange(material)}
-                            </>
-                          )}
-                        </span>
-                      </>
-                    ) : isKit ? (
-                      <>
-                        <strong>{operation.kitId}</strong>
-                        <span className="preview-step-meta">
-                          {operation.materialIndices?.length || 0} materials
-                          {operation.note && (
-                            <>
-                              {' • '}
-                              {operation.note}
-                            </>
-                          )}
-                        </span>
-                      </>
-                    ) : (
-                      <span>{formatOperation(operation, materialConfigs)}</span>
-                    )}
-                  </span>
+              return (
+                <div
+                  key={`step-${idx}`}
+                  className={`preview-step-card ${isDispense || isKit ? 'dispense' : 'unit-op'}`}
+                >
+                  {/* Step badge + icon */}
+                  <div className="preview-step-header">
+                    <span className="preview-step-badge">{currentVisualIndex + 1}</span>
+                    <span className="preview-step-icon">{opConfig.icon}</span>
+                    <span className="preview-step-label">
+                      {isDispense ? (
+                        <>
+                          <strong>Dispense: {material.alias || material.name}</strong>
+                          <span className="preview-step-meta">
+                            {isSolvent(material) ? 'Solvent' : material.dispensingMethod === 'stock' ? 'Stock' : 'Neat'}
+                            {' • '}
+                            {Object.keys(material.wellAmounts).length} wells
+                            {material.dispensingMethod === 'stock' ? (
+                              <>
+                                {' • '}
+                                {formatVolumeRange(material)}
+                              </>
+                            ) : (
+                              <>
+                                {' • '}
+                                {formatMassRange(material)}
+                              </>
+                            )}
+                          </span>
+                        </>
+                      ) : isKit ? (
+                        <>
+                          <strong>{operation.kitId}</strong>
+                          <span className="preview-step-meta">
+                            {(() => {
+                              const firstIdx = operation.materialIndices?.[0];
+                              const firstMat = firstIdx !== undefined ? materialConfigs[firstIdx] : null;
+                              const method = firstMat?.dispensingMethod || 'neat';
+                              const solvent = firstMat?.stockSolution?.solvent?.name;
+                              return method === 'stock'
+                                ? `Stock${solvent ? ` in ${solvent}` : ''}`
+                                : 'Neat';
+                            })()}
+                            {' • '}
+                            {operation.materialIndices?.length || 0} materials
+                            {operation.note && (
+                              <>
+                                {' • '}
+                                {operation.note}
+                              </>
+                            )}
+                          </span>
+                        </>
+                      ) : (
+                        <span>{formatOperation(operation, materialConfigs)}</span>
+                      )}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            });
+          })()}
         </div>
       </div>
 

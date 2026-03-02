@@ -109,6 +109,9 @@ class WellMaterialSchema(Schema):
     unit = fields.Str(validate=validate.OneOf(['μmol', 'mmol', 'mol', 'μL', 'mL', 'L', 'mg', 'g']), missing='μmol')
     role = fields.Str(allow_none=True)
     role_id = fields.Str(allow_none=True)
+    stockId = fields.Str(validate=validate.Length(max=50), allow_none=True)
+    molecular_weight = fields.Float(allow_none=True)
+    barcode = fields.Str(allow_none=True)
 
 class ProcedureItemSchema(Schema):
     """Schema for individual procedure item (well)."""

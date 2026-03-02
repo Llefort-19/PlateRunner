@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import axios from 'axios';
 import MaterialConfigStep from './MaterialConfigStep';
 import StockSolutionForm from './StockSolutionForm';
 import DispenseOrderStep from './DispenseOrderStep';
 import ProtocolPreview from './ProtocolPreview';
+import { calculateMassFromStockParams } from './stockCalculations';
 import './PlatingProtocol.css';
 
 const STEPS = [
@@ -58,7 +60,7 @@ const PlatingProtocolModal = ({
     procedure.forEach(wellData => {
       const well = wellData.well;
       (wellData.materials || []).forEach(material => {
-        const key = `${material.name}_${material.cas || ''}`;
+        const key = `${material.name}_${material.cas || ''}_${material.stockId || ''}`;
 
         if (!materialMap.has(key)) {
           // Get molecular weight from procedure data first, then fall back to materials list
@@ -66,8 +68,8 @@ const PlatingProtocolModal = ({
             findMolecularWeight(material.name, material.cas, material.alias);
 
           materialMap.set(key, {
-            name: material.name,
-            alias: material.alias || material.name,
+            name: material.name + (material.stockId ? ` (Stock ${material.stockId})` : ''),
+            alias: (material.alias || material.name) + (material.stockId ? ` (Stock ${material.stockId})` : ''),
             cas: material.cas || '',
             molecular_weight: mw,
             role: material.role || '',
@@ -247,6 +249,24 @@ const PlatingProtocolModal = ({
     }
   }, [visible, materialConfigs, dispenseOrder, currentStep, parseMaterialsFromProcedure]);
 
+  // Persist protocol data to backend when modal closes (so main experiment export can include it)
+  const prevVisibleRef = useRef(visible);
+  useEffect(() => {
+    // Detect close transition: was visible, now hidden, and has data
+    if (prevVisibleRef.current && !visible && materialConfigs.length > 0) {
+      const protocolState = {
+        materialConfigs,
+        dispenseOrder,
+        plateType,
+        context,
+        saved_at: new Date().toISOString()
+      };
+      // Fire-and-forget save to experiment state
+      axios.post('/api/experiment/plating-protocol', protocolState).catch(() => { });
+    }
+    prevVisibleRef.current = visible;
+  }, [visible, materialConfigs, dispenseOrder, plateType, context]);
+
   // Focus management
   useEffect(() => {
     if (visible) {
@@ -345,7 +365,24 @@ const PlatingProtocolModal = ({
     });
   };
 
-  const handleStockSolutionChange = (index, stockConfig) => {
+  // Batch-update all materials belonging to a kit
+  const handleKitConfigChange = (kitId, field, value) => {
+    setMaterialConfigs(prev => {
+      const updated = [...prev];
+      updated.forEach((mat, i) => {
+        if (mat.role_id === kitId) {
+          updated[i] = { ...updated[i], [field]: value };
+          if (field === 'dispensingMethod' && value === 'neat') {
+            updated[i].stockSolution = null;
+            updated[i].calculatedMass = null;
+          }
+        }
+      });
+      return updated;
+    });
+  };
+
+  const handleStockSolutionChange = (index, stockConfig, updatedComponents) => {
     setMaterialConfigs(prev => {
       const updated = [...prev];
       const material = updated[index];
@@ -354,7 +391,6 @@ const PlatingProtocolModal = ({
       let calculatedConfig = { ...stockConfig };
 
       if (stockConfig.amountPerWell?.value && stockConfig.excess !== undefined) {
-        const wellCount = Object.keys(material.wellAmounts).length;
         const volumePerWell = stockConfig.amountPerWell.value;
         const unit = stockConfig.amountPerWell.unit;
         const excessPercent = stockConfig.excess;
@@ -362,14 +398,23 @@ const PlatingProtocolModal = ({
         // Convert to μL
         const volumePerWellUL = unit === 'mL' ? volumePerWell * 1000 : volumePerWell;
 
-        // Calculate concentration (M) from amount per well and volume per well
-        // This is constant and not affected by excess
-        const totalAmountUmol = material.totalAmount?.value || 0;
-        const amountPerWellUmol = totalAmountUmol / wellCount;
-        const concentrationM = amountPerWellUmol / volumePerWellUL;
+        // Use minimum well amount for concentration (correct for variable-amount wells).
+        // The stock concentration must accommodate the smallest amount at the configured volume.
+        const wellAmountsArr = Object.values(material.wellAmounts || {});
+        const minAmountUmol = wellAmountsArr.length > 0
+          ? Math.min(...wellAmountsArr.map(w => w.value))
+          : 0;
+        const concentrationM = minAmountUmol > 0 ? minAmountUmol / volumePerWellUL : 0;
 
-        // Calculate total volume (µL) including excess
-        const totalVolumeUL = volumePerWellUL * wellCount * (1 + excessPercent / 100);
+        // Total volume: sum(wellAmount / concentration) × (1+excess)
+        // This accounts for varying amounts per well (more material = more stock needed)
+        let totalVolumeUL;
+        if (concentrationM > 0) {
+          totalVolumeUL = wellAmountsArr.reduce((sum, w) => sum + w.value / concentrationM, 0)
+            * (1 + excessPercent / 100);
+        } else {
+          totalVolumeUL = volumePerWellUL * wellAmountsArr.length * (1 + excessPercent / 100);
+        }
 
         // Store calculated values with appropriate units
         calculatedConfig.concentration = {
@@ -390,7 +435,9 @@ const PlatingProtocolModal = ({
           calculatedConfig.concentration,
           calculatedConfig.totalVolume,
           material.molecular_weight
-        )
+        ),
+        // Apply immutably-updated components if provided (e.g. batch apply on cocktails)
+        ...(updatedComponents ? { components: updatedComponents } : {})
       };
       return updated;
     });
@@ -400,31 +447,139 @@ const PlatingProtocolModal = ({
     setDispenseOrder(newOrder);
   };
 
-  // Calculate mass from concentration, volume, and molecular weight
-  const calculateMass = (concentration, totalVolume, molecularWeight) => {
-    if (!concentration || !totalVolume || !molecularWeight) return null;
+  const handleCombineStocks = (selectedMaterialKeys) => {
+    // Identify which materialConfigs entries are being merged (and their current indices)
+    const mergedIndices = new Set(
+      materialConfigs.reduce((acc, m, idx) => {
+        if (selectedMaterialKeys.includes(`${m.name}_${m.cas}`)) acc.push(idx);
+        return acc;
+      }, [])
+    );
+    const materialsToMerge = materialConfigs.filter((_, idx) => mergedIndices.has(idx));
+    if (materialsToMerge.length < 2) return;
 
-    // Convert concentration to mol/L
-    let concMolPerL = concentration.value;
-    if (concentration.unit === 'mM') {
-      concMolPerL = concentration.value / 1000;
-    } else if (concentration.unit === 'mg/mL') {
-      // mg/mL to mol/L: (mg/mL) / MW * 1000 = mol/L
-      concMolPerL = (concentration.value / molecularWeight) * 1000;
-    }
+    const baseMaterialNames = materialsToMerge.map(m => m.alias || m.name).join(' + ');
 
-    // Convert volume to L
-    let volL = totalVolume.value;
-    if (totalVolume.unit === 'mL') {
-      volL = totalVolume.value / 1000;
-    }
+    // Determine the reference well amounts (from the first material)
+    // We already validated in the child component that they share the exact same wells
+    const referenceWellAmounts = { ...materialsToMerge[0].wellAmounts };
 
-    // Mass in grams = C (mol/L) × V (L) × MW (g/mol)
-    const massG = concMolPerL * volL * molecularWeight;
+    const mergedConfig = {
+      name: baseMaterialNames,
+      alias: baseMaterialNames,
+      cas: '', // mixed
+      molecular_weight: null, // mixed
+      role: 'Cocktail',
+      role_id: `cocktail_${Date.now()}`,
+      dispensingMethod: 'stock',
+      isCocktail: true,
+      components: materialsToMerge, // Keep reference to original materials and their specific well amounts
+      wellAmounts: referenceWellAmounts, // Copy over reference wells so Preview/Export knows where to put it
+      totalAmount: { value: 0, unit: 'μmol' },
+      stockSolution: {
+        solvent: null,
+        amountPerWell: { value: '', unit: 'μL' },
+        excess: 10,
+        concentration: { value: '', unit: 'M' },
+        totalVolume: { value: '', unit: 'mL' }
+      },
+      calculatedMass: null
+    };
 
-    // Convert to mg for display
-    return { value: massG * 1000, unit: 'mg' };
+    // nextConfigs has merged materials removed; cocktail is appended at the end
+    const nextConfigs = materialConfigs.filter((_, idx) => !mergedIndices.has(idx));
+    const newCocktailIndex = nextConfigs.length;
+    setMaterialConfigs([...nextConfigs, mergedConfig]);
+
+    // Build old-index → new-index mapping for unaffected materials
+    const oldToNew = new Map();
+    let counter = 0;
+    materialConfigs.forEach((_, oldIdx) => {
+      if (!mergedIndices.has(oldIdx)) oldToNew.set(oldIdx, counter++);
+    });
+
+    // Update dispenseOrder: replace the two merged ops with a single cocktail op
+    // (inserted at the position of the first merged material's op), remap all others.
+    setDispenseOrder(prev => {
+      const remapped = [];
+      let cocktailOpInserted = false;
+      prev.forEach(op => {
+        if (op.type === 'dispense') {
+          if (mergedIndices.has(op.materialIndex)) {
+            if (!cocktailOpInserted) {
+              remapped.push({ type: 'dispense', materialIndex: newCocktailIndex });
+              cocktailOpInserted = true;
+            }
+            // Skip the duplicate op for the second (and any further) merged material
+          } else {
+            remapped.push({ ...op, materialIndex: oldToNew.get(op.materialIndex) ?? op.materialIndex });
+          }
+        } else if (op.type === 'kit') {
+          remapped.push({
+            ...op,
+            materialIndices: (op.materialIndices || []).map(idx => oldToNew.get(idx) ?? idx)
+          });
+        } else {
+          remapped.push(op);
+        }
+      });
+      return remapped;
+    });
   };
+
+  const handleUncombineStocks = (cocktailKey) => {
+    const cocktailIndex = materialConfigs.findIndex(m => `${m.name}_${m.cas}` === cocktailKey && m.isCocktail);
+    if (cocktailIndex === -1) return;
+
+    const cocktail = materialConfigs[cocktailIndex];
+    const components = cocktail.components || [];
+
+    // Replace cocktail with its components in materialConfigs
+    const updated = [...materialConfigs];
+    updated.splice(cocktailIndex, 1, ...components);
+    setMaterialConfigs(updated);
+
+    // Build old-index → new-index mapping:
+    // Items before cocktailIndex: unchanged; items after: shifted by (components.length - 1)
+    const oldToNew = new Map();
+    materialConfigs.forEach((_, oldIdx) => {
+      if (oldIdx < cocktailIndex) {
+        oldToNew.set(oldIdx, oldIdx);
+      } else if (oldIdx > cocktailIndex) {
+        oldToNew.set(oldIdx, oldIdx + components.length - 1);
+      }
+      // cocktailIndex itself splits into multiple indices — handled separately below
+    });
+
+    // Update dispenseOrder: replace the cocktail op with one op per component
+    setDispenseOrder(prev => {
+      const remapped = [];
+      prev.forEach(op => {
+        if (op.type === 'dispense') {
+          if (op.materialIndex === cocktailIndex) {
+            // Expand cocktail op into individual ops for each component
+            components.forEach((_, cIdx) => {
+              remapped.push({ type: 'dispense', materialIndex: cocktailIndex + cIdx });
+            });
+          } else {
+            remapped.push({ ...op, materialIndex: oldToNew.get(op.materialIndex) ?? op.materialIndex });
+          }
+        } else if (op.type === 'kit') {
+          remapped.push({
+            ...op,
+            materialIndices: (op.materialIndices || []).map(idx => oldToNew.get(idx) ?? idx)
+          });
+        } else {
+          remapped.push(op);
+        }
+      });
+      return remapped;
+    });
+  };
+
+  // Calculate mass from concentration, volume, and molecular weight
+  // (delegated to shared utility)
+  const calculateMass = calculateMassFromStockParams;
 
   // Validate current step before allowing next
   const canProceed = () => {
@@ -515,6 +670,7 @@ const PlatingProtocolModal = ({
             <MaterialConfigStep
               materialConfigs={materialConfigs}
               onConfigChange={handleMaterialConfigChange}
+              onKitConfigChange={handleKitConfigChange}
             />
           )}
 
@@ -522,6 +678,8 @@ const PlatingProtocolModal = ({
             <StockSolutionForm
               materialConfigs={materialConfigs.filter(m => m.dispensingMethod === 'stock')}
               onStockSolutionChange={handleStockSolutionChange}
+              onCombineStocks={handleCombineStocks}
+              onUncombineStocks={handleUncombineStocks}
               allMaterialConfigs={materialConfigs}
             />
           )}

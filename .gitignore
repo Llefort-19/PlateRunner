@@ -67,3 +67,4 @@ Inventory.xlsx
 # Test output
 backend/test_output.pdf
 
+backend/app.db

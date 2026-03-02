@@ -1,399 +1,1032 @@
 """
 Export routes blueprint.
 Handles experiment data export to Excel format.
+All export logic lives here (moved from frontend Header.jsx).
 """
-import os
-import tempfile
+import io
+import re
 from datetime import datetime
 from flask import Blueprint, request, jsonify, send_file
 from openpyxl import Workbook
-from state import current_experiment, inventory_data
+from openpyxl.utils import get_column_letter
+from state import current_experiment
 
 # Create blueprint
 export_bp = Blueprint('export', __name__, url_prefix='/api/experiment')
 
+
 @export_bp.route('/export', methods=['POST'])
 def export_experiment():
-    """Export experiment data to Excel format"""
-    # Create a new workbook
-    wb = Workbook()
+    """Export experiment data to Excel format.
     
-    # Remove default sheet
-    if wb.active:
-        wb.remove(wb.active)
-    
-    # Context sheet
-    ws_context = wb.create_sheet("Context")
-    context_data = [
-        ['Author', current_experiment['context'].get('author', '')],
-        ['Date', current_experiment['context'].get('date', '')],
-        ['Project', current_experiment['context'].get('project', '')],
-        ['ELN', current_experiment['context'].get('eln', '')],
-        ['Objective', current_experiment['context'].get('objective', '')]
-    ]
-    
-    for row in context_data:
-        ws_context.append(row)
-    
-    # Materials sheet
-    ws_materials = wb.create_sheet("Materials")
-    if current_experiment.get('materials'):
-        # Add headers - match inventory column names exactly (lowercase) and order
-        headers = ['Nr', 'chemical_name', 'alias', 'cas_number', 'molecular_weight', 'smiles', 'barcode', 'role', 'sub_role', 'source', 'supplier']
-        ws_materials.append(headers)
-        
-        # Load inventory data to enrich materials
-        inventory_enrichment = {}
-        if inventory_data:
-            for _, inv_item in inventory_data.iterrows():
-                # Create lookup keys for matching
-                name_key = str(inv_item.get('chemical_name', '')).lower()
-                cas_key = str(inv_item.get('cas_number', '')).lower()
-                alias_key = str(inv_item.get('alias', '')).lower()
-                
-                # Store inventory data for matching
-                inventory_enrichment[name_key] = inv_item.to_dict()
-                if cas_key and cas_key != 'nan':
-                    inventory_enrichment[cas_key] = inv_item.to_dict()
-                if alias_key and alias_key != 'nan':
-                    inventory_enrichment[alias_key] = inv_item.to_dict()
-        
-        # Add materials with enriched data from inventory
-        for i, material in enumerate(current_experiment['materials'], 1):
-            # Try to find matching inventory data
-            enriched_data = {}
-            material_name = str(material.get('name', '')).lower()
-            material_cas = str(material.get('cas', '')).lower()
-            material_alias = str(material.get('alias', '')).lower()
-            
-            # Look for matches in inventory
-            if material_name in inventory_enrichment:
-                enriched_data = inventory_enrichment[material_name]
-            elif material_cas in inventory_enrichment and material_cas != 'nan':
-                enriched_data = inventory_enrichment[material_cas]
-            elif material_alias in inventory_enrichment and material_alias != 'nan':
-                enriched_data = inventory_enrichment[material_alias]
-            
-            # Use material data first, then enrich with inventory data
-            row = [
-                i,
-                material.get('name', ''),
-                material.get('alias', enriched_data.get('alias', '')),
-                material.get('cas', enriched_data.get('cas_number', '')),
-                material.get('molecular_weight', enriched_data.get('molecular_weight', '')),
-                material.get('smiles', enriched_data.get('smiles', '')),
-                material.get('barcode', enriched_data.get('barcode', '')),
-                material.get('role', ''),
-                material.get('role_id', ''), # Changed from sub_role to role_id
-                material.get('source', enriched_data.get('source', '')),
-                material.get('supplier', enriched_data.get('supplier', ''))
-            ]
-            ws_materials.append(row)
-    
-    # Procedure sheet
-    ws_procedure = wb.create_sheet("Procedure")
-    if current_experiment.get('procedure'):
-        # Add headers for 96-well plate
-        headers = ['Well', 'Sample ID']
-        # Add compound columns (up to 15 compounds)
-        for i in range(1, 16):
-            headers.extend([f'Compound-{i}_name', f'Compound-{i}_mmol'])
-        # Add reagent columns (up to 5 reagents)
-        for i in range(1, 6):
-            headers.extend([f'Reagent-{i}_name', f'Reagent-{i}_mmol'])
-        # Add solvent columns (up to 3 solvents)
-        for i in range(1, 4):
-            headers.extend([f'Solvent-{i}_name', f'Solvent-{i}_uL'])
-        
-        ws_procedure.append(headers)
-        
-        # Add procedure data
-        for i, well_data in enumerate(current_experiment['procedure'], 1):
-            row = [i, well_data.get('well', ''), well_data.get('id', '')]
-            
-            # Add compounds
-            for j in range(1, 16):
-                row.extend([
-                    well_data.get(f'compound_{j}_name', ''),
-                    well_data.get(f'compound_{j}_mmol', '')
-                ])
-            
-            # Add reagents
-            for j in range(1, 6):
-                row.extend([
-                    well_data.get(f'reagent_{j}_name', ''),
-                    well_data.get(f'reagent_{j}_mmol', '')
-                ])
-            
-            # Add solvents
-            for j in range(1, 4):
-                row.extend([
-                    well_data.get(f'solvent_{j}_name', ''),
-                    well_data.get(f'solvent_{j}_ul', '')
-                ])
-            
-            ws_procedure.append(row)
-    
-    # Analytical data sheet - Leave empty (handled by frontend export)
-    ws_analytical = wb.create_sheet("Analytical Data")
-    ws_analytical.append(['Note: This sheet is intentionally empty. Use frontend export for analytical data.'])
-    
-    # Results sheet
-    ws_results = wb.create_sheet("Results (1)")
-    if current_experiment.get('results'):
-        # Add headers
-        headers = ['Nr', 'Well', 'ID', 'Conversion_%', 'Yield_%', 'Selectivity_%']
-        ws_results.append(headers)
-        
-        # Add results data
-        for i, result_data in enumerate(current_experiment['results'], 1):
-            row = [
-                i,
-                result_data.get('well', ''),
-                result_data.get('id', ''),
-                result_data.get('conversion_percent', ''),
-                result_data.get('yield_percent', ''),
-                result_data.get('selectivity_percent', '')
-            ]
-            ws_results.append(row)
-    
-    # Well Contents sheet - Detailed view of each well
-    ws_well_contents = wb.create_sheet("Well Contents")
-    
-    # Create a mapping of materials by name for quick lookup
-    materials_map = {}
-    for material in current_experiment.get('materials', []):
-        materials_map[material.get('name', '').lower()] = material
-    
-    # Initialize well contents data
-    well_contents = {}
-    for col in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']:
-        for row in range(1, 13):
-            well = f'{col}{row}'
-            well_contents[well] = {
-                'compounds': [],
-                'reagents': [],
-                'solvents': []
-            }
-    
-    # Fill in well contents from procedure data
-    if current_experiment.get('procedure'):
-        for well_data in current_experiment['procedure']:
-            well = well_data.get('well', '')
-            if well in well_contents:
-                # Process materials array
-                materials = well_data.get('materials', [])
-                
-                for material in materials:
-                    name = material.get('name', '')
-                    amount = material.get('amount', '')
-                    alias = material.get('alias', '')
-                    cas = material.get('cas', '')
-                    
-                    if name and amount:
-                        # For now, treat all materials as compounds
-                        # You can add logic here to distinguish compounds, reagents, solvents
-                        well_contents[well]['compounds'].append({
-                            'name': name,
-                            'amount': amount,
-                            'alias': alias,
-                            'cas': cas
-                        })
-    
-    # Find the maximum number of compounds across all wells to determine column count
-    max_compounds = 0
-    for well in well_contents:
-        compounds_count = len(well_contents[well]['compounds'])
-        reagents_count = len(well_contents[well]['reagents'])
-        solvents_count = len(well_contents[well]['solvents'])
-        total_materials = compounds_count + reagents_count + solvents_count
-        max_compounds = max(max_compounds, total_materials)
-    
-    # Create header row
-    headers = ['Well']
-    for i in range(1, max_compounds + 1):
-        headers.extend([f'Compound_{i}_Name', f'Compound_{i}_Alias', f'Compound_{i}_CAS', f'Compound_{i}_Amount'])
-    
-    ws_well_contents.append(headers)
-    
-    # Add data for each well (all 96 wells)
-    for col in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']:
-        for row in range(1, 13):
-            well = f'{col}{row}'
-            contents = well_contents[well]
-            
-            # Combine all materials into a single list
-            all_materials = []
-            all_materials.extend(contents['compounds'])
-            all_materials.extend(contents['reagents'])
-            all_materials.extend(contents['solvents'])
-            
-            # Create row data
-            row_data = [well]
-            
-            # Add materials to columns (4 columns per material)
-            for i in range(max_compounds):
-                if i < len(all_materials):
-                    material = all_materials[i]
-                    row_data.extend([
-                        material.get('name', ''),
-                        material.get('alias', ''),
-                        material.get('cas', ''),
-                        material.get('amount', '')
-                    ])
-                else:
-                    # Fill empty columns
-                    row_data.extend(['', '', '', ''])
-            
-            ws_well_contents.append(row_data)
-    
-    # Procedure Settings sheet
-    ws_procedure_settings = wb.create_sheet("Procedure Settings")
-    
-    # Reaction Conditions section
-    ws_procedure_settings.append(['Reaction Conditions'])
-    ws_procedure_settings.append(['Parameter', 'Value', 'Unit'])
-    ws_procedure_settings.append(['Temperature', current_experiment.get('procedure_settings', {}).get('reactionConditions', {}).get('temperature', ''), 'degC'])
-    ws_procedure_settings.append(['Time', current_experiment.get('procedure_settings', {}).get('reactionConditions', {}).get('time', ''), 'h'])
-    ws_procedure_settings.append(['Pressure', current_experiment.get('procedure_settings', {}).get('reactionConditions', {}).get('pressure', ''), 'bar'])
-    ws_procedure_settings.append(['Wavelength', current_experiment.get('procedure_settings', {}).get('reactionConditions', {}).get('wavelength', ''), 'nm'])
-    ws_procedure_settings.append([''])  # Empty row for spacing
-    ws_procedure_settings.append(['Remarks'])
-    ws_procedure_settings.append([current_experiment.get('procedure_settings', {}).get('reactionConditions', {}).get('remarks', '')])
-    
-    # Analytical Details section
-    ws_procedure_settings.append([''])  # Empty row for spacing
-    ws_procedure_settings.append(['Analytical Details'])
-    ws_procedure_settings.append(['Parameter', 'Value', 'Unit'])
-    ws_procedure_settings.append(['UPLC #', current_experiment.get('procedure_settings', {}).get('analyticalDetails', {}).get('uplcNumber', ''), ''])
-    ws_procedure_settings.append(['Method', current_experiment.get('procedure_settings', {}).get('analyticalDetails', {}).get('method', ''), ''])
-    ws_procedure_settings.append(['Duration', current_experiment.get('procedure_settings', {}).get('analyticalDetails', {}).get('duration', ''), 'min'])
-    ws_procedure_settings.append([''])  # Empty row for spacing
-    ws_procedure_settings.append(['Remarks'])
-    ws_procedure_settings.append([current_experiment.get('procedure_settings', {}).get('analyticalDetails', {}).get('remarks', '')])
-    
-    # Save to temporary file
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp:
-        wb.save(tmp.name)
-        tmp_path = tmp.name
-    
-    # Generate filename based on ELN number or timestamp
-    context = current_experiment.get('context', {})
-    eln_number = context.get('eln', '').strip()
-    
-    if eln_number:
-        # Use ELN number + date (YYYY-MM-DD format)
-        date_only = datetime.now().strftime("%Y-%m-%d")
-        filename = f'{eln_number}_{date_only}.xlsx'
-    else:
-        # Fallback to original timestamp format
-        filename = f'HTE_experiment_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
-    
-    return send_file(tmp_path, as_attachment=True, download_name=filename)
+    Accepts optional JSON body with:
+      - sdf_data: SDF reaction data (stored in frontend localStorage)
+    Returns: .xlsx file download
+    """
+    try:
+        # Get optional data from request body
+        body = request.get_json(silent=True) or {}
+        sdf_data = body.get('sdf_data', None)
 
-@export_bp.route('/analytical-template', methods=['POST'])
-def export_analytical_template():
-    """Export analytical data template in the exact format matching the provided template"""
-    # Create a new workbook for analytical template only
-    wb = Workbook()
-    
-    # Remove default sheet
-    if wb.active:
-        wb.remove(wb.active)
-    
-    # Create analytical data sheet
-    ws = wb.create_sheet("Analytical Template")
-    
-    # Get ELN number from context for ID generation
-    eln_number = current_experiment.get('context', {}).get('eln', 'ELN')
-    
-    # Get selected compounds from the request or use materials
-    request_data = request.get_json() if request.is_json else {}
-    selected_compounds = request_data.get('compounds', [])
-    
-    # If no compounds provided in request, extract from materials
-    if not selected_compounds:
+        # Read experiment state
+        context = current_experiment.get('context', {})
         materials = current_experiment.get('materials', [])
-        # Get materials that are typically analyzed (reactants, products, internal standards)
-        analytical_roles = ['reactant', 'product', 'target product', 'internal standard']
-        for material in materials:
-            role = material.get('role', '').lower()
-            if any(analytical_role in role for analytical_role in analytical_roles):
-                selected_compounds.append({
-                    'name': material.get('alias', material.get('name', '')),
-                    'selected': True
-                })
-    
-    # If still no compounds, create a default set matching the template
-    if not selected_compounds:
-        selected_compounds = [
-            {'name': 'Compound_1', 'selected': True},
-            {'name': 'Compound_2', 'selected': True},
-            {'name': 'Compound_3', 'selected': True},
-            {'name': 'Compound_4', 'selected': True}
-        ]
-    
-    # Limit to reasonable number of compounds (template shows 4)
-    selected_compounds = selected_compounds[:4]
-    
-    # Create headers in the exact format: Well, Sample ID, Name_1, Area_1, Name_2, Area_2, etc.
-    headers = ['Well', 'Sample ID']
-    for i, compound in enumerate(selected_compounds, 1):
-        headers.extend([f'Name_{i}', f'Area_{i}'])
-    
+        procedure = current_experiment.get('procedure', [])
+        procedure_settings = current_experiment.get('procedure_settings', {})
+        analytical_data = current_experiment.get('analytical_data', {})
+        heatmap_data = current_experiment.get('heatmap_data', {})
+
+        # Create workbook
+        wb = Workbook()
+        # Remove the default sheet created by openpyxl
+        wb.remove(wb.active)
+
+        plating_protocol = current_experiment.get('plating_protocol', None)
+
+        # Build all sheets
+        _build_context_sheet(wb, context, sdf_data)
+        _build_materials_sheet(wb, materials)
+        _build_design_sheet(wb, procedure, materials)
+        _build_procedure_settings_sheet(wb, procedure_settings)
+        if plating_protocol:
+            _build_plating_sheet(wb, plating_protocol)
+        _build_analytical_sheet(wb, analytical_data, context, procedure)
+        _build_heatmap_sheets(wb, heatmap_data)
+        _build_summary_sheet(wb, context, materials, procedure, analytical_data, heatmap_data, plating_protocol)
+
+        # Generate filename
+        eln = (context.get('eln') or '').strip()
+        if eln:
+            date_str = datetime.now().strftime('%Y-%m-%d')
+            filename = f"{eln}_{date_str}.xlsx"
+        else:
+            ts = datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
+            filename = f"HTE_Experiment_{ts}.xlsx"
+
+        # Write to bytes buffer and return as download
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+
+        return send_file(
+            buf,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename,
+        )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Export failed: {str(e)}'}), 500
+
+
+# ---------------------------------------------------------------------------
+# Sheet builders
+# ---------------------------------------------------------------------------
+
+def _build_context_sheet(wb, context, sdf_data):
+    """Experiment Context sheet."""
+    ws = wb.create_sheet('Experiment Context')
+
+    rows = [
+        ['Experiment Context'],
+        [''],
+        ['Author', context.get('author', '')],
+        ['Date', context.get('date', '')],
+        ['Project', context.get('project', '')],
+        ['ELN Number', context.get('eln', '')],
+        ['Objective', context.get('objective', '')],
+        [''],
+        ['SDF Reaction Data'],
+        ['Name', 'Role', 'SMILES'],
+    ]
+
+    if sdf_data and isinstance(sdf_data, dict):
+        molecules = sdf_data.get('molecules', [])
+        for i, mol in enumerate(molecules):
+            rows.append([
+                mol.get('name') or f'ID-{str(i + 1).zfill(2)}',
+                mol.get('role', ''),
+                mol.get('smiles', ''),
+            ])
+
+    for row in rows:
+        ws.append(row)
+
+
+def _build_materials_sheet(wb, materials):
+    """Materials sheet — unchanged format."""
+    ws = wb.create_sheet('Materials')
+
+    headers = [
+        'Nr', 'chemical_name', 'alias', 'cas_number',
+        'molecular_weight', 'smiles', 'barcode',
+        'role', 'source', 'supplier',
+    ]
     ws.append(headers)
-    
-    # Get plate type from context to generate appropriate number of wells
-    plate_type = current_experiment.get('context', {}).get('plate_type', '96')
-    
-    # Use the same plate config function
-    def get_plate_config(plate_type):
-        if plate_type == "24":
-            return {
-                'rows': ['A', 'B', 'C', 'D'],
-                'columns': list(range(1, 7))  # 1-6
-            }
-        elif plate_type == "48":
-            return {
-                'rows': ['A', 'B', 'C', 'D', 'E', 'F'],
-                'columns': list(range(1, 9))  # 1-8
-            }
-        else:  # Default to 96-well
-            return {
-                'rows': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
-                'columns': list(range(1, 13))  # 1-12
-            }
-    
-    plate_config = get_plate_config(plate_type)
-    
-    # Generate wells based on plate type
-    for col in plate_config['rows']:
-        for row in plate_config['columns']:
-            well = f'{col}{row}'
-            well_id = f'{eln_number}_{well}'
-            
-            # Create row with Well, Sample ID
-            row_data = [well, well_id]
-            
-            # Add compound name and empty area placeholders for template
-            for i, compound in enumerate(selected_compounds, 1):
-                compound_name = compound.get('name', f'Compound_{i}')
-                row_data.extend([compound_name, ''])  # Empty area for template
-            
-            ws.append(row_data)
-    
-    # Save to temporary file
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp:
-        wb.save(tmp.name)
-        tmp_path = tmp.name
-    
-    # Generate filename
-    context = current_experiment.get('context', {})
-    eln_number = context.get('eln', '').strip()
-    
-    if eln_number:
-        filename = f'Analytical_Template_{eln_number}_{datetime.now().strftime("%Y-%m-%d")}.xlsx'
+
+    for i, mat in enumerate(materials):
+        ws.append([
+            i + 1,
+            mat.get('name', ''),
+            mat.get('alias', ''),
+            mat.get('cas', ''),
+            mat.get('molecular_weight', ''),
+            mat.get('smiles', ''),
+            mat.get('barcode', ''),
+            mat.get('role', ''),
+            mat.get('source', ''),
+            mat.get('supplier', ''),
+        ])
+
+
+def _build_design_sheet(wb, procedure, materials):
+    """Design sheet — long format.
+
+    Columns: well | material_nr | material_alias | amount [µmol] | amount [µL] | dispense_order
+
+    - One row per material per well.
+    - material_nr references the Nr column in the Materials sheet (1-based).
+    - Chemical reagents go into amount [µmol]; solvents into amount [µL].
+    - dispense_order is the 1-based order within each well.
+    - Empty wells are omitted.
+    """
+    ws = wb.create_sheet('Design')
+    ws.append(['well', 'material_nr', 'material_alias', 'amount [µmol]', 'amount [µL]', 'dispense_order'])
+
+    # Build lookup: (lowercase name OR lowercase alias) → Nr
+    name_to_nr = {}
+    alias_to_nr = {}
+    for i, mat in enumerate(materials):
+        nr = i + 1
+        name = (mat.get('name') or '').strip().lower()
+        alias = (mat.get('alias') or '').strip().lower()
+        if name:
+            name_to_nr[name] = nr
+        if alias:
+            alias_to_nr[alias] = nr
+
+    def _resolve_nr(mat_entry):
+        """Resolve material_nr from a procedure material entry."""
+        name = (mat_entry.get('name') or '').strip().lower()
+        alias = (mat_entry.get('alias') or '').strip().lower()
+        # Try name first, then alias
+        return name_to_nr.get(name) or alias_to_nr.get(alias) or ''
+
+    # Sort procedure by well position (A1, A2, … H12)
+    def _well_sort_key(entry):
+        well = entry.get('well', '')
+        if not well:
+            return ('Z', 99)
+        row_letter = well[0].upper()
+        try:
+            col_num = int(well[1:])
+        except ValueError:
+            col_num = 99
+        return (row_letter, col_num)
+
+    sorted_procedure = sorted(procedure, key=_well_sort_key)
+
+    for well_data in sorted_procedure:
+        well = well_data.get('well', '')
+        if not well:
+            continue
+        well_materials = well_data.get('materials', [])
+        if not well_materials:
+            continue
+
+        for order, mat_entry in enumerate(well_materials, start=1):
+            mat_nr = _resolve_nr(mat_entry)
+            display_name = mat_entry.get('alias') or mat_entry.get('name') or ''
+            amount = mat_entry.get('amount', '')
+            unit = (mat_entry.get('unit') or '').strip()
+
+            # Route amount to the correct column based on unit
+            if unit in ('\u03bcL', '\u00b5L', 'uL'):  # µL variants
+                amount_umol = ''
+                amount_ul = amount
+            elif unit == 'mL':
+                amount_umol = ''
+                try:
+                    amount_ul = float(amount) * 1000  # convert to µL
+                except (ValueError, TypeError):
+                    amount_ul = ''
+            else:
+                # Default: µmol (chemical reagent)
+                amount_umol = amount
+                amount_ul = ''
+
+            ws.append([well, mat_nr, display_name, amount_umol, amount_ul, order])
+
+
+def _build_procedure_settings_sheet(wb, settings):
+    """Procedure Settings sheet."""
+    ws = wb.create_sheet('Procedure')
+
+    rc = settings.get('reactionConditions', {})
+    ad = settings.get('analyticalDetails', {})
+
+    rows = [
+        ['Procedure Settings'],
+        [''],
+        ['Reaction Conditions'],
+        ['Parameter', 'Value', 'Unit'],
+        ['Temperature', rc.get('temperature', ''), 'degC'],
+        ['Time', rc.get('time', ''), 'h'],
+        ['Pressure', rc.get('pressure', ''), 'bar'],
+        ['Wavelength', rc.get('wavelength', ''), 'nm'],
+        [''],
+        ['Remarks'],
+        [rc.get('remarks', '')],
+        [''],
+        ['Analytical Details'],
+        ['Parameter', 'Value', 'Unit'],
+        ['UPLC #', ad.get('uplcNumber', ''), ''],
+        ['Method', ad.get('method', ''), ''],
+        ['Duration', ad.get('duration', ''), 'min'],
+        ['Wavelength', ad.get('wavelength', ''), 'nm'],
+        [''],
+        ['Remarks'],
+        [ad.get('remarks', '')],
+    ]
+
+    for row in rows:
+        ws.append(row)
+
+
+def _build_analytical_sheet(wb, analytical_data, context, procedure):
+    """Analytical Data sheet — either uploaded data or a template."""
+    ws = wb.create_sheet('Analytical Data')
+
+    uploaded_files = analytical_data.get('uploadedFiles', [])
+
+    if uploaded_files:
+        # Use the most recent upload
+        most_recent = uploaded_files[-1]
+        data_rows = most_recent.get('data', []) if isinstance(most_recent, dict) else []
+
+        if data_rows:
+            # Determine columns: Well, Sample ID, then Name_X / Area_X pairs
+            ordered_cols = ['Well', 'Sample ID']
+            name_cols = sorted(
+                [k for k in data_rows[0] if k.startswith('Name_')],
+                key=lambda k: int(k.split('_')[1]),
+            )
+            area_cols = sorted(
+                [k for k in data_rows[0] if k.startswith('Area_')],
+                key=lambda k: int(k.split('_')[1]),
+            )
+            max_compounds = max(len(name_cols), len(area_cols))
+            for i in range(max_compounds):
+                if i < len(name_cols):
+                    ordered_cols.append(name_cols[i])
+                if i < len(area_cols):
+                    ordered_cols.append(area_cols[i])
+
+            ws.append(ordered_cols)
+            for row_data in data_rows:
+                ws.append([row_data.get(c, '') for c in ordered_cols])
+            return
+
+    # Fallback: create analytical template
+    _build_analytical_template(ws, analytical_data, context, procedure)
+
+
+def _build_analytical_template(ws, analytical_data, context, procedure):
+    """Build an empty analytical template with well IDs and compound columns."""
+    eln = (context.get('eln') or 'ELN').strip()
+
+    # Get user-selected compounds
+    selected = analytical_data.get('selectedCompounds', [])
+    if not selected:
+        selected = ['']  # At least one empty column
+
+    headers = ['Well', 'Sample ID']
+    for i, name in enumerate(selected, start=1):
+        headers.extend([f'Name_{i}', f'Area_{i}'])
+    ws.append(headers)
+
+    # Determine plate configuration
+    plate_type = context.get('plate_type', '96')
+    if plate_type == '24':
+        rows_letters = ['A', 'B', 'C', 'D']
+        cols_nums = range(1, 7)
+    elif plate_type == '48':
+        rows_letters = ['A', 'B', 'C', 'D', 'E', 'F']
+        cols_nums = range(1, 9)
     else:
-        filename = f'Analytical_Template_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
-    
-    return send_file(tmp_path, as_attachment=True, download_name=filename)
+        rows_letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+        cols_nums = range(1, 13)
+
+    for r in rows_letters:
+        for c in cols_nums:
+            well = f'{r}{c}'
+            sample_id = f'{eln}_{well}'
+            row = [well, sample_id]
+            for name in selected:
+                compound_name = name if isinstance(name, str) else ''
+                row.extend([compound_name, ''])
+            ws.append(row)
+
+
+def _build_plating_sheet(wb, plating_protocol):
+    """Plating sheet — dispensing methods, stock solutions, and order of addition.
+
+    Handles two data formats:
+    - Processed format (from ProtocolPreview export): keys 'materials', 'operations'
+    - Raw format (from modal close): keys 'materialConfigs', 'dispenseOrder'
+    """
+    ws = wb.create_sheet('Plating')
+
+    # Determine data format and normalize
+    if 'materials' in plating_protocol:
+        # Processed format from ProtocolPreview.buildProtocolData()
+        materials = plating_protocol.get('materials', [])
+        operations = plating_protocol.get('operations', [])
+        kit_stock_entries = plating_protocol.get('kit_stock_entries', [])
+        _build_plating_from_processed(ws, materials, operations, kit_stock_entries)
+    elif 'materialConfigs' in plating_protocol:
+        # Raw format from PlatingProtocolModal close
+        material_configs = plating_protocol.get('materialConfigs', [])
+        dispense_order = plating_protocol.get('dispenseOrder', [])
+        _build_plating_from_raw(ws, material_configs, dispense_order)
+    else:
+        ws.append(['No plating protocol data available.'])
+        return
+
+    # Adjust column widths
+    for col_idx in range(1, 12):
+        ws.column_dimensions[get_column_letter(col_idx)].width = 14
+    ws.column_dimensions['A'].width = 5
+    ws.column_dimensions['B'].width = 25
+    ws.column_dimensions['C'].width = 15
+
+
+def _build_plating_from_processed(ws, materials, operations, kit_stock_entries):
+    """Build plating sheet from processed protocol data (ProtocolPreview export format)."""
+    kit_role_ids = set(e.get('kit_id', '') for e in kit_stock_entries)
+
+    # ── Section A: Materials Summary ──
+    ws.append(['Plating Protocol — Dispensing Summary'])
+    ws.append([''])
+    headers = ['#', 'Material', 'Alias', 'Method', 'Solvent', 'Conc. [M]', 'Vol/Well [µL]',
+               'Excess [%]', 'Total Vol [mL]', 'Mass [mg]']
+    ws.append(headers)
+
+    row_num = 0
+
+    # Kit stock entries (grouped)
+    for entry in kit_stock_entries:
+        row_num += 1
+        stock = entry.get('stock_solution') or {}
+
+        conc_val = stock.get('concentration_value')
+        conc_num = ''
+        if conc_val is not None:
+            try:
+                conc_num = round(float(conc_val), 6)  # numeric, always in M
+            except (ValueError, TypeError):
+                pass
+
+        tv = stock.get('total_volume_value')
+        vol_num = ''
+        if tv is not None:
+            try:
+                vol_num = round(float(tv), 4)  # numeric, in mL
+            except (ValueError, TypeError):
+                pass
+
+        vpw = stock.get('amount_per_well_value')
+        vpw_num = ''
+        if vpw:
+            try:
+                vpw_f = float(vpw)
+                vpw_unit = stock.get('amount_per_well_unit', '\u00b5L')
+                vpw_num = round(vpw_f * 1000 if vpw_unit == 'mL' else vpw_f, 2)  # numeric, in µL
+            except (ValueError, TypeError):
+                pass
+
+        excess_num = stock.get('excess', '') if stock.get('excess') is not None else ''
+        member_names = entry.get('member_names', [])
+        count = len(member_names)
+        ws.append([
+            row_num,
+            f"{entry.get('kit_id', '')} ({count} materials)",
+            entry.get('kit_id', ''),
+            'Stock',
+            stock.get('solvent_name', ''),
+            conc_num,
+            vpw_num,
+            excess_num,
+            vol_num,
+            '\u2014'  # em-dash: mass varies per member
+        ])
+
+    # Non-kit materials
+    for mat in materials:
+        role_id = mat.get('role_id', '')
+        # Skip individual kit-stock members (already represented by kit entry)
+        if role_id in kit_role_ids and mat.get('dispensing_method') == 'stock':
+            continue
+        # Skip kit neat members too (represented by kit entry)
+        if role_id in kit_role_ids:
+            continue
+
+        row_num += 1
+        method = mat.get('dispensing_method', 'neat')
+        total_unit = mat.get('total_amount_unit', 'μmol')
+        is_solvent = total_unit in ('μL', 'mL')
+
+        if method == 'stock':
+            method_label = 'Stock'
+        elif is_solvent:
+            method_label = 'Solvent'
+        else:
+            method_label = 'Neat'
+
+        stock = mat.get('stock_solution') or {}
+        conc_str = ''
+        vol_str = ''
+        vpw_str = ''
+        excess_str = ''
+        mass_str = ''
+
+        if method == 'stock' and stock:
+            conc_val = stock.get('concentration_value')
+            if conc_val is not None:
+                try:
+                    conc_str = round(float(conc_val), 6)  # numeric, always in M
+                except (ValueError, TypeError):
+                    pass
+            tv = stock.get('total_volume_value')
+            if tv is not None:
+                try:
+                    vol_str = round(float(tv), 4)  # numeric, in mL
+                except (ValueError, TypeError):
+                    pass
+            vpw = stock.get('amount_per_well_value')
+            if vpw:
+                try:
+                    vpw_f = float(vpw)
+                    vpw_unit = stock.get('amount_per_well_unit', '\u00b5L')
+                    vpw_str = round(vpw_f * 1000 if vpw_unit == 'mL' else vpw_f, 2)  # numeric, in µL
+                except (ValueError, TypeError):
+                    pass
+            excess_str = stock.get('excess', '') if stock.get('excess') is not None else ''
+            mass_val = mat.get('calculated_mass_value')
+            if mass_val is not None:
+                try:
+                    mass_str = f"{float(mass_val):.2f}"
+                except (ValueError, TypeError):
+                    pass
+
+        # If cocktail, write a header row and then the components
+        if mat.get('is_cocktail') or mat.get('isCocktail'):
+            components = mat.get('components', [])
+            comp_names = [c.get('alias') or c.get('name', '') for c in components]
+            ws.append([
+                row_num,
+                f"{mat.get('alias', '') or mat.get('name', '')} (Premixed)",
+                mat.get('alias', '') or mat.get('name', ''),
+                'Stock',
+                stock.get('solvent_name', '') if stock else '',
+                '',
+                '',
+                stock.get('excess', '') if stock.get('excess') is not None else '',
+                vol_str,
+                ''
+            ])
+            for comp in components:
+                c_stock = comp.get('stockSolution') or {}
+
+                # Prefer pre-calculated concentration from buildProtocolData (accurate, uses cocktail's amountPerWell)
+                c_conc_val = comp.get('calculated_concentration_value')
+                if c_conc_val is not None:
+                    try:
+                        c_conc_str = round(float(c_conc_val), 6)  # numeric, always in M
+                    except (ValueError, TypeError):
+                        c_conc_str = ''
+                else:
+                    # Fallback to stored concentration (may be stale from individual config)
+                    c_conc = c_stock.get('concentration') or {}
+                    if c_conc.get('value'):
+                        try:
+                            cv = float(c_conc['value'])
+                            if c_conc.get('unit') == 'mM':
+                                cv /= 1000  # normalise to M
+                            c_conc_str = round(cv, 6)
+                        except (ValueError, TypeError):
+                            c_conc_str = ''
+                    else:
+                        c_conc_str = ''
+
+                # Prefer top-level calculated_mass_value, then legacy calculatedMass fields
+                comp_mass_val = comp.get('calculated_mass_value')
+                if comp_mass_val is None:
+                    comp_mass_val = (comp.get('calculatedMass') or {}).get('value')
+                if comp_mass_val is None:
+                    comp_mass_val = (c_stock.get('calculatedMass') or {}).get('value')
+                try:
+                    comp_mass_str = f"{float(comp_mass_val):.2f}" if comp_mass_val is not None else ''
+                except (ValueError, TypeError):
+                    comp_mass_str = ''
+
+                ws.append([
+                    '',
+                    f"  ↳ {comp.get('alias') or comp.get('name', '')}",
+                    comp.get('alias') or comp.get('name', ''),
+                    '',
+                    c_stock.get('solvent', {}).get('name', '') if c_stock else '',
+                    c_conc_str,
+                    '',
+                    '',
+                    '',
+                    comp_mass_str
+                ])
+        else:
+            ws.append([
+                row_num,
+                mat.get('name', ''),
+                mat.get('alias', ''),
+                method_label,
+                stock.get('solvent_name', '') if stock else '',
+                conc_str,
+                vpw_str,
+                excess_str,
+                vol_str,
+                mass_str
+            ])
+
+    # ── Section B: Order of Addition ──
+    ws.append([''])
+    ws.append(['Order of Addition'])
+    ws.append(['Step', 'Type', 'Description'])
+
+    step_num = 0
+    for op in operations:
+        op_type = op.get('type', '')
+        # Guard against stale dispense ops referencing a materialIndex that no longer exists
+        if op_type == 'dispense':
+            mat_idx = op.get('materialIndex', 0)
+            if mat_idx >= len(materials):
+                continue
+        step_num += 1
+        description = _format_plating_operation(op, materials)
+        type_label = {
+            'dispense': 'Dispense',
+            'kit': 'Kit',
+            'wait': 'Wait',
+            'stir': 'Stir',
+            'evaporate': 'Evaporate',
+            'note': 'Note'
+        }.get(op_type, op_type)
+        ws.append([step_num, type_label, description])
+
+
+def _build_plating_from_raw(ws, material_configs, dispense_order):
+    """Build plating sheet from raw modal data (materialConfigs + dispenseOrder)."""
+    # ── Section A: Materials Summary ──
+    ws.append(['Plating Protocol — Dispensing Summary'])
+    ws.append([''])
+    headers = ['#', 'Material', 'Alias', 'Method', 'Solvent', 'Conc. [M]', 'Vol/Well [µL]',
+               'Excess [%]', 'Total Vol [mL]', 'Mass [mg]']
+    ws.append(headers)
+
+    # Group kit materials
+    kit_groups = {}
+    regular_materials = []
+    for idx, mat in enumerate(material_configs):
+        role_id = mat.get('role_id', '')
+        if role_id and role_id.startswith('kit_'):
+            if role_id not in kit_groups:
+                kit_groups[role_id] = []
+            kit_groups[role_id].append((idx, mat))
+        else:
+            regular_materials.append((idx, mat))
+
+    row_num = 0
+
+    # Kit groups (one row per kit)
+    for kit_id, members in sorted(kit_groups.items()):
+        row_num += 1
+        # Use first member for shared stock details
+        ref_mat = members[0][1]
+        method = ref_mat.get('dispensingMethod', 'neat')
+        stock = ref_mat.get('stockSolution') or {}
+
+        conc_str = ''
+        vol_str = ''
+        vpw_str = ''
+        excess_str = ''
+        solvent_name = ''
+
+        if method == 'stock' and stock:
+            solvent = stock.get('solvent') or {}
+            solvent_name = solvent.get('name', '')
+            conc = stock.get('concentration') or {}
+            if conc.get('value'):
+                try:
+                    cv = float(conc['value'])
+                    if conc.get('unit') == 'mM':
+                        cv /= 1000  # normalise to M
+                    conc_str = round(cv, 6)  # numeric, in M
+                except (ValueError, TypeError):
+                    pass
+            apw = stock.get('amountPerWell') or {}
+            if apw.get('value'):
+                try:
+                    apw_f = float(apw['value'])
+                    apw_unit = apw.get('unit', '\u00b5L')
+                    vpw_str = round(apw_f * 1000 if apw_unit == 'mL' else apw_f, 2)  # numeric, in µL
+                except (ValueError, TypeError):
+                    pass
+            excess = stock.get('excess')
+            if excess is not None:
+                excess_str = excess  # numeric, no %
+            tv = stock.get('totalVolume') or {}
+            if tv.get('value'):
+                try:
+                    tv_f = float(tv['value'])
+                    tv_unit = tv.get('unit', 'mL')
+                    if tv_unit in ('\u03bcL', '\u00b5L', 'uL'):
+                        tv_f /= 1000  # convert µL → mL
+                    vol_str = round(tv_f, 4)  # numeric, in mL
+                except (ValueError, TypeError):
+                    pass
+
+        method_label = 'Stock' if method == 'stock' else 'Neat'
+        ws.append([
+            row_num,
+            f"{kit_id} ({len(members)} materials)",
+            kit_id,
+            method_label,
+            solvent_name,
+            conc_str,
+            vpw_str,
+            excess_str,
+            vol_str,
+            '\u2014'
+        ])
+
+    # Regular materials
+    for orig_idx, mat in regular_materials:
+        row_num += 1
+        method = mat.get('dispensingMethod', 'neat')
+        total_unit = (mat.get('totalAmount') or {}).get('unit', 'μmol')
+        is_solvent = total_unit in ('μL', 'mL')
+
+        if method == 'stock':
+            method_label = 'Stock'
+        elif is_solvent:
+            method_label = 'Solvent'
+        else:
+            method_label = 'Neat'
+
+        stock = mat.get('stockSolution') or {}
+        conc_str = ''
+        vol_str = ''
+        vpw_str = ''
+        excess_str = ''
+        mass_str = ''
+        solvent_name = ''
+
+        if method == 'stock' and stock:
+            solvent = stock.get('solvent') or {}
+            solvent_name = solvent.get('name', '')
+            conc = stock.get('concentration') or {}
+            if conc.get('value'):
+                try:
+                    cv = float(conc['value'])
+                    if conc.get('unit') == 'mM':
+                        cv /= 1000  # normalise to M
+                    conc_str = round(cv, 6)  # numeric, in M
+                except (ValueError, TypeError):
+                    pass
+            apw = stock.get('amountPerWell') or {}
+            if apw.get('value'):
+                try:
+                    apw_f = float(apw['value'])
+                    apw_unit = apw.get('unit', '\u00b5L')
+                    vpw_str = round(apw_f * 1000 if apw_unit == 'mL' else apw_f, 2)  # numeric, in µL
+                except (ValueError, TypeError):
+                    pass
+            excess = stock.get('excess')
+            if excess is not None:
+                excess_str = excess  # numeric, no %
+            tv = stock.get('totalVolume') or {}
+            if tv.get('value'):
+                try:
+                    tv_f = float(tv['value'])
+                    tv_unit = tv.get('unit', 'mL')
+                    if tv_unit in ('\u03bcL', '\u00b5L', 'uL'):
+                        tv_f /= 1000  # convert µL → mL
+                    vol_str = round(tv_f, 4)  # numeric, in mL
+                except (ValueError, TypeError):
+                    pass
+            calc_mass = mat.get('calculatedMass') or {}
+            if calc_mass.get('value'):
+                try:
+                    mass_str = f"{float(calc_mass['value']):.2f}"
+                except (ValueError, TypeError):
+                    pass
+        elif method == 'neat' and not is_solvent:
+            # Neat material: total mass = totalAmount (μmol) × MW (g/mol) / 1000 → mg
+            mw = mat.get('molecular_weight')
+            total_amt = (mat.get('totalAmount') or {}).get('value')
+            if mw and total_amt:
+                try:
+                    mass_str = f"{float(total_amt) * float(mw) / 1000:.2f}"
+                except (ValueError, TypeError):
+                    pass
+
+        if mat.get('isCocktail'):
+            components = mat.get('components', [])
+            # Pre-calculate cocktail's amountPerWell in μL for component concentration
+            cocktail_apw = (stock.get('amountPerWell') or {}) if stock else {}
+            cocktail_vpw = cocktail_apw.get('value')
+            cocktail_vpw_unit = cocktail_apw.get('unit', 'μL')
+            try:
+                cocktail_vpw_ul = float(cocktail_vpw) * 1000 if cocktail_vpw_unit == 'mL' else float(cocktail_vpw) if cocktail_vpw else None
+            except (ValueError, TypeError):
+                cocktail_vpw_ul = None
+
+            cocktail_excess = stock.get('excess') or 0 if stock else 0
+
+            ws.append([
+                row_num,
+                f"{mat.get('alias', mat.get('name', ''))} (Premixed)",
+                mat.get('alias', mat.get('name', '')),
+                'Stock',
+                solvent_name,
+                '',
+                '',
+                cocktail_excess if cocktail_excess else '',  # numeric, no %
+                vol_str,
+                ''
+            ])
+            for comp in components:
+                c_stock = comp.get('stockSolution') or {}
+                c_solvent = c_stock.get('solvent') or {}
+
+                # Calculate concentration from component's wellAmounts + cocktail's amountPerWell
+                c_conc_num = ''
+                c_well_amounts = comp.get('wellAmounts') or {}
+                if cocktail_vpw_ul and c_well_amounts:
+                    try:
+                        vals = [float(v.get('value', 0)) for v in c_well_amounts.values() if v.get('value')]
+                        if vals:
+                            c_conc_num = round(min(vals) / cocktail_vpw_ul, 6)  # numeric, in M
+                    except (ValueError, TypeError):
+                        pass
+                if not c_conc_num:
+                    # Fallback to stored concentration, normalised to M
+                    c_conc = c_stock.get('concentration') or {}
+                    if c_conc.get('value'):
+                        try:
+                            cv = float(c_conc['value'])
+                            if c_conc.get('unit') == 'mM':
+                                cv /= 1000
+                            c_conc_num = round(cv, 6)
+                        except (ValueError, TypeError):
+                            pass
+
+                # Mass: check stockSolution.calculatedMass first (set by batch-apply),
+                # then top-level calculatedMass, then calculate from totalAmount × MW
+                comp_mass_val = None
+                comp_mass_dict = c_stock.get('calculatedMass') or comp.get('calculatedMass') or {}
+                comp_mass_val = comp_mass_dict.get('value')
+                if not comp_mass_val:
+                    # Fallback: calculate from totalAmount × MW × (1 + excess%)
+                    comp_mw = comp.get('molecular_weight')
+                    comp_total = (comp.get('totalAmount') or {}).get('value')
+                    if comp_mw and comp_total:
+                        try:
+                            comp_mass_val = float(comp_total) * float(comp_mw) * (1 + cocktail_excess / 100) / 1000
+                        except (ValueError, TypeError):
+                            pass
+                try:
+                    comp_mass_str = f"{float(comp_mass_val):.2f}" if comp_mass_val is not None else ''
+                except (ValueError, TypeError):
+                    comp_mass_str = ''
+
+                ws.append([
+                    '',
+                    f"  ↳ {comp.get('alias') or comp.get('name', '')}",
+                    comp.get('alias') or comp.get('name', ''),
+                    '',
+                    c_solvent.get('name', ''),
+                    c_conc_num,
+                    '',
+                    '',
+                    '',
+                    comp_mass_str
+                ])
+        else:
+            ws.append([
+                row_num,
+                mat.get('name', ''),
+                mat.get('alias', mat.get('name', '')),
+                method_label,
+                solvent_name,
+                conc_str,
+                vpw_str,
+                excess_str,
+                vol_str,
+                mass_str
+            ])
+
+    # ── Section B: Order of Addition ──
+    ws.append([''])
+    ws.append(['Order of Addition'])
+    ws.append(['Step', 'Type', 'Description'])
+
+    step_num = 0
+    for op in dispense_order:
+        op_type = op.get('type', '')
+        # Skip stale dispense ops that point to a material index no longer in materialConfigs
+        # (can happen when two materials were combined into a cocktail without the dispenseOrder
+        # being updated — e.g. state saved before the frontend fix was applied).
+        if op_type == 'dispense':
+            mat_idx = op.get('materialIndex', 0)
+            if mat_idx >= len(material_configs):
+                continue
+        step_num += 1
+        description = _format_plating_operation_raw(op, material_configs)
+        type_label = {
+            'dispense': 'Dispense',
+            'kit': 'Kit',
+            'wait': 'Wait',
+            'stir': 'Stir',
+            'evaporate': 'Evaporate',
+            'note': 'Note'
+        }.get(op_type, op_type)
+        ws.append([step_num, type_label, description])
+
+
+def _format_plating_operation(op, materials):
+    """Format a single operation for the plating order of addition (processed format)."""
+    op_type = op.get('type', '')
+    if op_type == 'dispense':
+        mat_idx = op.get('materialIndex', 0)
+        if mat_idx < len(materials):
+            mat = materials[mat_idx]
+            name = mat.get('alias') or mat.get('name', 'Material')
+            method = mat.get('dispensing_method', 'neat')
+            total_unit = mat.get('total_amount_unit', 'μmol')
+            is_solvent = total_unit in ('μL', 'mL')
+            method_label = 'Solvent' if is_solvent else ('Stock' if method == 'stock' else 'Neat')
+            well_count = len(mat.get('well_amounts', {}))
+            return f"{name} — {method_label} • {well_count} wells"
+        return 'Unknown material'
+    elif op_type == 'kit':
+        kit_id = op.get('kitId', 'Kit')
+        count = len(op.get('materialIndices', []))
+        text = f"{kit_id} — {count} materials"
+        note = op.get('note', '')
+        if note:
+            text += f" — {note}"
+        return text
+    elif op_type == 'wait':
+        return f"Wait {op.get('duration', '—')} {op.get('unit', 'min')}"
+    elif op_type == 'stir':
+        text = f"Stir at {op.get('temperature', '—')}°C for {op.get('duration', '—')} {op.get('unit', 'min')}"
+        if op.get('rpm'):
+            text += f" @ {op['rpm']} RPM"
+        return text
+    elif op_type == 'evaporate':
+        return 'Evaporate solvents'
+    elif op_type == 'note':
+        return op.get('text', 'Note')
+    return 'Unknown operation'
+
+
+def _format_plating_operation_raw(op, material_configs):
+    """Format a single operation for the plating order of addition (raw format)."""
+    op_type = op.get('type', '')
+    if op_type == 'dispense':
+        mat_idx = op.get('materialIndex', 0)
+        if mat_idx < len(material_configs):
+            mat = material_configs[mat_idx]
+            name = mat.get('alias') or mat.get('name', 'Material')
+            method = mat.get('dispensingMethod', 'neat')
+            total_unit = (mat.get('totalAmount') or {}).get('unit', 'μmol')
+            is_solvent = total_unit in ('μL', 'mL')
+            method_label = 'Solvent' if is_solvent else ('Stock' if method == 'stock' else 'Neat')
+            well_count = len(mat.get('wellAmounts', {}))
+            return f"{name} — {method_label} • {well_count} wells"
+        return 'Unknown material'
+    elif op_type == 'kit':
+        kit_id = op.get('kitId', 'Kit')
+        count = len(op.get('materialIndices', []))
+        text = f"{kit_id} — {count} materials"
+        note = op.get('note', '')
+        if note:
+            text += f" — {note}"
+        return text
+    elif op_type == 'wait':
+        return f"Wait {op.get('duration', '—')} {op.get('unit', 'min')}"
+    elif op_type == 'stir':
+        text = f"Stir at {op.get('temperature', '—')}°C for {op.get('duration', '—')} {op.get('unit', 'min')}"
+        if op.get('rpm'):
+            text += f" @ {op['rpm']} RPM"
+        return text
+    elif op_type == 'evaporate':
+        return 'Evaporate solvents'
+    elif op_type == 'note':
+        return op.get('text', 'Note')
+    return 'Unknown operation'
+
+
+def _build_heatmap_sheets(wb, heatmap_data):
+    """Heatmap sheets (one per heatmap)."""
+    if not heatmap_data:
+        heatmap_data = {}
+
+    heatmaps = heatmap_data.get('heatmaps', [])
+
+    if heatmaps:
+        for idx, hm in enumerate(heatmaps):
+            sheet_name = f'Heatmap_{idx + 1}'
+            ws = wb.create_sheet(sheet_name)
+
+            rows = [
+                [f"Heatmap {idx + 1}: {hm.get('title', 'Untitled')}"],
+                [''],
+                ['Formula:', hm.get('formula', 'No formula')],
+                ['Color Scheme:', hm.get('colorScheme', 'blue')],
+                ['Min Value:', hm.get('min', 0)],
+                ['Max Value:', hm.get('max', 0)],
+                [''],
+            ]
+            for row in rows:
+                ws.append(row)
+
+            col_labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
+            row_labels = ['1', '2', '3', '4', '5', '6', '7', '8']
+
+            ws.append([''] + col_labels)
+
+            hm_data = hm.get('data', [])
+            for ri, data_row in enumerate(hm_data):
+                label = row_labels[ri] if ri < len(row_labels) else str(ri + 1)
+                ws.append([label] + [cell or '' for cell in data_row])
+    else:
+        ws = wb.create_sheet('Heatmap Data')
+        ws.append(['Heatmap Data'])
+        ws.append([''])
+        ws.append(['No heatmaps generated yet.'])
+
+
+def _build_summary_sheet(wb, context, materials, procedure, analytical_data, heatmap_data, plating_protocol=None):
+    """Summary overview sheet."""
+    ws = wb.create_sheet('Summary')
+
+    heatmaps = (heatmap_data or {}).get('heatmaps', [])
+    uploaded = analytical_data.get('uploadedFiles', [])
+    has_plating = plating_protocol is not None
+
+    rows = [
+        ['HTE Experiment Summary'],
+        [''],
+        ['Experiment Information'],
+        ['Author:', context.get('author', 'Not specified')],
+        ['Date:', context.get('date', 'Not specified')],
+        ['Project:', context.get('project', 'Not specified')],
+        ['ELN Number:', context.get('eln', 'Not specified')],
+        ['Objective:', context.get('objective', 'Not specified')],
+        [''],
+        ['Data Summary'],
+        ['Materials Count:', len(materials)],
+        ['Wells with Data:', sum(1 for w in procedure if w.get('materials'))],
+        ['Plating Protocol:', 'Configured' if has_plating else 'Not configured'],
+        ['Analytical Data Files:', len(uploaded)],
+        ['Heatmaps Generated:', len(heatmaps)],
+        [''],
+        ['Sheet Contents'],
+        ['1. Experiment Context - Basic experiment information and SDF reaction data'],
+        ['2. Materials - All chemical materials with properties and roles'],
+        ['3. Design - Well contents in long format (well, material_nr, alias, amount [µmol], amount [µL], dispense_order)'],
+        ['4. Procedure - Reaction conditions and analytical details'],
+    ]
+
+    sheet_num = 5
+    if has_plating:
+        rows.append([f'{sheet_num}. Plating - Dispensing methods, stock solutions, and order of addition'])
+        sheet_num += 1
+    rows.append([f'{sheet_num}. Analytical Data - Uploaded analytical results or template'])
+    sheet_num += 1
+    rows.append([f'{sheet_num}. Heatmap - Generated heatmaps with formulas and color schemes'])
+    sheet_num += 1
+    rows.append([f'{sheet_num}. Summary - This overview sheet'])
+
+    rows.extend([
+        [''],
+        ['Export Information'],
+        ['Export Date:', datetime.now().strftime('%Y-%m-%d %H:%M:%S')],
+        ['Export Version:', '2.0'],
+        ['File Format:', 'Excel (.xlsx)'],
+    ])
+
+    for row in rows:
+        ws.append(row)

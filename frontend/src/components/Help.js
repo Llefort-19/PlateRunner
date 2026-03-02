@@ -112,7 +112,12 @@ const Help = ({ tabId, visible, onClose }) => {
             <div>
               <h4>Designing Your Experiment:</h4>
               <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
-                <li><strong>Select Material:</strong> Click on a material row in the Materials table to select it for dispensing</li>
+                <li><strong>Select Material:</strong> Click on a material row in the Materials table to select it for dispensing.
+                  <ul style={{ paddingLeft: "20px", marginTop: "5px" }}>
+                    <li>Click the <strong>Mother Tile</strong> (base material) directly to dispense a new stock or base amount.</li>
+                    <li>If the material has multiple stocks, click the <strong>▶ arrow</strong> to expand and select a specific existing stock solution.</li>
+                  </ul>
+                </li>
                 <li><strong>Select Wells:</strong> Choose which wells to add the material to using the following methods:</li>
               </ul>
 
@@ -126,9 +131,17 @@ const Help = ({ tabId, visible, onClose }) => {
 
               <h4 style={{ marginTop: "16px" }}>Material Operations:</h4>
               <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
-                <li><strong>Add Material:</strong> Enter the amount in μmol (for materials) or μL (for solvents) and click "Add to wells"</li>
+                <li><strong>Add Material:</strong> Enter the amount in μmol (for materials) or μL (for solvents).
+                  <ul style={{ paddingLeft: "20px", marginTop: "5px" }}>
+                    <li><strong>Stock ID (Optional):</strong> If dispensing from the Mother Tile, you can assign a "Stock ID" (e.g., '1' or 'A') to split this dispense into its own stock solution step.</li>
+                    <li><strong>Base vs Stock Exclusivity:</strong>
+                      If a material already has existing stocks, you <em>must</em> provide a new Stock ID when dispensing from the Mother Tile. Conversely, if a material has already been dispensed directly from the Mother Tile (without a Stock ID), you <em>cannot</em> create new Stock Solutions for it.
+                    </li>
+                  </ul>
+                </li>
+                <li><strong>Click "Add to wells"</strong> to dispense. Multiple additions of the same chemical and stock are automatically summed.</li>
                 <li><strong>Remove Material:</strong> Click "Remove from wells" to remove the selected material from all selected wells</li>
-                <li><strong>View Contents:</strong> Right-click on any well to view its contents in a modal</li>
+                <li><strong>View Contents:</strong> Right-click on any well to view its full contents in a modal</li>
                 <li><strong>Auto-save:</strong> All changes are automatically saved</li>
               </ul>
 
@@ -136,7 +149,8 @@ const Help = ({ tabId, visible, onClose }) => {
               <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
                 <li>Selected wells are highlighted in blue</li>
                 <li>Wells with materials have a green border</li>
-                <li>Material amounts are displayed inside wells</li>
+                <li>Material amounts are displayed inside wells, color-coded by magnitude (Green=Low, Orange=Medium, Red=High, Purple=Very High)</li>
+                <li>Base materials in the list display a **Σ** symbol representing the aggregated total amount of all their associated stock solutions</li>
               </ul>
             </div>
           )

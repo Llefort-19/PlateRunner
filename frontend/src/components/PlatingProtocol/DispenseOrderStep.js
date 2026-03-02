@@ -1,52 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-
-// Operation type definitions with icons and labels
-const OPERATION_TYPES = {
-  dispense: { icon: '💧', label: 'Dispense', color: 'var(--color-primary)' },
-  kit: { icon: '📦', label: 'Kit', color: 'var(--color-success, #27ae60)' },
-  wait: { icon: '⏳', label: 'Wait', color: 'var(--color-warning, #e67e22)' },
-  stir: { icon: '🌀', label: 'Stir', color: 'var(--color-primary)' },
-  evaporate: { icon: '🔥', label: 'Evaporate', color: 'var(--color-info, #17a2b8)' },
-  note: { icon: '📝', label: 'Note', color: 'var(--color-text-secondary)' }
-};
-
-const TIME_UNITS = ['sec', 'min', 'h'];
-
-// Format dispense summary
-const formatDispenseSummary = (material) => {
-  if (!material) return '';
-  if (material.dispensingMethod === 'stock' && material.stockSolution?.solvent) {
-    const stock = material.stockSolution;
-    let conc = '';
-    if (stock.concentration?.value) {
-      const concVal = parseFloat(stock.concentration.value);
-      const concUnit = stock.concentration.unit || 'M';
-      // Format to 2 decimal places
-      const formatted = concVal < 0.1
-        ? `${(concVal * 1000).toFixed(2)} mM`
-        : `${concVal.toFixed(2)} ${concUnit}`;
-      conc = formatted;
-    }
-    return `Stock in ${stock.solvent.name}${conc ? ` • ${conc}` : ''}`;
-  }
-  return material.dispensingMethod === 'neat'
-    ? `Neat • ${material.totalAmount?.value?.toFixed(1) || '--'} ${material.totalAmount?.unit || 'μmol'}`
-    : 'Configure stock solution';
-};
-
-// Get operation title
-const getOperationTitle = (op, material, materialConfigs) => {
-  if (op.type === 'dispense' && material) {
-    return material.alias || material.name;
-  }
-  if (op.type === 'kit') {
-    // Get count of materials in this kit
-    const count = op.materialIndices?.length || 0;
-    return `${op.kitId} (${count} materials)`;
-  }
-  return OPERATION_TYPES[op.type]?.label || 'Unknown';
-};
+import { OPERATION_TYPES, TIME_UNITS, formatDispenseSummary, getOperationTitle } from './constants';
 
 // Step type chooser popover
 const StepTypeChooser = ({ onSelect, onClose, position }) => {
@@ -94,20 +48,21 @@ const OperationContent = ({ operation, material, materialConfigs, onUpdate }) =>
     );
   }
 
-  // Kit — title + note field
+  // Kit — title + method label + note field
   if (isKit) {
+    // Derive method from first kit member
+    const firstMemberIdx = operation.materialIndices?.[0];
+    const firstMember = firstMemberIdx !== undefined ? materialConfigs[firstMemberIdx] : null;
+    const kitMethod = firstMember?.dispensingMethod || 'neat';
+    const solventName = firstMember?.stockSolution?.solvent?.name;
+
     return (
       <div className="timeline-content-dense">
         <div className="timeline-title-dense">{getOperationTitle(operation, null, materialConfigs)}</div>
-        <div className="inline-fields inline-fields-grow" style={{ marginTop: '8px' }}>
-          <input
-            type="text"
-            className="inline-input inline-input-text"
-            value={operation.note || ''}
-            onChange={(e) => onUpdate({ ...operation, note: e.target.value })}
-            placeholder="Add note about how kit is used (e.g., 'Pre-dispensed' or 'Dissolved in DCM')..."
-            style={{ fontSize: '12px' }}
-          />
+        <div className="timeline-details-dense">
+          {kitMethod === 'stock'
+            ? `Stock${solventName ? ` in ${solventName}` : ''}`
+            : 'Neat'}
         </div>
       </div>
     );
@@ -194,6 +149,7 @@ const TimelineRow = ({
   material,
   materialConfigs,
   index,
+  visualIndex,
   isLast,
   onUpdate,
   onDelete,
@@ -202,7 +158,9 @@ const TimelineRow = ({
   onDragEnd,
   onDrop,
   isDragging,
-  isDragOver
+  isDragOver,
+  isSelected,
+  onClick
 }) => {
   const opConfig = OPERATION_TYPES[operation.type];
   const isDispense = operation.type === 'dispense';
@@ -210,9 +168,10 @@ const TimelineRow = ({
 
   return (
     <div
-      className={`timeline-row-dense ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`}
+      className={`timeline-row-dense ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''} ${isSelected ? 'selected' : ''}`}
       data-op-type={operation.type}
       draggable
+      onClick={onClick}
       onDragStart={(e) => onDragStart(e, index)}
       onDragOver={(e) => onDragOver(e, index)}
       onDragEnd={onDragEnd}
@@ -232,7 +191,7 @@ const TimelineRow = ({
       {/* Step number badge + emoji/icon */}
       <div className="timeline-step-indicator">
         <div className="timeline-step-badge">
-          <span className="step-num">{index + 1}</span>
+          <span className="step-num">{visualIndex !== undefined ? visualIndex + 1 : index + 1}</span>
         </div>
         <span className="step-icon-svg">
           {typeof opConfig?.icon === 'string' ? (
@@ -273,6 +232,7 @@ const DispenseOrderStep = ({ materialConfigs, dispenseOrder, onOrderChange }) =>
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const [showChooser, setShowChooser] = useState(false);
+  const [selectedStepIndex, setSelectedStepIndex] = useState(null);
 
   // Drag handlers
   const handleDragStart = useCallback((e, index) => {
@@ -304,6 +264,15 @@ const DispenseOrderStep = ({ materialConfigs, dispenseOrder, onOrderChange }) =>
     const [draggedItem] = newOrder.splice(draggedIndex, 1);
     newOrder.splice(dropIndex, 0, draggedItem);
     onOrderChange(newOrder);
+
+    setSelectedStepIndex(prev => {
+      if (prev === null) return null;
+      if (prev === draggedIndex) return dropIndex;
+      if (draggedIndex < prev && dropIndex >= prev) return prev - 1;
+      if (draggedIndex > prev && dropIndex <= prev) return prev + 1;
+      return prev;
+    });
+
     handleDragEnd();
   }, [draggedIndex, dispenseOrder, onOrderChange, handleDragEnd]);
 
@@ -320,10 +289,23 @@ const DispenseOrderStep = ({ materialConfigs, dispenseOrder, onOrderChange }) =>
     } else if (type === 'note') {
       newOperation.text = '';
     }
-    const newOrder = [...dispenseOrder, newOperation];
+
+    const newOrder = [...dispenseOrder];
+
+    // If a step is selected, insert directly after it
+    if (selectedStepIndex !== null) {
+      newOrder.splice(selectedStepIndex + 1, 0, newOperation);
+
+      // Advance selection to the newly added step
+      setSelectedStepIndex(selectedStepIndex + 1);
+    } else {
+      // Otherwise fallback to appending to the absolute end
+      newOrder.push(newOperation);
+    }
+
     onOrderChange(newOrder);
     setShowChooser(false);
-  }, [dispenseOrder, onOrderChange]);
+  }, [dispenseOrder, onOrderChange, selectedStepIndex]);
 
   // Update operation in-place (live editing)
   const updateOperation = useCallback((index, updatedOp) => {
@@ -338,6 +320,12 @@ const DispenseOrderStep = ({ materialConfigs, dispenseOrder, onOrderChange }) =>
     if (op.type === 'dispense') return;
     const newOrder = dispenseOrder.filter((_, i) => i !== index);
     onOrderChange(newOrder);
+
+    setSelectedStepIndex(prev => {
+      if (prev === index) return null;
+      if (prev > index) return prev - 1;
+      return prev;
+    });
   }, [dispenseOrder, onOrderChange]);
 
   if (materialConfigs.length === 0) {
@@ -361,32 +349,40 @@ const DispenseOrderStep = ({ materialConfigs, dispenseOrder, onOrderChange }) =>
       </div>
 
       <div className="timeline-list-dense">
-        {dispenseOrder.map((operation, index) => {
-          const material = operation.type === 'dispense'
-            ? materialConfigs[operation.materialIndex]
-            : null;
+        {(() => {
+          let visualIndex = 0;
+          return dispenseOrder.map((operation, index) => {
+            const material = operation.type === 'dispense'
+              ? materialConfigs[operation.materialIndex]
+              : null;
 
-          if (operation.type === 'dispense' && !material) return null;
+            if (operation.type === 'dispense' && !material) return null;
 
-          return (
-            <TimelineRow
-              key={`step-${index}`}
-              operation={operation}
-              material={material}
-              materialConfigs={materialConfigs}
-              index={index}
-              isLast={index === dispenseOrder.length - 1}
-              onUpdate={(updated) => updateOperation(index, updated)}
-              onDelete={() => deleteOperation(index)}
-              onDragStart={handleDragStart}
-              onDragOver={handleDragOver}
-              onDragEnd={handleDragEnd}
-              onDrop={handleDrop}
-              isDragging={draggedIndex === index}
-              isDragOver={dragOverIndex === index}
-            />
-          );
-        })}
+            const currentVisualIndex = visualIndex++;
+
+            return (
+              <TimelineRow
+                key={`step-${index}`}
+                operation={operation}
+                material={material}
+                materialConfigs={materialConfigs}
+                index={index}
+                visualIndex={currentVisualIndex}
+                isLast={index === dispenseOrder.length - 1}
+                onUpdate={(updated) => updateOperation(index, updated)}
+                onDelete={() => deleteOperation(index)}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDragEnd={handleDragEnd}
+                onDrop={handleDrop}
+                isDragging={draggedIndex === index}
+                isDragOver={dragOverIndex === index}
+                isSelected={selectedStepIndex === index}
+                onClick={() => setSelectedStepIndex(selectedStepIndex === index ? null : index)}
+              />
+            );
+          });
+        })()}
       </div>
 
       {/* Step type chooser */}

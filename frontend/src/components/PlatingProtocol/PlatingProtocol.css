@@ -1397,11 +1397,16 @@
   line-height: 1.35;
 }
 
-/* Inline content layout for unit operations */
 .timeline-content-inline {
   flex-direction: row !important;
   align-items: center !important;
   gap: 8px;
+}
+
+.timeline-row-dense.selected {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 5%, var(--color-surface) 95%);
+  box-shadow: 0 0 0 1px var(--color-primary);
 }
 
 .timeline-op-label {
@@ -1735,6 +1740,10 @@
 .preview-stock-table td.stock-table-name {
   text-align: left;
   font-weight: 600;
+  white-space: normal;
+  word-wrap: break-word;
+  max-width: 200px;
+  /* Force text to wrap inside table cells */
 }
 
 /* ── Protocol Steps List — 2 columns ── */
@@ -1752,11 +1761,6 @@
   min-height: 54px;
   display: flex;
   align-items: center;
-}
-
-/* Unit operations take same width as dispense (one column) */
-.preview-step-card.unit-op {
-  /* No grid-column override - stays in single column */
 }
 
 .preview-step-card.dispense {

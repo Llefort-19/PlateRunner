@@ -15,6 +15,7 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
     isCtrlDrag: false
   });
   const [amount, setAmount] = useState("");
+  const [stockId, setStockId] = useState("");
   const [unit, setUnit] = useState("μmol");
   const [clickedWell, setClickedWell] = useState(null);
   const [showWellModal, setShowWellModal] = useState(false);
@@ -86,6 +87,7 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
     setSelectedWells([]);
     setSelectedMaterial(null);
     setAmount("");
+    setStockId("");
     // Clear all procedure data
     setProcedure([]);
 
@@ -243,12 +245,12 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
     const consolidated = {};
 
     materials.forEach((material) => {
-      const key = material.name;
+      const key = `${material.name}_${material.stockId || 'default'}`;
       if (consolidated[key]) {
-        // Sum up amounts for the same material
+        // Sum up amounts for the same material (and same stockId)
         consolidated[key].amount += material.amount;
       } else {
-        // First occurrence of this material
+        // First occurrence of this material + stockId
         consolidated[key] = { ...material };
       }
     });
@@ -272,7 +274,13 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
     const normalizedCas = cas.normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '');
 
     // Create ID with consistent formatting
-    const id = `${normalizedName}_${normalizedAlias}_${normalizedCas}`;
+    let id = `${normalizedName}_${normalizedAlias}_${normalizedCas}`;
+
+    if (material.stockId) {
+      const normalizedStock = String(material.stockId).normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '');
+      id = `${id}_stock_${normalizedStock}`;
+    }
+
     return id;
   };
 
@@ -280,7 +288,11 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
   const getMaterialNameKey = (material) => {
     const name = (material.name || '').trim().normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
     const alias = (material.alias || '').trim().normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
-    return alias || name;
+    let key = alias || name;
+    if (material.stockId) {
+      key = `${key}_stock_${String(material.stockId).trim().toLowerCase()}`;
+    }
+    return key;
   };
 
   // Helper function to check if two materials match (with fallback to name/alias matching)
@@ -327,10 +339,12 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
     if (selectedMaterial && selectedId === clickedId) {
       setSelectedMaterial(null);
       setAmount("");
+      setStockId("");
     } else {
       // Otherwise, select the new material
       setSelectedMaterial(material);
       setAmount("");
+      setStockId(material.stockId || "");
 
       // Set unit based on material role
       if (material.role === "Solvent") {
@@ -469,6 +483,7 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
       barcode: selectedMaterial.barcode,
       amount: parseFloat(amount),
       unit: unit,
+      stockId: stockId.trim() || undefined,
     };
 
     // Create the updated procedure data directly
@@ -509,6 +524,7 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
     // Keep the selected material active, but clear wells and amount for next dispense
     setSelectedWells([]);
     setAmount("");
+    // Keep stockId so they can easily use the same stock for next dispense, or they can erase it.
   };
 
   const isSelectedMaterialInSelectedWells = () => {
@@ -687,7 +703,11 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
     const createNameKey = (material) => {
       const name = (material.name || '').trim().normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
       const alias = (material.alias || '').trim().normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
-      return alias || name;
+      let key = alias || name;
+      if (material.stockId) {
+        key = `${key}_stock_${String(material.stockId).trim().toLowerCase()}`;
+      }
+      return key;
     };
 
     // Initialize totals for all materials using unique identifiers
@@ -832,7 +852,11 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
     const name = (material.name || '').trim().normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
     const alias = (material.alias || '').trim().normalize('NFKD').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
     // Use alias if available, otherwise name
-    return alias || name;
+    let key = alias || name;
+    if (material.stockId) {
+      key = `${key}_stock_${String(material.stockId).trim().toLowerCase()}`;
+    }
+    return key;
   };
 
   // Create a list of materials for display in design tab
@@ -885,27 +909,6 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
 
   const displayMaterials = allMaterialsForDisplay();
 
-  // Helper: Group materials by kit
-  const groupMaterialsByKit = () => {
-    const groups = {
-      kits: {},
-      manual: []
-    };
-
-    displayMaterials.forEach((material) => {
-      if (material.role_id && material.role_id.startsWith('kit_')) {
-        if (!groups.kits[material.role_id]) {
-          groups.kits[material.role_id] = [];
-        }
-        groups.kits[material.role_id].push(material);
-      } else {
-        groups.manual.push(material);
-      }
-    });
-
-    return groups;
-  };
-
   // Helper: Toggle kit expansion
   const toggleKitExpansion = (kitId) => {
     setExpandedKits(prev => {
@@ -919,6 +922,55 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
     });
   };
 
+  // State to track expanded materials (for stock solutions)
+  const [expandedMaterials, setExpandedMaterials] = useState(new Set());
+
+  // Helper: Toggle material expansion
+  const toggleMaterialExpansion = (baseMaterialName) => {
+    setExpandedMaterials(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(baseMaterialName)) {
+        newSet.delete(baseMaterialName);
+      } else {
+        newSet.add(baseMaterialName);
+      }
+      return newSet;
+    });
+  };
+
+  // Helper: Group materials by kit and by base material (for stock solutions)
+  const groupMaterialsByKit = () => {
+    const groups = {
+      kits: {},
+      manualBase: {} // Store base materials mapping to their stocks
+    };
+
+    displayMaterials.forEach((material) => {
+      if (material.role_id && material.role_id.startsWith('kit_')) {
+        if (!groups.kits[material.role_id]) {
+          groups.kits[material.role_id] = [];
+        }
+        groups.kits[material.role_id].push(material);
+      } else {
+        // Group by base name/alias
+        const baseName = getNameKey({ ...material, stockId: undefined });
+        if (!groups.manualBase[baseName]) {
+          groups.manualBase[baseName] = {
+            baseMaterial: { ...material, stockId: undefined },
+            stocks: []
+          };
+        }
+        // If it's the original item exactly as it is without stock or empty stock, put it in stocks too
+        // or just treat everything as a stock variation
+        groups.manualBase[baseName].stocks.push(material);
+      }
+    });
+
+    return groups;
+  };
+
+  // Helper: Group materials by kit
+  // Note: groupedMaterials gets used below
   const groupedMaterials = groupMaterialsByKit();
 
   return (
@@ -1040,49 +1092,143 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
                         </React.Fragment>
                       ))}
 
-                    {/* Render manual materials (always shown) */}
-                    {groupedMaterials.manual.map((material) => {
-                      const materialId = getMaterialId(material);
-                      const totalData = materialTotals[materialId] || {
-                        umol: 0,
-                        μL: 0,
-                        mg: 0,
-                        hasMolecularWeight: false,
-                        unit: "μmol"
-                      };
-                      const isSelected = selectedMaterial && getMaterialId(selectedMaterial) === getMaterialId(material);
+                    {/* Render manual base materials with expandable stock solutions */}
+                    {Object.entries(groupedMaterials.manualBase)
+                      .sort(([baseNameA], [baseNameB]) => baseNameA.localeCompare(baseNameB))
+                      .map(([baseNameKey, groupData]) => {
+                        const { baseMaterial, stocks } = groupData;
+                        // Determine if we need to show expandable stocks
+                        const hasMultipleStocks = stocks.length > 1;
+                        const isBaseSelected = selectedMaterial && getMaterialId(selectedMaterial) === getMaterialId(baseMaterial);
 
-                      return (
-                        <tr
-                          key={materialId}
-                          className={isSelected ? "selected-row" : ""}
-                          onClick={() => handleMaterialClick(material)}
-                          style={{ cursor: "pointer" }}
-                        >
-                          <td>{material.alias || material.name}</td>
-                          <td>{material.cas || (material.fromMaterialsList ? "" : "N/A")}</td>
-                          <td className="total-amount">
-                            {(totalData.umol > 0 || totalData.μL > 0) ? (
-                              <div className="amount-display">
-                                <div className="amount-umol">
-                                  {totalData.unit === "μL"
-                                    ? `${formatAmount(totalData.μL)} μL`
-                                    : `${formatAmount(totalData.umol)} μmol`
-                                  }
-                                </div>
-                                <div className="amount-mg">
-                                  {totalData.hasMolecularWeight && totalData.unit === "μmol"
-                                    ? `${formatAmount(totalData.mg)} mg`
-                                    : "--"}
-                                </div>
-                              </div>
-                            ) : (
-                              <span className="no-amount">-</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                        // Calculate aggregate totals for the base material
+                        let aggregateTotal = {
+                          umol: 0,
+                          μL: 0,
+                          mg: 0,
+                          hasMolecularWeight: baseMaterial.molecular_weight ? true : false,
+                          unit: baseMaterial.role === "Solvent" ? "μL" : "μmol"
+                        };
+                        stocks.forEach(stockMat => {
+                          const mId = getMaterialId(stockMat);
+                          const tData = materialTotals[mId];
+                          if (tData) {
+                            aggregateTotal.umol += tData.umol;
+                            aggregateTotal.μL += tData.μL;
+                            aggregateTotal.mg += tData.mg;
+                          }
+                        });
+
+
+                        return (
+                          <React.Fragment key={`base-${baseNameKey}`}>
+                            {/* Base Material Row */}
+                            {hasMultipleStocks ? (
+                              <tr
+                                className={isBaseSelected ? "selected-row" : ""}
+                                style={{
+                                  backgroundColor: isBaseSelected ? 'var(--color-primary-light)' : '#fafafa',
+                                  borderTop: '1px solid #dee2e6',
+                                  fontWeight: expandedMaterials.has(baseNameKey) ? '500' : 'normal',
+                                  cursor: 'pointer'
+                                }}
+                                onClick={() => {
+                                  toggleMaterialExpansion(baseNameKey);
+                                  handleMaterialClick(baseMaterial);
+                                }}
+                              >
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '10px', color: '#6c757d' }}>
+                                      {expandedMaterials.has(baseNameKey) ? '▼' : '▶'}
+                                    </span>
+                                    <span>{baseMaterial.alias || baseMaterial.name}</span>
+                                  </div>
+                                </td>
+                                <td>{baseMaterial.cas || (baseMaterial.fromMaterialsList ? "" : "N/A")}</td>
+                                <td className="total-amount">
+                                  {/* Show Aggregate Totals */}
+                                  {(aggregateTotal.umol > 0 || aggregateTotal.μL > 0) ? (
+                                    <div className="amount-display">
+                                      <div className="amount-umol" style={{ fontWeight: '500' }}>
+                                        {aggregateTotal.unit === "μL"
+                                          ? `Σ ${formatAmount(aggregateTotal.μL)} μL`
+                                          : `Σ ${formatAmount(aggregateTotal.umol)} μmol`
+                                        }
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <span className="no-amount">-</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ) : null}
+
+                            {/* Stock Solution Rows */}
+                            {(hasMultipleStocks ? expandedMaterials.has(baseNameKey) : true) && stocks.map((material) => {
+                              // Skip rendering the base material as a child row if we are showing the mother tile
+                              if (hasMultipleStocks && !material.stockId) {
+                                return null;
+                              }
+
+                              const materialId = getMaterialId(material);
+                              const totalData = materialTotals[materialId] || {
+                                umol: 0,
+                                μL: 0,
+                                mg: 0,
+                                hasMolecularWeight: false,
+                                unit: "μmol"
+                              };
+                              const isSelected = selectedMaterial && getMaterialId(selectedMaterial) === getMaterialId(material);
+
+                              return (
+                                <tr
+                                  key={materialId}
+                                  className={isSelected ? "selected-row" : ""}
+                                  onClick={() => handleMaterialClick(material)}
+                                  style={{
+                                    cursor: "pointer",
+                                    backgroundColor: isSelected ? 'var(--color-primary-light)' : (hasMultipleStocks ? '#fdfdfd' : 'transparent')
+                                  }}
+                                >
+                                  <td style={{ paddingLeft: hasMultipleStocks ? '30px' : '12px' }}>
+                                    {hasMultipleStocks ? (
+                                      <span style={{ color: '#495057', fontSize: '0.9em' }}>
+                                        Stock {material.stockId}
+                                      </span>
+                                    ) : (
+                                      <span>
+                                        {material.alias || material.name}
+                                        {material.stockId && <span className="badge bg-secondary ms-2" style={{ fontSize: '0.7em' }}>Stock {material.stockId}</span>}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td>{!hasMultipleStocks ? (material.cas || (material.fromMaterialsList ? "" : "N/A")) : ''}</td>
+                                  <td className="total-amount">
+                                    {(totalData.umol > 0 || totalData.μL > 0) ? (
+                                      <div className="amount-display">
+                                        <div className="amount-umol" style={{ color: hasMultipleStocks ? '#6c757d' : 'inherit' }}>
+                                          {totalData.unit === "μL"
+                                            ? `${formatAmount(totalData.μL)} μL`
+                                            : `${formatAmount(totalData.umol)} μmol`
+                                          }
+                                        </div>
+                                        <div className="amount-mg" style={{ color: hasMultipleStocks ? '#6c757d' : 'inherit' }}>
+                                          {totalData.hasMolecularWeight && totalData.unit === "μmol"
+                                            ? `${formatAmount(totalData.mg)} mg`
+                                            : "--"}
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <span className="no-amount">-</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </React.Fragment>
+                        );
+                      })}
                   </>
                 )}
               </tbody>
@@ -1090,43 +1236,107 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
           </div>
 
           {/* Amount Input */}
-          {selectedMaterial && (
-            <div className="amount-input-section">
-              <h4>Selected: {selectedMaterial.alias || selectedMaterial.name}</h4>
-              <div className="amount-controls">
-                <input
-                  type="number"
-                  step="0.001"
-                  className="form-control"
-                  placeholder={`Amount (${unit})`}
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                />
-                <button
-                  className="btn btn-success"
-                  onClick={addMaterialToWells}
-                  disabled={!amount || selectedWells.length === 0}
-                >
-                  Add to {selectedWells.length} well
-                  {selectedWells.length !== 1 ? "s" : ""}
-                </button>
-                <button
-                  className="btn btn-warning"
-                  onClick={removeMaterialFromWells}
-                  disabled={!isSelectedMaterialInSelectedWells()}
-                  title={`Remove ${selectedMaterial.alias || selectedMaterial.name} from selected wells`}
-                >
-                  Remove from {selectedWells.length} well
-                  {selectedWells.length !== 1 ? "s" : ""}
-                </button>
+          {selectedMaterial && (() => {
+            // Logic to enforce Base vs Stock Solution exclusivity
+            const isBaseMaterialSelected = !selectedMaterial.stockId && (!selectedMaterial.role_id || !selectedMaterial.role_id.startsWith('kit_'));
+
+            let requiresStockId = false;
+            let isBaseLocked = false;
+            let buttonTitle = "";
+
+            if (isBaseMaterialSelected && groupedMaterials) {
+              const baseNameKey = getMaterialNameKey({ ...selectedMaterial, stockId: undefined });
+              const groupData = groupedMaterials.manualBase[baseNameKey];
+
+              if (groupData) {
+                // Check if there are any child stocks
+                const hasChildStocks = groupData.stocks.some(s => !!s.stockId);
+                // Check if the base material itself (no stock ID) has been dispensed
+                const baseMaterialDispensed = groupData.stocks.some(s => !s.stockId && materialTotals[getMaterialId(s)] && (materialTotals[getMaterialId(s)].umol > 0 || materialTotals[getMaterialId(s)].μL > 0));
+
+                if (hasChildStocks) {
+                  // If stocks exist, we MUST provide a stock ID (meaning we can't dispense from base directly)
+                  requiresStockId = true;
+
+                  if (!stockId.trim()) {
+                    buttonTitle = "This material already has designated Stock Solutions. Please enter a Stock ID to create a new one, or select an existing one below.";
+                  }
+                } else if (baseMaterialDispensed) {
+                  // If the base material has been dispensed (and no stocks exist), we CANNOT provide a stock ID
+                  // because it's locked into being a direct direct dispense
+                  isBaseLocked = true;
+                  if (stockId.trim()) {
+                    buttonTitle = "This material has already been dispensed directly. You cannot create Stock Solutions for it now. Clear its wells to start over with Stock Solutions.";
+                  }
+                }
+              }
+            } else if (!isBaseMaterialSelected && !!selectedMaterial.stockId) {
+              // If a specific stock is selected, we let the button title handle the tooltip
+              buttonTitle = "You are modifying an existing stock. Select the Mother Tile to create a new stock.";
+            }
+
+            // The 'Add' button is disabled if:
+            // 1. No amount
+            // 2. No wells assigned
+            // 3. User selected base material, but stocks exist, so they failed to type a new stock ID
+            // 4. User typed a stock ID, but the base material was already dispensed directly
+            const isAddDisabled = !amount || parseFloat(amount) <= 0 || selectedWells.length === 0 ||
+              (requiresStockId && !stockId.trim()) ||
+              (isBaseLocked && !!stockId.trim());
+
+            return (
+              <div className="amount-input-section">
+                <h4>Selected: {selectedMaterial.alias || selectedMaterial.name}</h4>
+                <div className="amount-controls" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <input
+                    type="number"
+                    step="0.001"
+                    min="0.001"
+                    className="form-control"
+                    placeholder={`Amount (${unit})`}
+                    style={{ width: '140px', textAlign: 'center' }}
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                  />
+                  {selectedMaterial.role !== "Solvent" && (
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Stock ID (Optional)"
+                      style={{ width: '160px', textAlign: 'center' }}
+                      value={stockId}
+                      onChange={(e) => setStockId(e.target.value)}
+                      disabled={!!selectedMaterial?.stockId}
+                      title={!!selectedMaterial?.stockId ? "You are modifying an existing stock. Select the Mother Tile to create a new stock." : "Enter an identifier like 'A' or '1' to enforce identical materials to use different stock solutions"}
+                    />
+                  )}
+                  <button
+                    className="btn btn-success"
+                    onClick={() => !isAddDisabled && addMaterialToWells()}
+                    disabled={isAddDisabled}
+                    title={buttonTitle}
+                  >
+                    Add to {selectedWells.length} well
+                    {selectedWells.length !== 1 ? "s" : ""}
+                  </button>
+                  <button
+                    className="btn btn-warning"
+                    onClick={removeMaterialFromWells}
+                    disabled={!isSelectedMaterialInSelectedWells()}
+                    title={`Remove ${selectedMaterial.alias || selectedMaterial.name} from selected wells`}
+                  >
+                    Remove from {selectedWells.length} well
+                    {selectedWells.length !== 1 ? "s" : ""}
+                  </button>
+                </div>
+                {selectedWells.length > 0 && (
+                  <small className="selected-wells-info">
+                    Selected wells: {selectedWells.join(", ")}
+                  </small>
+                )}
               </div>
-              {selectedWells.length > 0 && (
-                <small className="selected-wells-info">
-                  Selected wells: {selectedWells.join(", ")}
-                </small>
-              )}
-            </div>
-          )}
+            );
+          })()}
         </div>
 
         {/* Well Plate */}
@@ -1245,22 +1455,32 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
                 <li>
                   <strong>Select Material:</strong> Click on a material row in
                   the table to select it for dispensing.
+                  <ul style={{ paddingLeft: "20px", marginTop: "5px" }}>
+                    <li>Click the <strong>Mother Tile</strong> (base material) directly to dispense a new stock or base amount.</li>
+                    <li>If the material has multiple stocks, click the <strong>▶ arrow</strong> to expand and select a specific existing stock solution.</li>
+                  </ul>
                 </li>
                 <li>
                   <strong>Select Wells:</strong> Click on individual wells to
                   select them, or use the following methods:
+                  <ul style={{ paddingLeft: "20px", marginTop: "5px" }}>
+                    <li><strong>Click & Drag:</strong> Select adjacent wells by clicking and dragging across them</li>
+                    <li><strong>Ctrl/Cmd + Click:</strong> Toggle individual wells on/off for multi-selection</li>
+                    <li><strong>Ctrl/Cmd + Drag:</strong> Add adjacent wells to your existing selection</li>
+                    <li><strong>Row/Column Headers:</strong> Click on row letters ({plateType === "96" ? "A-H" : plateType === "48" ? "A-F" : "A-D"}) or column numbers ({plateType === "96" ? "1-12" : plateType === "48" ? "1-8" : "1-6"}) to select entire rows/columns</li>
+                    <li><strong>ALL Button:</strong> Click "ALL" to select all wells at once</li>
+                    <li><strong>ESC Key:</strong> Press ESC to clear all well selections</li>
+                  </ul>
                 </li>
-                <ul style={{ paddingLeft: "20px", marginTop: "5px" }}>
-                  <li><strong>Click & Drag:</strong> Select adjacent wells by clicking and dragging across them</li>
-                  <li><strong>Ctrl/Cmd + Click:</strong> Toggle individual wells on/off for multi-selection</li>
-                  <li><strong>Ctrl/Cmd + Drag:</strong> Add adjacent wells to your existing selection</li>
-                  <li><strong>Row/Column Headers:</strong> Click on row letters ({plateType === "96" ? "A-H" : plateType === "48" ? "A-F" : "A-D"}) or column numbers ({plateType === "96" ? "1-12" : plateType === "48" ? "1-8" : "1-6"}) to select entire rows/columns</li>
-                  <li><strong>ALL Button:</strong> Click "ALL" to select all wells at once</li>
-                  <li><strong>ESC Key:</strong> Press ESC to clear all well selections</li>
-                </ul>
                 <li>
-                  <strong>Add Material:</strong> Enter the amount in the appropriate unit (μmol for materials, μL for solvents) and
-                  click "Add to wells" to dispense the selected material. Multiple additions of the same chemical are automatically summed.
+                  <strong>Add Material:</strong> Enter the amount in the appropriate unit (μmol for materials, μL for solvents).
+                  <ul style={{ paddingLeft: "20px", marginTop: "5px" }}>
+                    <li><strong>Stock ID (Optional):</strong> If dispensing from the Mother Tile, you can optionally assign a "Stock ID" (e.g., '1' or 'A') to split this dispense into its own stock solution step later.</li>
+                    <li><strong>Base vs Stock Exclusivity:</strong>
+                      If a material already has existing stocks, you <em>must</em> provide a new Stock ID when dispensing from the Mother Tile. Conversely, if a material has already been dispensed directly from the Mother Tile (without a Stock ID), you <em>cannot</em> create new Stock Solutions for it.
+                    </li>
+                    <li>Click "Add to wells" to dispense. Multiple additions of the same chemical and stock are automatically summed.</li>
+                  </ul>
                 </li>
                 <li>
                   <strong>Remove Material:</strong> Click "Remove from wells" to
@@ -1268,7 +1488,7 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
                 </li>
                 <li>
                   <strong>View Contents:</strong> Right-click on any well to
-                  view its contents in a modal.
+                  view its full contents in a modal.
                 </li>
                 <li>
                   <strong>Auto-save:</strong> All changes are automatically
@@ -1277,11 +1497,12 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
               </ul>
               <h4>Tips:</h4>
               <ul style={{ paddingLeft: "20px", lineHeight: "1.6", textAlign: "left" }}>
-                <li>Selected wells are highlighted in blue</li>
-                <li>Wells with content are highlighted with green borders</li>
-                <li>When a material is selected, wells containing it show color-coded amounts (Green=Low, Orange=Medium, Red=High, Purple=Very High)</li>
-                <li>Use Ctrl/Cmd for multi-selection operations</li>
-                <li>Drag operations work for contiguous well selection</li>
+                <li>Selected wells are highlighted in blue.</li>
+                <li>Wells with content are highlighted with green borders.</li>
+                <li>When a material is selected, wells containing it show color-coded amounts (Green=Low, Orange=Medium, Red=High, Purple=Very High).</li>
+                <li>Base materials in the list display a **Σ** symbol representing the aggregated total amount of all their associated stock solutions.</li>
+                <li>Use Ctrl/Cmd for multi-selection operations.</li>
+                <li>Drag operations work for contiguous well selection.</li>
                 <li>
                   Total amounts are calculated and displayed in the materials
                   table
