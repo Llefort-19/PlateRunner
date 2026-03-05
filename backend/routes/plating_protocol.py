@@ -626,7 +626,8 @@ def calculate_mass(conc_value, conc_unit, vol_value, vol_unit, molecular_weight)
         if conc_unit == 'mM':
             conc_mol_per_l = conc_value / 1000
         elif conc_unit == 'mg/mL':
-            conc_mol_per_l = (conc_value / molecular_weight) * 1000
+            # mg/mL is numerically equal to g/L; dividing by MW (g/mol) gives mol/L directly
+            conc_mol_per_l = conc_value / molecular_weight
         else:  # M
             conc_mol_per_l = conc_value
 

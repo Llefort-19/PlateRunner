@@ -129,6 +129,8 @@ const ExperimentContext = () => {
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith('.sdf')) {
+      showError("Please select a valid SDF file (.sdf)");
+      e.target.value = ''; // clear input
       return;
     }
 
@@ -185,16 +187,29 @@ const ExperimentContext = () => {
     }
   };
 
+  const isFirstMount = React.useRef(true);
+
+  // Debounced auto-save effect
+  useEffect(() => {
+    // Skip saving on initial load
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      saveContextToBackend(context);
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [context]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    const updatedContext = {
-      ...context,
+    setContext(prev => ({
+      ...prev,
       [name]: value,
-    };
-    setContext(updatedContext);
-
-    // Auto-save to backend
-    saveContextToBackend(updatedContext);
+    }));
   };
 
   const saveContextToBackend = async (contextData) => {

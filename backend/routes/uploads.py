@@ -162,7 +162,38 @@ def upload_analytical_data():
             if file_ext == '.csv':
                 df = pd.read_csv(file)
             else:  # Excel files
-                df = pd.read_excel(file)
+                # For multi-sheet Excel files, find the best sheet for analytical data
+                # rather than blindly reading the first sheet (which may be 'Experiment Context')
+                excel_file = pd.ExcelFile(file)
+                sheet_names = excel_file.sheet_names
+                target_sheet = None
+
+                if len(sheet_names) == 1:
+                    # Single-sheet file: use the only sheet
+                    target_sheet = sheet_names[0]
+                else:
+                    # Multi-sheet file: look for an analytical data sheet by name
+                    analytical_keywords = ['analytical', 'results', 'data', 'analysis']
+                    for sheet in sheet_names:
+                        if any(kw in sheet.lower() for kw in analytical_keywords):
+                            target_sheet = sheet
+                            break
+
+                    # If no match by name, find the sheet with Area_* columns
+                    if target_sheet is None:
+                        for sheet in sheet_names:
+                            temp_df = pd.read_excel(excel_file, sheet_name=sheet, nrows=0)
+                            area_cols = [c for c in temp_df.columns if c.startswith('Area_')]
+                            if area_cols:
+                                target_sheet = sheet
+                                break
+
+                    # Last resort: use the first sheet
+                    if target_sheet is None:
+                        target_sheet = sheet_names[0]
+
+                print(f"Excel sheets: {sheet_names}, selected: '{target_sheet}'")
+                df = pd.read_excel(excel_file, sheet_name=target_sheet)
             print(f"File read successfully. Shape: {df.shape}")
         except Exception as e:
             print(f"Error reading file: {str(e)}")
@@ -215,12 +246,38 @@ def upload_analytical_data():
         # Get ELN number from context
         context = current_experiment.get('context', {})
         eln_number = context.get('eln', 'ELN-001')
-        
+
+        # Drop completely empty rows (all NaN) before processing
+        df = df.dropna(how='all')
+
         # Process each row to ensure correct ID format
+        import re
+        import math
         processed_data = []
         for _, row in df.iterrows():
-            processed_row = row.to_dict()  # Convert pandas Series to dict
-            
+            raw_row = row.to_dict()  # Convert pandas Series to dict
+
+            # Sanitize all values: replace NaN/NaT with None for JSON compatibility
+            # Python's json.dumps outputs NaN as bare 'NaN' which is invalid JSON
+            # and causes JavaScript JSON.parse() to fail silently
+            processed_row = {}
+            for k, v in raw_row.items():
+                if v is None:
+                    processed_row[k] = None
+                elif isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+                    processed_row[k] = None
+                elif hasattr(v, 'item'):
+                    # Convert numpy scalar types to native Python types for JSON serialization
+                    processed_row[k] = v.item()
+                else:
+                    processed_row[k] = v
+
+            # Skip rows where both Well and Sample ID are empty (trailing blank rows)
+            well_val = processed_row.get('Well')
+            sample_id_val = processed_row.get('Sample ID') or processed_row.get('ID')
+            if well_val is None and sample_id_val is None:
+                continue
+
             # Handle ID column mapping - if file has 'ID' column but no 'Sample ID', map it
             id_value = None
             if 'Sample ID' in processed_row:
@@ -229,22 +286,20 @@ def upload_analytical_data():
                 # Map ID column to Sample ID
                 id_value = processed_row['ID']
                 processed_row['Sample ID'] = id_value
-            
+
             # Process the ID/Sample ID value to ensure correct format
             if id_value and isinstance(id_value, str):
-                import re
-                
                 # Extract well position (A1, B2, etc.) from the ID
                 well_match = re.search(r'[A-H]\d{1,2}', id_value)
                 if well_match:
                     well_part = well_match.group()
-                    
+
                     # Create the correct Sample ID format: ELN_WellLocation
                     correct_sample_id = f"{eln_number}_{well_part}"
                     processed_row['Sample ID'] = correct_sample_id
-                    
+
                     print(f"Mapped ID '{id_value}' to Sample ID '{correct_sample_id}'")
-            
+
             processed_data.append(processed_row)
         
         # Store the uploaded data in the current experiment
@@ -253,7 +308,7 @@ def upload_analytical_data():
             'upload_date': datetime.now().isoformat(),
             'data': processed_data,
             'columns': df.columns.tolist(),
-            'shape': df.shape,
+            'shape': [int(x) for x in df.shape],  # Convert tuple of numpy ints to list of Python ints
             'area_columns': area_columns  # Add area columns information
         }
         
@@ -335,7 +390,7 @@ def upload_materials_from_excel():
         
         # Read the Materials sheet
         try:
-            materials_df = pd.read_excel(file, sheet_name='Materials')
+            materials_df = pd.read_excel(excel_file, sheet_name='Materials')
             print(f"Materials sheet read successfully. Shape: {materials_df.shape}")
         except Exception as e:
             print(f"Error reading Materials sheet: {str(e)}")

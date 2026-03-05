@@ -70,6 +70,11 @@ const Materials = () => {
   const collapseKits = true; // Always collapse kits by default
   const [expandedKits, setExpandedKits] = useState(new Set());
 
+  // Custom confirmation modal state
+  const [confirmModal, setConfirmModal] = useState({ visible: false, message: '', onConfirm: null });
+  const openConfirm = (message, onConfirm) => setConfirmModal({ visible: true, message, onConfirm });
+  const closeConfirm = () => setConfirmModal({ visible: false, message: '', onConfirm: null });
+
   const roleOptions = [
     "Reactant",
     "Target product",
@@ -278,21 +283,17 @@ const Materials = () => {
   };
 
   const removeMaterial = async (index) => {
-    if (window.confirm("Are you sure you want to remove this material?")) {
+    openConfirm('Are you sure you want to remove this material?', async () => {
       try {
         const materialToDelete = materials[index];
         const updatedMaterials = materials.filter((_, i) => i !== index);
-
-        // Clean up procedure data (remove from all wells)
         await cleanProcedureData([materialToDelete]);
-
-        // Save updated materials list
         await saveMaterials(updatedMaterials);
-        showSuccess("Material removed successfully!");
+        showSuccess('Material removed successfully!');
       } catch (error) {
-        showError("Error removing material: " + error.message);
+        showError('Error removing material: ' + error.message);
       }
-    }
+    });
   };
 
   const moveMaterialUp = async (index) => {
@@ -442,40 +443,38 @@ const Materials = () => {
     }
 
     const count = selectedMaterialIndices.size;
-    const confirmed = window.confirm(
-      `Are you sure you want to delete ${count} selected material(s)?\n\nThis action cannot be undone.`
+    openConfirm(
+      `Are you sure you want to delete ${count} selected material(s)? This action cannot be undone.`,
+      async () => {
+        try {
+          // Collect materials to delete
+          const materialsToDelete = materials.filter((_, index) =>
+            selectedMaterialIndices.has(index)
+          );
+
+          // Filter out selected materials
+          const updatedMaterials = materials.filter((_, index) =>
+            !selectedMaterialIndices.has(index)
+          );
+
+          // Clean up procedure data (remove from all wells)
+          await cleanProcedureData(materialsToDelete);
+
+          // Save updated materials list
+          await saveMaterials(updatedMaterials);
+
+          // Clear selection and reset state
+          setSelectedMaterialIndices(new Set());
+          setLastClickedIndex(null);
+          setBatchRole("");
+
+          showSuccess(`Successfully deleted ${count} material(s)`);
+        } catch (error) {
+          showError("Error deleting materials: " + error.message);
+        }
+      }
     );
-
-    if (!confirmed) return;
-
-    try {
-      // Collect materials to delete
-      const materialsToDelete = materials.filter((_, index) =>
-        selectedMaterialIndices.has(index)
-      );
-
-      // Filter out selected materials
-      const updatedMaterials = materials.filter((_, index) =>
-        !selectedMaterialIndices.has(index)
-      );
-
-      // Clean up procedure data (remove from all wells)
-      await cleanProcedureData(materialsToDelete);
-
-      // Save updated materials list
-      await saveMaterials(updatedMaterials);
-
-      // Clear selection and reset state
-      setSelectedMaterialIndices(new Set());
-      setLastClickedIndex(null);
-      setBatchRole("");
-
-      showSuccess(`Successfully deleted ${count} material(s)`);
-    } catch (error) {
-      showError("Error deleting materials: " + error.message);
-    }
   };
-
 
   // Personal inventory operations
   const updatePersonalInventoryStatus = async () => {
@@ -834,17 +833,15 @@ const Materials = () => {
   };
 
   const handleRemoveAllMaterials = async () => {
-    if (window.confirm("Are you sure you want to remove all materials from your list?")) {
+    openConfirm('Are you sure you want to remove all materials from your list?', async () => {
       try {
-        // Clean up procedure data (remove all materials from all wells)
         await cleanProcedureData(materials);
-
-        await saveMaterials([]); // Save an empty array to remove all materials
-        showSuccess("All materials removed successfully!");
+        await saveMaterials([]);
+        showSuccess('All materials removed successfully!');
       } catch (error) {
-        showError("Error removing all materials: " + error.message);
+        showError('Error removing all materials: ' + error.message);
       }
-    }
+    });
   };
 
   // Helper: Get unique role_ids from materials
@@ -937,22 +934,18 @@ const Materials = () => {
 
   // Helper: Remove all materials in a kit
   const handleRemoveKit = async (kitId) => {
-    if (window.confirm(`Remove all materials from ${kitId}?`)) {
+    openConfirm(`Remove all materials from ${kitId}?`, async () => {
       try {
-        // Collect kit materials for procedure cleanup
         const kitMaterials = materials.filter(mat => mat.role_id === kitId);
         const updatedMaterials = materials.filter(mat => mat.role_id !== kitId);
-
-        // Clean up procedure data (remove kit materials from all wells)
         await cleanProcedureData(kitMaterials);
-
         await saveMaterials(updatedMaterials);
         showSuccess(`All materials from ${kitId} removed successfully!`);
         setSelectedMaterialIndices(new Set());
       } catch (error) {
         showError(`Error removing ${kitId}: ` + error.message);
       }
-    }
+    });
   };
 
   const filteredMaterials = getFilteredMaterials();
@@ -1266,7 +1259,7 @@ const Materials = () => {
                     placeholder="Search solvents by name, alias, or CAS..."
                     value={solventSearchQuery}
                     onChange={(e) => setSolventSearchQuery(e.target.value)}
-                    onKeyPress={(e) => {
+                    onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         searchSolvents();
                       }
@@ -1480,6 +1473,33 @@ const Materials = () => {
         showSuccess={showSuccess}
         showError={showError}
       />
+
+      {/* Custom confirmation modal */}
+      {confirmModal.visible && (
+        <div className="modal-overlay" onClick={closeConfirm}>
+          <div className="modal-content" style={{ maxWidth: '420px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Confirm Action</h3>
+              <button className="modal-close" onClick={closeConfirm}>×</button>
+            </div>
+            <div className="modal-body" style={{ padding: '20px', textAlign: 'left' }}>
+              <p style={{ margin: 0 }}>{confirmModal.message}</p>
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" onClick={closeConfirm}>Cancel</button>
+              <button
+                className="btn btn-danger"
+                onClick={() => {
+                  closeConfirm();
+                  if (confirmModal.onConfirm) confirmModal.onConfirm();
+                }}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

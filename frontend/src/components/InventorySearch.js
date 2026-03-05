@@ -147,10 +147,14 @@ const InventorySearch = ({
     }
   };
 
-  // Handle key press events
-  const handleSearchKeyPress = (e) => {
+  // Handle key down events
+  const handleSearchKeyDown = (e) => {
     if (e.key === "Enter") {
-      if (searchQuery.length >= 2) {
+      if (selectedResultIndex >= 0 && searchResults[selectedResultIndex]) {
+        e.preventDefault();
+        addFromInventory(searchResults[selectedResultIndex]);
+        setSelectedResultIndex(-1);
+      } else if (searchQuery.length >= 2) {
         searchInventory(searchQuery);
       } else {
         setSearchResults([]);
@@ -168,14 +172,6 @@ const InventorySearch = ({
     } else if (e.key === "ArrowUp" && showSearch && searchResults.length > 0) {
       e.preventDefault();
       setSelectedResultIndex((prev) => (prev > 0 ? prev - 1 : -1));
-    } else if (
-      e.key === "Enter" &&
-      selectedResultIndex >= 0 &&
-      searchResults[selectedResultIndex]
-    ) {
-      e.preventDefault();
-      addFromInventory(searchResults[selectedResultIndex]);
-      setSelectedResultIndex(-1);
     }
   };
 
@@ -283,7 +279,7 @@ const InventorySearch = ({
                   className="form-control"
                   value={searchQuery}
                   onChange={handleSearchChange}
-                  onKeyPress={handleSearchKeyPress}
+                  onKeyDown={handleSearchKeyDown}
                   placeholder="Search by chemical name, common name, CAS, or SMILES..."
                 />
               </div>

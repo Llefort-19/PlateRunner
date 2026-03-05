@@ -43,13 +43,7 @@ class MaterialSchema(Schema):
     name = fields.Str(required=True, validate=validate.Length(min=1, max=200))
     alias = fields.Str(validate=validate.Length(max=100), allow_none=True)
     cas = fields.Str(
-        validate=[
-            validate.Length(max=50),
-            validate.Regexp(
-                r'^\d{1,7}-\d{2}-\d$',
-                error='Invalid CAS format (expected: 123-45-6 or 1234567-12-3)'
-            )
-        ],
+        validate=validate.Length(max=50),
         allow_none=True
     )
     smiles = fields.Str(

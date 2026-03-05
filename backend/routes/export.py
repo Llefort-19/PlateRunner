@@ -9,6 +9,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify, send_file
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
+from openpyxl.styles import PatternFill, Font
 from state import current_experiment
 
 # Create blueprint
@@ -122,7 +123,7 @@ def _build_materials_sheet(wb, materials):
     headers = [
         'Nr', 'chemical_name', 'alias', 'cas_number',
         'molecular_weight', 'smiles', 'barcode',
-        'role', 'source', 'supplier',
+        'role', 'role_id', 'source', 'supplier',
     ]
     ws.append(headers)
 
@@ -136,6 +137,7 @@ def _build_materials_sheet(wb, materials):
             mat.get('smiles', ''),
             mat.get('barcode', ''),
             mat.get('role', ''),
+            mat.get('role_id', ''),
             mat.get('source', ''),
             mat.get('supplier', ''),
         ])
@@ -269,12 +271,18 @@ def _build_analytical_sheet(wb, analytical_data, context, procedure):
         if data_rows:
             # Determine columns: Well, Sample ID, then Name_X / Area_X pairs
             ordered_cols = ['Well', 'Sample ID']
+            
+            # Collect all unique Name_ and Area_ keys across ALL rows
+            all_keys = set()
+            for r in data_rows:
+                all_keys.update(r.keys())
+                
             name_cols = sorted(
-                [k for k in data_rows[0] if k.startswith('Name_')],
+                [k for k in all_keys if str(k).startswith('Name_')],
                 key=lambda k: int(k.split('_')[1]),
             )
             area_cols = sorted(
-                [k for k in data_rows[0] if k.startswith('Area_')],
+                [k for k in all_keys if str(k).startswith('Area_')],
                 key=lambda k: int(k.split('_')[1]),
             )
             max_compounds = max(len(name_cols), len(area_cols))
@@ -938,6 +946,90 @@ def _format_plating_operation_raw(op, material_configs):
     return 'Unknown operation'
 
 
+def _heatmap_cell_color(value, min_val, max_val, color_scheme='blue'):
+    """Compute a fill hex color (RRGGBB) for a heatmap cell.
+
+    Mirrors the frontend getHeatmapColor() function exactly so that the Excel
+    export matches what the user sees in the app.
+    """
+    try:
+        value = float(value)
+        min_val = float(min_val)
+        max_val = float(max_val)
+    except (TypeError, ValueError):
+        return None
+
+    if value == 0 or min_val == max_val:
+        return None  # leave cell uncoloured (matches frontend empty-well treatment)
+
+    normalized = max(0.0, min(1.0, (value - min_val) / (max_val - min_val)))
+
+    def lerp(a, b, t):
+        return round(a + (b - a) * t)
+
+    def rgb(r, g, b):
+        return f'FF{int(r):02X}{int(g):02X}{int(b):02X}'
+
+    if color_scheme == 'blue-yellow-red':
+        # #2c7bb6 → #abd9e9 → #ffffbf → #fdae61 → #d7191c
+        if normalized <= 0.25:
+            t = normalized / 0.25
+            return rgb(lerp(44, 171, t), lerp(123, 217, t), lerp(182, 233, t))
+        elif normalized <= 0.5:
+            t = (normalized - 0.25) / 0.25
+            return rgb(lerp(171, 255, t), lerp(217, 255, t), lerp(233, 191, t))
+        elif normalized <= 0.75:
+            t = (normalized - 0.5) / 0.25
+            return rgb(lerp(255, 253, t), lerp(255, 174, t), lerp(191, 97, t))
+        else:
+            t = (normalized - 0.75) / 0.25
+            return rgb(lerp(253, 215, t), lerp(174, 25, t), lerp(97, 28, t))
+
+    elif color_scheme == 'green-blue':
+        # #ffffd9 → #edf8b1 → #c7e9b4 → #7fcdbb → #41b6c4
+        if normalized <= 0.25:
+            t = normalized / 0.25
+            return rgb(lerp(255, 237, t), lerp(255, 248, t), lerp(217, 177, t))
+        elif normalized <= 0.5:
+            t = (normalized - 0.25) / 0.25
+            return rgb(lerp(237, 199, t), lerp(248, 233, t), lerp(177, 180, t))
+        elif normalized <= 0.75:
+            t = (normalized - 0.5) / 0.25
+            return rgb(lerp(199, 127, t), lerp(233, 205, t), lerp(180, 187, t))
+        else:
+            t = (normalized - 0.75) / 0.25
+            return rgb(lerp(127, 65, t), lerp(205, 182, t), lerp(187, 196, t))
+
+    elif color_scheme == 'purple-green-yellow':
+        # #440154 → #3b528b → #21918c → #5ec962 → #fde725
+        if normalized <= 0.25:
+            t = normalized / 0.25
+            return rgb(lerp(68, 59, t), lerp(1, 82, t), lerp(84, 139, t))
+        elif normalized <= 0.5:
+            t = (normalized - 0.25) / 0.25
+            return rgb(lerp(59, 33, t), lerp(82, 145, t), lerp(139, 140, t))
+        elif normalized <= 0.75:
+            t = (normalized - 0.5) / 0.25
+            return rgb(lerp(33, 94, t), lerp(145, 201, t), lerp(140, 98, t))
+        else:
+            t = (normalized - 0.75) / 0.25
+            return rgb(lerp(94, 253, t), lerp(201, 231, t), lerp(98, 37, t))
+
+    else:  # 'blue' (default)
+        intensity = int(normalized * 255)
+        v = 255 - intensity
+        return rgb(v, v, 255)
+
+
+def _font_color_for_bg(hex_color):
+    """Return black or white font color (FFRRGGBB) for legibility on hex_color."""
+    r = int(hex_color[2:4], 16)
+    g = int(hex_color[4:6], 16)
+    b = int(hex_color[6:8], 16)
+    luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    return 'FF000000' if luminance > 0.5 else 'FFFFFFFF'
+
+
 def _build_heatmap_sheets(wb, heatmap_data):
     """Heatmap sheets (one per heatmap)."""
     if not heatmap_data:
@@ -962,15 +1054,34 @@ def _build_heatmap_sheets(wb, heatmap_data):
             for row in rows:
                 ws.append(row)
 
-            col_labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
-            row_labels = ['1', '2', '3', '4', '5', '6', '7', '8']
+            col_labels = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
+            row_labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 
             ws.append([''] + col_labels)
 
             hm_data = hm.get('data', [])
+            heatmap_color_schemes = heatmap_data.get('heatmapColorSchemes', {})
+            heatmap_id = hm.get('id')
+            color_scheme = heatmap_color_schemes.get(str(heatmap_id), 'blue')
+            min_val = hm.get('min', 0)
+            max_val = hm.get('max', 0)
+
+
             for ri, data_row in enumerate(hm_data):
                 label = row_labels[ri] if ri < len(row_labels) else str(ri + 1)
-                ws.append([label] + [cell or '' for cell in data_row])
+                row_num = ws.max_row + 1
+                ws.cell(row=row_num, column=1, value=label)
+                for ci, value in enumerate(data_row):
+                    cell = ws.cell(row=row_num, column=ci + 2, value=round(value, 3) if value else '')
+                    if value:
+                        hex_color = _heatmap_cell_color(value, min_val, max_val, color_scheme)
+                        if hex_color:
+                            cell.fill = PatternFill(
+                                start_color=hex_color,
+                                end_color=hex_color,
+                                fill_type='solid'
+                            )
+                            cell.font = Font(color=_font_color_for_bg(hex_color))
     else:
         ws = wb.create_sheet('Heatmap Data')
         ws.append(['Heatmap Data'])

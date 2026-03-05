@@ -27,7 +27,10 @@ const MaterialForm = ({
 
   useEffect(() => {
     if (material) {
-      setFormData(material);
+      setFormData({
+        ...material,
+        molecular_weight: material.molecular_weight ? String(material.molecular_weight).replace(',', '.') : ""
+      });
     } else {
       // Clear form when adding new material (not editing)
       setFormData({
@@ -44,9 +47,20 @@ const MaterialForm = ({
   }, [material, visible]); // Added visible to dependencies to trigger when modal opens
 
   const handleInputChange = (field, value) => {
+    let parsedValue = value;
+    if (field === 'molecular_weight') {
+      parsedValue = String(value).replace(',', '.');
+      // allow only numbers and a single dot
+      parsedValue = parsedValue.replace(/[^0-9.]/g, '');
+      const parts = parsedValue.split('.');
+      if (parts.length > 2) {
+        parsedValue = parts[0] + '.' + parts.slice(1).join('');
+      }
+    }
+
     setFormData(prev => ({
       ...prev,
-      [field]: value
+      [field]: parsedValue
     }));
 
     // Clear error for this field when user starts typing
@@ -66,14 +80,6 @@ const MaterialForm = ({
     return null;
   };
 
-  const validateCAS = (value) => {
-    if (!value) return null; // Optional field
-    const casRegex = /^\d{1,7}-\d{2}-\d$/;
-    if (!casRegex.test(value)) {
-      return 'Invalid format (expected: 123-45-6)';
-    }
-    return null;
-  };
 
   // Blur handler for validation
   const handleBlur = (field) => {
@@ -82,9 +88,6 @@ const MaterialForm = ({
     switch (field) {
       case 'molecular_weight':
         error = validateMolecularWeight(formData[field]);
-        break;
-      case 'cas':
-        error = validateCAS(formData[field]);
         break;
       default:
         break;
@@ -100,7 +103,6 @@ const MaterialForm = ({
     const errors = {};
     errors.alias = !formData.alias.trim() ? 'Alias is required' : null;
     errors.molecular_weight = validateMolecularWeight(formData.molecular_weight);
-    errors.cas = validateCAS(formData.cas);
 
     // Check if any errors
     const hasErrors = Object.values(errors).some(e => e !== null);
@@ -151,7 +153,7 @@ const MaterialForm = ({
           <h3>{isEdit ? "Edit Material" : "Add New Material"}</h3>
           <button className="modal-close" onClick={onCancel}>×</button>
         </div>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} autoComplete="off">
           <div className="modal-body">
             <div className="form-grid">
               <div className="form-group">
@@ -191,8 +193,7 @@ const MaterialForm = ({
                   className={`form-control ${fieldErrors.cas ? 'is-invalid' : ''}`}
                   value={formData.cas}
                   onChange={(e) => handleInputChange("cas", e.target.value)}
-                  onBlur={() => handleBlur("cas")}
-                  placeholder="Enter CAS number (e.g., 123-45-6)"
+                  placeholder="Enter CAS number"
                 />
                 {fieldErrors.cas && (
                   <div className="invalid-feedback" style={{ display: 'block' }}>
@@ -204,7 +205,8 @@ const MaterialForm = ({
               <div className="form-group">
                 <label htmlFor="molecular_weight">Molecular Weight (g/mol)</label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   id="molecular_weight"
                   className={`form-control ${fieldErrors.molecular_weight ? 'is-invalid' : ''}`}
                   value={formData.molecular_weight}

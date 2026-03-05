@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useToast } from "./ToastContext";
 import axios from 'axios';
 
-const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
+const Header = ({ activeTab, onTabChange, onReset, onShowHelp, onImportComplete }) => {
   const { showSuccess, showError } = useToast();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -12,6 +12,11 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
   const [showShutdownConfirm, setShowShutdownConfirm] = useState(false);
   const [isShuttingDown, setIsShuttingDown] = useState(false);
   const [experimentContext, setExperimentContext] = useState({ eln: '', project: '' });
+
+  // Custom confirmation modal state
+  const [confirmModal, setConfirmModal] = useState({ visible: false, message: '', onConfirm: null });
+  const openConfirm = (message, onConfirm) => setConfirmModal({ visible: true, message, onConfirm });
+  const closeConfirm = () => setConfirmModal({ visible: false, message: '', onConfirm: null });
 
   // Check server status and load experiment context on mount
   useEffect(() => {
@@ -56,22 +61,25 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
   const tabs = [
     { id: "context", label: "Experiment Context" },
     { id: "materials", label: "Materials" },
-    { id: "procedure", label: "Design" },
-    { id: "procedure-settings", label: "Procedure" },
+    { id: "design", label: "Design" },
+    { id: "procedure", label: "Procedure" },
     { id: "analytical", label: "Analytical Data" },
     { id: "results", label: "Results" },
     { id: "heatmap", label: "Heatmap" },
   ];
 
-  const handleReset = async () => {
-    if (window.confirm("Are you sure you want to reset all experiment data? This action cannot be undone.")) {
-      try {
-        await onReset();
-        showSuccess("Experiment data has been reset successfully!");
-      } catch (error) {
-        showError("Error resetting experiment data: " + error.message);
+  const handleReset = () => {
+    openConfirm(
+      "Are you sure you want to reset all experiment data? This action cannot be undone.",
+      async () => {
+        try {
+          await onReset();
+          showSuccess("Experiment data has been reset successfully!");
+        } catch (error) {
+          showError("Error resetting experiment data: " + error.message);
+        }
       }
-    }
+    );
   };
 
   const handleHelp = () => {
@@ -131,10 +139,12 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
         fileInput.value = '';
       }
 
-      // Force page reload to refresh all components with new data
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      // Use React state to trigger component re-fetches
+      if (onImportComplete) {
+        onImportComplete();
+      }
+      window.dispatchEvent(new CustomEvent('experimentContextUpdated'));
+      window.dispatchEvent(new CustomEvent('materialsCleared'));
 
     } catch (error) {
       console.error("Error importing experiment:", error);
@@ -367,6 +377,33 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp }) => {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom confirmation modal */}
+      {confirmModal.visible && (
+        <div className="modal-overlay" onClick={closeConfirm}>
+          <div className="modal-content" style={{ maxWidth: '420px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Confirm Action</h3>
+              <button className="modal-close" onClick={closeConfirm}>×</button>
+            </div>
+            <div className="modal-body" style={{ padding: '20px', textAlign: 'left' }}>
+              <p style={{ margin: 0 }}>{confirmModal.message}</p>
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', padding: '15px 20px', borderTop: '1px solid var(--color-border)' }}>
+              <button className="btn btn-secondary" onClick={closeConfirm}>Cancel</button>
+              <button
+                className="btn btn-danger"
+                onClick={() => {
+                  closeConfirm();
+                  if (confirmModal.onConfirm) confirmModal.onConfirm();
+                }}
+              >
+                Confirm
+              </button>
             </div>
           </div>
         </div>

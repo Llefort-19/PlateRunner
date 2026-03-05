@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
+import { useToast } from '../ToastContext';
 import MaterialConfigStep from './MaterialConfigStep';
 import StockSolutionForm from './StockSolutionForm';
 import DispenseOrderStep from './DispenseOrderStep';
@@ -22,6 +23,7 @@ const PlatingProtocolModal = ({
   plateType = '96',
   context = {}
 }) => {
+  const { showError } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
   const [materialConfigs, setMaterialConfigs] = useState([]);
   const [dispenseOrder, setDispenseOrder] = useState([]);
@@ -262,10 +264,12 @@ const PlatingProtocolModal = ({
         saved_at: new Date().toISOString()
       };
       // Fire-and-forget save to experiment state
-      axios.post('/api/experiment/plating-protocol', protocolState).catch(() => { });
+      axios.post('/api/experiment/plating-protocol', protocolState).catch(() => {
+        showError('Plating protocol could not be saved. Re-open and close the protocol modal to retry.');
+      });
     }
     prevVisibleRef.current = visible;
-  }, [visible, materialConfigs, dispenseOrder, plateType, context]);
+  }, [visible, materialConfigs, dispenseOrder, plateType, context, showError]);
 
   // Focus management
   useEffect(() => {

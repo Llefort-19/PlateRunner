@@ -60,6 +60,8 @@ const AnalyticalData = () => {
 
       // Handle different possible data structures
       let compounds = [];
+      let history = [];
+
       if (analyticalData.selectedCompounds) {
         compounds = analyticalData.selectedCompounds;
       } else if (Array.isArray(analyticalData)) {
@@ -67,8 +69,19 @@ const AnalyticalData = () => {
         compounds = [];
       }
 
+      if (analyticalData.uploadedFiles && Array.isArray(analyticalData.uploadedFiles)) {
+        history = analyticalData.uploadedFiles.map((file, index) => ({
+          id: `loaded-${index}-${file.upload_date || Date.now()}`,
+          filename: file.filename || 'Unknown file',
+          uploadDate: file.upload_date || new Date().toISOString(),
+          status: 'success',
+          message: 'Loaded from session'
+        })).reverse(); // Show newest first
+      }
+
       console.log("Loaded selected compounds:", compounds);
       setSelectedCompounds(compounds);
+      setUploadHistory(history);
     } catch (error) {
       console.error("Error loading selected compounds:", error);
       setSelectedCompounds([]);
@@ -291,185 +304,185 @@ const AnalyticalData = () => {
               flexDirection: "column"
             }}>
               <div className="scrollable-table-container" style={{ flex: 1 }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Alias</th>
-                    <th>CAS</th>
-                    <th>Role</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredMaterials.map((material, index) => {
-                    const compoundName = material.alias || material.name;
-                    const isSelected = selectedCompounds.includes(compoundName);
-                    return (
-                      <tr
-                        key={index}
-                        className={isSelected ? "selected-row" : ""}
-                        onClick={() => {
-                          if (isSelected) {
-                            const newSelectedCompounds = selectedCompounds.filter(comp => comp !== compoundName);
-                            setSelectedCompounds(newSelectedCompounds);
-                            saveSelectedCompounds(newSelectedCompounds);
-                          } else {
-                            addCompoundFromMaterials(material);
-                          }
-                        }}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <td>{material.alias || material.name}</td>
-                        <td>{material.cas || "-"}</td>
-                        <td>{material.role || "-"}</td>
-                        <td>
-                          {isSelected ? (
-                            <span style={{ color: "#28a745", fontWeight: "bold" }}>✓ Selected</span>
-                          ) : (
-                            <span style={{ color: "#6c757d" }}>Click to select</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Alias</th>
+                      <th>CAS</th>
+                      <th>Role</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredMaterials.map((material, index) => {
+                      const compoundName = material.alias || material.name;
+                      const isSelected = selectedCompounds.includes(compoundName);
+                      return (
+                        <tr
+                          key={index}
+                          className={isSelected ? "selected-row" : ""}
+                          onClick={() => {
+                            if (isSelected) {
+                              const newSelectedCompounds = selectedCompounds.filter(comp => comp !== compoundName);
+                              setSelectedCompounds(newSelectedCompounds);
+                              saveSelectedCompounds(newSelectedCompounds);
+                            } else {
+                              addCompoundFromMaterials(material);
+                            }
+                          }}
+                          style={{ cursor: "pointer" }}
+                        >
+                          <td>{material.alias || material.name}</td>
+                          <td>{material.cas || "-"}</td>
+                          <td>{material.role || "-"}</td>
+                          <td>
+                            {isSelected ? (
+                              <span style={{ color: "#28a745", fontWeight: "bold" }}>✓ Selected</span>
+                            ) : (
+                              <span style={{ color: "#6c757d" }}>Click to select</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-            {/* Role Filter Buttons */}
-            <div style={{ marginTop: "15px" }}>
-              <h5 style={{ marginBottom: "10px", fontSize: "12px", color: "var(--color-text-secondary)", fontWeight: "600" }}>Filter by Role:</h5>
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
-                gap: "8px"
-              }}>
-                {['Reactant', 'Target product', 'Product', 'Solvent', 'Reagent', 'Internal standard'].map((role) => {
-                  const isSelected = selectedRoles.includes(role);
-                  const count = filteredMaterials.filter(m => m.role === role).length;
-                  return (
-                    <button
-                      key={role}
-                      className={`btn btn-sm ${isSelected ? 'btn-success' : 'btn-outline-secondary'}`}
-                      onClick={() => toggleRole(role)}
-                      style={{
-                        fontSize: "11px",
-                        padding: "6px 8px",
-                        position: "relative",
-                        height: "32px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "4px",
-                        border: isSelected ? "2px solid #28a745" : "1px solid var(--color-border)",
-                        borderRadius: "var(--radius-sm)",
-                        fontWeight: isSelected ? "600" : "400",
-                        boxShadow: isSelected ? "0 2px 4px rgba(40, 167, 69, 0.2)" : "none",
-                        transition: "all 0.2s ease",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap"
-                      }}
-                    >
-                      {isSelected && (
+              {/* Role Filter Buttons */}
+              <div style={{ marginTop: "15px" }}>
+                <h5 style={{ marginBottom: "10px", fontSize: "12px", color: "var(--color-text-secondary)", fontWeight: "600" }}>Filter by Role:</h5>
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: "8px"
+                }}>
+                  {['Reactant', 'Target product', 'Product', 'Solvent', 'Reagent', 'Internal standard'].map((role) => {
+                    const isSelected = selectedRoles.includes(role);
+                    const count = filteredMaterials.filter(m => m.role === role).length;
+                    return (
+                      <button
+                        key={role}
+                        className={`btn btn-sm ${isSelected ? 'btn-success' : 'btn-outline-secondary'}`}
+                        onClick={() => toggleRole(role)}
+                        style={{
+                          fontSize: "11px",
+                          padding: "6px 8px",
+                          position: "relative",
+                          height: "32px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "4px",
+                          border: isSelected ? "2px solid #28a745" : "1px solid var(--color-border)",
+                          borderRadius: "var(--radius-sm)",
+                          fontWeight: isSelected ? "600" : "400",
+                          boxShadow: isSelected ? "0 2px 4px rgba(40, 167, 69, 0.2)" : "none",
+                          transition: "all 0.2s ease",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap"
+                        }}
+                      >
+                        {isSelected && (
+                          <span style={{
+                            fontSize: "14px",
+                            color: "#fff",
+                            marginRight: "2px",
+                            flexShrink: 0
+                          }}>
+                            ✓
+                          </span>
+                        )}
                         <span style={{
-                          fontSize: "14px",
-                          color: "#fff",
-                          marginRight: "2px",
+                          flex: "1",
+                          textAlign: "center",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap"
+                        }}>
+                          {role}
+                        </span>
+                        <span style={{
+                          fontSize: "10px",
+                          color: isSelected ? "#fff" : "#6c757d",
+                          marginLeft: "2px",
+                          opacity: isSelected ? "0.8" : "0.7",
                           flexShrink: 0
                         }}>
-                          ✓
+                          ({count})
                         </span>
-                      )}
-                      <span style={{
-                        flex: "1",
-                        textAlign: "center",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap"
-                      }}>
-                        {role}
-                      </span>
-                      <span style={{
-                        fontSize: "10px",
-                        color: isSelected ? "#fff" : "#6c757d",
-                        marginLeft: "2px",
-                        opacity: isSelected ? "0.8" : "0.7",
-                        flexShrink: 0
-                      }}>
-                        ({count})
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Role_ID Filter Section - Only shown if parent role is selected and role_ids exist */}
-            {selectedRoles.includes('Reactant') && getAvailableRoleIds('Reactant').length > 0 && (
-              <div style={{ marginTop: "10px", paddingLeft: "10px", borderLeft: "2px solid #e9ecef" }}>
-                <h6 style={{ marginBottom: "5px", fontSize: "12px", color: "#495057" }}>Reactant Role_IDs:</h6>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                  {getAvailableRoleIds('Reactant').map((roleId) => {
-                    const isSelected = selectedRoleIds.includes(roleId);
-                    return (
-                      <button
-                        key={roleId}
-                        className={`btn btn-sm ${isSelected ? 'btn-info' : 'btn-outline-info'}`}
-                        onClick={() => toggleRoleId(roleId)}
-                        style={{
-                          fontSize: "11px",
-                          padding: "4px 8px",
-                          borderRadius: "12px",
-                          color: isSelected ? "white" : "#17a2b8",
-                          border: "1px solid #17a2b8"
-                        }}
-                      >
-                        {roleId}
                       </button>
                     );
                   })}
                 </div>
               </div>
-            )}
 
-            {selectedRoles.includes('Reagent') && getAvailableRoleIds('Reagent').length > 0 && (
-              <div style={{ marginTop: "10px", paddingLeft: "10px", borderLeft: "2px solid #e9ecef" }}>
-                <h6 style={{ marginBottom: "5px", fontSize: "12px", color: "#495057" }}>Reagent Role_IDs:</h6>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                  {getAvailableRoleIds('Reagent').map((roleId) => {
-                    const isSelected = selectedRoleIds.includes(roleId);
-                    return (
-                      <button
-                        key={roleId}
-                        className={`btn btn-sm ${isSelected ? 'btn-warning' : 'btn-outline-warning'}`}
-                        onClick={() => toggleRoleId(roleId)}
-                        style={{
-                          fontSize: "11px",
-                          padding: "4px 8px",
-                          borderRadius: "12px",
-                          color: isSelected ? "#212529" : "#ffc107",
-                          border: "1px solid #ffc107"
-                        }}
-                      >
-                        {roleId}
-                      </button>
-                    );
-                  })}
+              {/* Role_ID Filter Section - Only shown if parent role is selected and role_ids exist */}
+              {selectedRoles.includes('Reactant') && getAvailableRoleIds('Reactant').length > 0 && (
+                <div style={{ marginTop: "10px", paddingLeft: "10px", borderLeft: "2px solid #e9ecef" }}>
+                  <h6 style={{ marginBottom: "5px", fontSize: "12px", color: "#495057" }}>Reactant Role_IDs:</h6>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                    {getAvailableRoleIds('Reactant').map((roleId) => {
+                      const isSelected = selectedRoleIds.includes(roleId);
+                      return (
+                        <button
+                          key={roleId}
+                          className={`btn btn-sm ${isSelected ? 'btn-info' : 'btn-outline-info'}`}
+                          onClick={() => toggleRoleId(roleId)}
+                          style={{
+                            fontSize: "11px",
+                            padding: "4px 8px",
+                            borderRadius: "12px",
+                            color: isSelected ? "white" : "#17a2b8",
+                            border: "1px solid #17a2b8"
+                          }}
+                        >
+                          {roleId}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            <div style={{
-              marginTop: "auto",
-              paddingTop: "12px",
-              fontSize: "11px",
-              color: "var(--color-text-secondary)",
-              fontStyle: "italic",
-              borderTop: "1px solid var(--color-border)"
-            }}>
-              Showing {filteredMaterials.length} of {materials.length} materials
-            </div>
+              {selectedRoles.includes('Reagent') && getAvailableRoleIds('Reagent').length > 0 && (
+                <div style={{ marginTop: "10px", paddingLeft: "10px", borderLeft: "2px solid #e9ecef" }}>
+                  <h6 style={{ marginBottom: "5px", fontSize: "12px", color: "#495057" }}>Reagent Role_IDs:</h6>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                    {getAvailableRoleIds('Reagent').map((roleId) => {
+                      const isSelected = selectedRoleIds.includes(roleId);
+                      return (
+                        <button
+                          key={roleId}
+                          className={`btn btn-sm ${isSelected ? 'btn-warning' : 'btn-outline-warning'}`}
+                          onClick={() => toggleRoleId(roleId)}
+                          style={{
+                            fontSize: "11px",
+                            padding: "4px 8px",
+                            borderRadius: "12px",
+                            color: isSelected ? "#212529" : "#ffc107",
+                            border: "1px solid #ffc107"
+                          }}
+                        >
+                          {roleId}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div style={{
+                marginTop: "auto",
+                paddingTop: "12px",
+                fontSize: "11px",
+                color: "var(--color-text-secondary)",
+                fontStyle: "italic",
+                borderTop: "1px solid var(--color-border)"
+              }}>
+                Showing {filteredMaterials.length} of {materials.length} materials
+              </div>
             </div>
           </div>
 
@@ -501,115 +514,115 @@ const AnalyticalData = () => {
                 </div>
               )}
 
-            <div style={{ flex: 1 }}>
-              {selectedCompounds.length === 0 ? (
-                <div style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  minHeight: "200px",
-                  color: "var(--color-text-secondary)",
-                  fontStyle: "italic",
-                  textAlign: "center",
-                  padding: "20px"
-                }}>
-                  No compounds selected. Click on materials in the table to add them.
-                </div>
-              ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                {selectedCompounds.map((compound, index) => (
-                  <div
-                    key={index}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "12px",
-                      padding: "10px 12px",
-                      border: "1px solid var(--color-border)",
-                      borderRadius: "var(--radius-md)",
-                      backgroundColor: "var(--color-surface)",
-                      transition: "all 0.2s ease",
-                      boxShadow: "var(--shadow-sm)"
-                    }}
-                  >
-                    <span style={{
-                      fontWeight: "600",
-                      color: "var(--color-primary)",
-                      minWidth: "24px",
-                      textAlign: "center"
-                    }}>
-                      {index + 1}
-                    </span>
-                    <span style={{ flex: 1, fontWeight: "500", color: "var(--color-text)" }}>{compound}</span>
-                      <div style={{ display: "flex", gap: "4px" }}>
-                        <button
-                          onClick={() => moveCompoundUp(index)}
-                          disabled={index === 0}
-                          style={{
-                            padding: "5px 10px",
-                            fontSize: "12px",
-                            marginRight: "4px",
-                            opacity: index === 0 ? 0.5 : 1,
-                            backgroundColor: "#6c757d",
-                            border: "1px solid #6c757d",
-                            color: "white",
-                            borderRadius: "4px",
-                            cursor: index === 0 ? "not-allowed" : "pointer",
-                            transition: "all 0.2s ease"
-                          }}
-                          title="Move Up"
-                        >
-                          ▲
-                        </button>
-                        <button
-                          onClick={() => moveCompoundDown(index)}
-                          disabled={index === selectedCompounds.length - 1}
-                          style={{
-                            padding: "5px 10px",
-                            fontSize: "12px",
-                            marginRight: "4px",
-                            opacity: index === selectedCompounds.length - 1 ? 0.5 : 1,
-                            backgroundColor: "#6c757d",
-                            border: "1px solid #6c757d",
-                            color: "white",
-                            borderRadius: "4px",
-                            cursor: index === selectedCompounds.length - 1 ? "not-allowed" : "pointer",
-                            transition: "all 0.2s ease"
-                          }}
-                          title="Move Down"
-                        >
-                          ▼
-                        </button>
-                        <button
-                          className="btn btn-sm btn-outline-danger"
-                          onClick={() => removeCompound(index)}
-                          title="Remove"
-                        >
-                          ×
-                        </button>
+              <div style={{ flex: 1 }}>
+                {selectedCompounds.length === 0 ? (
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minHeight: "200px",
+                    color: "var(--color-text-secondary)",
+                    fontStyle: "italic",
+                    textAlign: "center",
+                    padding: "20px"
+                  }}>
+                    No compounds selected. Click on materials in the table to add them.
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    {selectedCompounds.map((compound, index) => (
+                      <div
+                        key={index}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px",
+                          padding: "10px 12px",
+                          border: "1px solid var(--color-border)",
+                          borderRadius: "var(--radius-md)",
+                          backgroundColor: "var(--color-surface)",
+                          transition: "all 0.2s ease",
+                          boxShadow: "var(--shadow-sm)"
+                        }}
+                      >
+                        <span style={{
+                          fontWeight: "600",
+                          color: "var(--color-primary)",
+                          minWidth: "24px",
+                          textAlign: "center"
+                        }}>
+                          {index + 1}
+                        </span>
+                        <span style={{ flex: 1, fontWeight: "500", color: "var(--color-text)" }}>{compound}</span>
+                        <div style={{ display: "flex", gap: "4px" }}>
+                          <button
+                            onClick={() => moveCompoundUp(index)}
+                            disabled={index === 0}
+                            style={{
+                              padding: "5px 10px",
+                              fontSize: "12px",
+                              marginRight: "4px",
+                              opacity: index === 0 ? 0.5 : 1,
+                              backgroundColor: "#6c757d",
+                              border: "1px solid #6c757d",
+                              color: "white",
+                              borderRadius: "4px",
+                              cursor: index === 0 ? "not-allowed" : "pointer",
+                              transition: "all 0.2s ease"
+                            }}
+                            title="Move Up"
+                          >
+                            ▲
+                          </button>
+                          <button
+                            onClick={() => moveCompoundDown(index)}
+                            disabled={index === selectedCompounds.length - 1}
+                            style={{
+                              padding: "5px 10px",
+                              fontSize: "12px",
+                              marginRight: "4px",
+                              opacity: index === selectedCompounds.length - 1 ? 0.5 : 1,
+                              backgroundColor: "#6c757d",
+                              border: "1px solid #6c757d",
+                              color: "white",
+                              borderRadius: "4px",
+                              cursor: index === selectedCompounds.length - 1 ? "not-allowed" : "pointer",
+                              transition: "all 0.2s ease"
+                            }}
+                            title="Move Down"
+                          >
+                            ▼
+                          </button>
+                          <button
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => removeCompound(index)}
+                            title="Remove"
+                          >
+                            ×
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-            {/* Export Button */}
-            <div style={{ marginTop: "auto", paddingTop: "20px", borderTop: "1px solid var(--color-border)" }}>
-              <button
-                className="btn btn-success"
-                onClick={exportTemplate}
-                disabled={selectedCompounds.length === 0}
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  fontSize: "14px",
-                  fontWeight: "600"
-                }}
-              >
-                Export Analytical Template
-              </button>
-            </div>
+              {/* Export Button */}
+              <div style={{ marginTop: "auto", paddingTop: "20px", borderTop: "1px solid var(--color-border)" }}>
+                <button
+                  className="btn btn-success"
+                  onClick={exportTemplate}
+                  disabled={selectedCompounds.length === 0}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    fontSize: "14px",
+                    fontWeight: "600"
+                  }}
+                >
+                  Export Analytical Template
+                </button>
+              </div>
             </div>
           </div>
         </div>

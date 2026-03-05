@@ -188,8 +188,13 @@ def add_to_private_inventory():
     # Remove any extra columns that shouldn't be there
     df = df[required_columns]
     
-    if ((df['chemical_name'].str.lower() == chemical['name'].lower()) | 
-        (df['cas_number'].astype(str) == str(chemical.get('cas', '')))).any():
+    incoming_cas = str(chemical.get('cas', '')).strip()
+    name_match = df['chemical_name'].str.lower() == chemical['name'].lower()
+    cas_match = (
+        (incoming_cas != '') &
+        (df['cas_number'].astype(str).str.strip() == incoming_cas)
+    )
+    if (name_match | cas_match).any():
         return jsonify({'message': 'Already exists'}), 200
 
     # Append and save
@@ -254,7 +259,8 @@ def check_private_inventory():
         # Check for matches by name, alias, CAS, or SMILES
         name_match = df['chemical_name'].str.lower() == chemical.get('name', '').lower()
         alias_match = df['alias'].str.lower() == chemical.get('alias', '').lower()
-        cas_match = df['cas_number'].astype(str) == str(chemical.get('cas', ''))
+        incoming_cas = str(chemical.get('cas', '')).strip()
+        cas_match = (incoming_cas != '') & (df['cas_number'].astype(str).str.strip() == incoming_cas)
         smiles_match = df['smiles'].astype(str).str.lower() == str(chemical.get('smiles', '')).lower()
         
         exists = (name_match | alias_match | cas_match | smiles_match).any()

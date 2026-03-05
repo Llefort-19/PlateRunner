@@ -26,7 +26,7 @@ const Help = ({ tabId, visible, onClose }) => {
                 <li><strong>Search Solvents:</strong> Access the solvent database with filtering options</li>
                 <li><strong>View Molecules:</strong> Click "View" in SMILES column to see structure</li>
                 <li><strong>Edit Materials:</strong> Use "Modify" button to update material details</li>
-                <li><strong>Personal Inventory:</strong> Add materials to your personal collection</li>
+                <li><strong>Personal Inventory:</strong> Add materials to your personal collection. A material can only be added if it has a <strong>new name</strong> or a <strong>new CAS number</strong> not already present in your personal inventory.</li>
               </ul>
 
               <h4>Batch Operations:</h4>
@@ -105,7 +105,7 @@ const Help = ({ tabId, visible, onClose }) => {
             </div>
           )
         };
-      case 'procedure':
+      case 'design':
         return {
           title: 'Design Help',
           content: (
@@ -155,7 +155,7 @@ const Help = ({ tabId, visible, onClose }) => {
             </div>
           )
         };
-      case 'procedure-settings':
+      case 'procedure':
         return {
           title: 'Procedure Settings Help',
           content: (

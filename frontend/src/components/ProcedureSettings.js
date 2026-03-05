@@ -24,16 +24,16 @@ const ProcedureSettings = () => {
 
   useEffect(() => {
     loadProcedureSettings();
-    
+
     // Listen for help events from header
     const handleHelpEvent = (event) => {
-      if (event.detail.tabId === 'procedure-settings') {
+      if (event.detail.tabId === 'procedure') {
         setShowHelpModal(true);
       }
     };
-    
+
     window.addEventListener('showHelp', handleHelpEvent);
-    
+
     return () => {
       window.removeEventListener('showHelp', handleHelpEvent);
     };
@@ -74,7 +74,7 @@ const ProcedureSettings = () => {
     try {
       const response = await axios.get("/api/experiment/procedure-settings");
       const data = response.data || {};
-      
+
       // Ensure all values are strings to avoid controlled/uncontrolled input issues
       const defaultReactionConditions = {
         temperature: "",
@@ -83,7 +83,7 @@ const ProcedureSettings = () => {
         wavelength: "",
         remarks: ""
       };
-      
+
       const defaultAnalyticalDetails = {
         uplcNumber: "",
         method: "",
@@ -91,7 +91,7 @@ const ProcedureSettings = () => {
         wavelength: "",
         remarks: ""
       };
-      
+
       // Merge with imported data, ensuring all values are strings
       const reactionData = data.reactionConditions || {};
       setReactionConditions({
@@ -101,7 +101,7 @@ const ProcedureSettings = () => {
         wavelength: String(reactionData.wavelength || ""),
         remarks: String(reactionData.remarks || "")
       });
-      
+
       const analyticalData = data.analyticalDetails || {};
       setAnalyticalDetails({
         uplcNumber: String(analyticalData.uplcNumber || ""),
@@ -115,21 +115,21 @@ const ProcedureSettings = () => {
     }
   };
 
-  const saveProcedureSettings = async () => {
+  const saveProcedureSettings = async (rxnData = reactionConditions, anaData = analyticalDetails) => {
     try {
       // Convert numeric string values to floats for backend
       const reactionData = {
-        ...reactionConditions,
-        temperature: reactionConditions.temperature ? parseFloat(reactionConditions.temperature) : null,
-        time: reactionConditions.time ? parseFloat(reactionConditions.time) : null,
-        pressure: reactionConditions.pressure ? parseFloat(reactionConditions.pressure) : null,
-        wavelength: reactionConditions.wavelength ? parseFloat(reactionConditions.wavelength) : null
+        ...rxnData,
+        temperature: rxnData.temperature ? parseFloat(rxnData.temperature) : null,
+        time: rxnData.time ? parseFloat(rxnData.time) : null,
+        pressure: rxnData.pressure ? parseFloat(rxnData.pressure) : null,
+        wavelength: rxnData.wavelength ? parseFloat(rxnData.wavelength) : null
       };
 
       const analyticalData = {
-        ...analyticalDetails,
-        duration: analyticalDetails.duration ? parseFloat(analyticalDetails.duration) : null,
-        wavelength: analyticalDetails.wavelength ? parseFloat(analyticalDetails.wavelength) : null
+        ...anaData,
+        duration: anaData.duration ? parseFloat(anaData.duration) : null,
+        wavelength: anaData.wavelength ? parseFloat(anaData.wavelength) : null
       };
 
       await axios.post("/api/experiment/procedure-settings", {
@@ -167,11 +167,9 @@ const ProcedureSettings = () => {
                       className="form-control"
                       value={reactionConditions.temperature}
                       onChange={(e) => {
-                        setReactionConditions(prev => ({
-                          ...prev,
-                          temperature: e.target.value
-                        }));
-                        saveProcedureSettings();
+                        const updated = { ...reactionConditions, temperature: e.target.value };
+                        setReactionConditions(updated);
+                        saveProcedureSettings(updated, analyticalDetails);
                       }}
                       placeholder="Enter temperature"
                     />
@@ -186,14 +184,12 @@ const ProcedureSettings = () => {
                       className={`form-control ${fieldErrors.time ? 'is-invalid' : ''}`}
                       value={reactionConditions.time}
                       onChange={(e) => {
-                        setReactionConditions(prev => ({
-                          ...prev,
-                          time: e.target.value
-                        }));
+                        const updated = { ...reactionConditions, time: e.target.value };
+                        setReactionConditions(updated);
                         if (fieldErrors.time) {
                           setFieldErrors(prev => ({ ...prev, time: null }));
                         }
-                        saveProcedureSettings();
+                        saveProcedureSettings(updated, analyticalDetails);
                       }}
                       onBlur={() => {
                         const error = validatePositiveNumber(reactionConditions.time, 'Time');
@@ -219,15 +215,13 @@ const ProcedureSettings = () => {
                       className={`form-control ${fieldErrors.pressure ? 'is-invalid' : ''}`}
                       value={reactionConditions.pressure}
                       onChange={(e) => {
-                        setReactionConditions(prev => ({
-                          ...prev,
-                          pressure: e.target.value
-                        }));
+                        const updated = { ...reactionConditions, pressure: e.target.value };
+                        setReactionConditions(updated);
                         // Clear error when user starts typing
                         if (fieldErrors.pressure) {
                           setFieldErrors(prev => ({ ...prev, pressure: null }));
                         }
-                        saveProcedureSettings();
+                        saveProcedureSettings(updated, analyticalDetails);
                       }}
                       onBlur={() => {
                         const error = validatePressure(reactionConditions.pressure);
@@ -253,14 +247,12 @@ const ProcedureSettings = () => {
                       className={`form-control ${fieldErrors.reactionWavelength ? 'is-invalid' : ''}`}
                       value={reactionConditions.wavelength}
                       onChange={(e) => {
-                        setReactionConditions(prev => ({
-                          ...prev,
-                          wavelength: e.target.value
-                        }));
+                        const updated = { ...reactionConditions, wavelength: e.target.value };
+                        setReactionConditions(updated);
                         if (fieldErrors.reactionWavelength) {
                           setFieldErrors(prev => ({ ...prev, reactionWavelength: null }));
                         }
-                        saveProcedureSettings();
+                        saveProcedureSettings(updated, analyticalDetails);
                       }}
                       onBlur={() => {
                         const error = validatePositiveNumber(reactionConditions.wavelength, 'Wavelength');
@@ -286,11 +278,9 @@ const ProcedureSettings = () => {
                 className="form-control"
                 value={reactionConditions.remarks}
                 onChange={(e) => {
-                  setReactionConditions(prev => ({
-                    ...prev,
-                    remarks: e.target.value
-                  }));
-                  saveProcedureSettings();
+                  const updated = { ...reactionConditions, remarks: e.target.value };
+                  setReactionConditions(updated);
+                  saveProcedureSettings(updated, analyticalDetails);
                 }}
                 placeholder="Enter remarks for reaction conditions"
                 rows="3"
@@ -311,11 +301,9 @@ const ProcedureSettings = () => {
                       className="form-control"
                       value={analyticalDetails.uplcNumber}
                       onChange={(e) => {
-                        setAnalyticalDetails(prev => ({
-                          ...prev,
-                          uplcNumber: e.target.value
-                        }));
-                        saveProcedureSettings();
+                        const updated = { ...analyticalDetails, uplcNumber: e.target.value };
+                        setAnalyticalDetails(updated);
+                        saveProcedureSettings(reactionConditions, updated);
                       }}
                       placeholder="Enter UPLC number"
                     />
@@ -328,11 +316,9 @@ const ProcedureSettings = () => {
                       className="form-control"
                       value={analyticalDetails.method}
                       onChange={(e) => {
-                        setAnalyticalDetails(prev => ({
-                          ...prev,
-                          method: e.target.value
-                        }));
-                        saveProcedureSettings();
+                        const updated = { ...analyticalDetails, method: e.target.value };
+                        setAnalyticalDetails(updated);
+                        saveProcedureSettings(reactionConditions, updated);
                       }}
                     >
                       <option value="">Select method</option>
@@ -351,14 +337,12 @@ const ProcedureSettings = () => {
                       className={`form-control ${fieldErrors.duration ? 'is-invalid' : ''}`}
                       value={analyticalDetails.duration}
                       onChange={(e) => {
-                        setAnalyticalDetails(prev => ({
-                          ...prev,
-                          duration: e.target.value
-                        }));
+                        const updated = { ...analyticalDetails, duration: e.target.value };
+                        setAnalyticalDetails(updated);
                         if (fieldErrors.duration) {
                           setFieldErrors(prev => ({ ...prev, duration: null }));
                         }
-                        saveProcedureSettings();
+                        saveProcedureSettings(reactionConditions, updated);
                       }}
                       onBlur={() => {
                         const error = validatePositiveNumber(analyticalDetails.duration, 'Duration');
@@ -384,14 +368,12 @@ const ProcedureSettings = () => {
                       className={`form-control ${fieldErrors.analyticalWavelength ? 'is-invalid' : ''}`}
                       value={analyticalDetails.wavelength}
                       onChange={(e) => {
-                        setAnalyticalDetails(prev => ({
-                          ...prev,
-                          wavelength: e.target.value
-                        }));
+                        const updated = { ...analyticalDetails, wavelength: e.target.value };
+                        setAnalyticalDetails(updated);
                         if (fieldErrors.analyticalWavelength) {
                           setFieldErrors(prev => ({ ...prev, analyticalWavelength: null }));
                         }
-                        saveProcedureSettings();
+                        saveProcedureSettings(reactionConditions, updated);
                       }}
                       onBlur={() => {
                         const error = validatePositiveNumber(analyticalDetails.wavelength, 'Wavelength');
@@ -417,11 +399,9 @@ const ProcedureSettings = () => {
                 className="form-control"
                 value={analyticalDetails.remarks}
                 onChange={(e) => {
-                  setAnalyticalDetails(prev => ({
-                    ...prev,
-                    remarks: e.target.value
-                  }));
-                  saveProcedureSettings();
+                  const updated = { ...analyticalDetails, remarks: e.target.value };
+                  setAnalyticalDetails(updated);
+                  saveProcedureSettings(reactionConditions, updated);
                 }}
                 placeholder="Enter remarks for analytical details"
                 rows="3"

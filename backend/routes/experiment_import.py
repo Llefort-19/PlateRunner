@@ -244,9 +244,14 @@ def import_context_sheet(ws):
             if key == 'author':
                 context_data['author'] = str(row[1]).strip()
             elif key == 'date':
-                # Always set today's date when importing, in YYYY-MM-DD
                 from datetime import datetime
-                context_data['date'] = datetime.now().strftime('%Y-%m-%d')
+                # Use the imported date if available, otherwise default to today
+                if isinstance(row[1], datetime):
+                    context_data['date'] = row[1].strftime('%Y-%m-%d')
+                elif row[1] and str(row[1]).strip():
+                    context_data['date'] = str(row[1]).strip()
+                else:
+                    context_data['date'] = datetime.now().strftime('%Y-%m-%d')
             elif key == 'project':
                 context_data['project'] = str(row[1]).strip()
             elif key in ['eln', 'eln number']:
@@ -284,7 +289,10 @@ def import_materials_sheet(ws):
                 elif header == 'cas_number':
                     material['cas'] = str(value).strip()
                 elif header == 'molecular_weight':
-                    material['molecular_weight'] = str(value).strip()
+                    try:
+                        material['molecular_weight'] = float(str(value).strip().replace(',', '.'))
+                    except ValueError:
+                        material['molecular_weight'] = None
                 elif header == 'smiles':
                     material['smiles'] = str(value).strip()
                 elif header == 'barcode':

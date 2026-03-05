@@ -19,6 +19,7 @@ function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [helpTabId, setHelpTabId] = useState(null);
   const [plateType, setPlateType] = useState("96"); // Lifted state to persist across tab switches
+  const [refreshKey, setRefreshKey] = useState(0); // State for avoiding window.location.reload
 
   const tabs = [
     {
@@ -27,8 +28,8 @@ function App() {
       component: ExperimentContext,
     },
     { id: "materials", label: "Materials", component: Materials },
-    { id: "procedure", label: "Design", component: Procedure },
-    { id: "procedure-settings", label: "Procedure", component: ProcedureSettings },
+    { id: "design", label: "Design", component: Procedure },
+    { id: "procedure", label: "Procedure", component: ProcedureSettings },
     { id: "analytical", label: "Analytical Data", component: AnalyticalData },
     { id: "results", label: "Results", component: Results },
     { id: "heatmap", label: "Heatmap", component: Heatmap },
@@ -45,8 +46,13 @@ function App() {
       // Clear session flag so next start is treated as fresh
       sessionStorage.removeItem("experimentSessionActive");
 
-      // Force page reload to reset all component states
-      window.location.reload();
+      // Use React state to trigger component re-fetches
+      setActiveTab("context");
+      setRefreshKey(prev => prev + 1);
+
+      // Dispatch events to update independent components like Header
+      window.dispatchEvent(new CustomEvent('experimentContextUpdated'));
+      window.dispatchEvent(new CustomEvent('materialsCleared'));
     } catch (error) {
       throw new Error("Failed to reset experiment data");
     }
@@ -55,6 +61,11 @@ function App() {
   const handleShowHelp = (tabId) => {
     setHelpTabId(tabId);
     setShowHelp(true);
+  };
+
+  const handleImportComplete = () => {
+    setActiveTab("context");
+    setRefreshKey(prev => prev + 1);
   };
 
   const handleCloseHelp = () => {
@@ -71,14 +82,15 @@ function App() {
             onTabChange={setActiveTab}
             onReset={handleReset}
             onShowHelp={handleShowHelp}
+            onImportComplete={handleImportComplete}
           />
 
           <div className="container">
-            <div className="tab-content">
+            <div className="tab-content" key={refreshKey}>
               {activeTab === "context" && <ExperimentContext />}
               {activeTab === "materials" && <Materials />}
-              {activeTab === "procedure" && <Procedure plateType={plateType} setPlateType={setPlateType} />}
-              {activeTab === "procedure-settings" && <ProcedureSettings />}
+              {activeTab === "design" && <Procedure plateType={plateType} setPlateType={setPlateType} />}
+              {activeTab === "procedure" && <ProcedureSettings />}
               {activeTab === "analytical" && <AnalyticalData />}
               {activeTab === "results" && <Results />}
               {activeTab === "heatmap" && <Heatmap />}

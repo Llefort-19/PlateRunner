@@ -7,7 +7,7 @@ import pandas as pd
 from flask import Blueprint, request, jsonify
 from state import current_experiment
 from utils import (
-    apply_kit_design_to_procedure, calculate_well_mappings, calculate_flexible_well_mappings
+    apply_kit_design_to_procedure
 )
 
 # Create blueprint
