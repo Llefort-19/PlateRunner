@@ -120,7 +120,7 @@ const PlatingProtocolModal = ({
       if (hasKitMaterials && !hasKitOps) {
         // Kit materials exist but the saved order has individual plating-dispense ops for them.
         // Rebuild: preserve user-added unit operations (wait, stir, etc.) and re-group kits.
-        const unitOps = order.filter(op => !['plating-dispense', 'kit'].includes(op.type));
+        const unitOps = order.filter(op => !['dispense', 'kit'].includes(op.type));
         const freshOrder = createInitialDispenseOrder(materials);
         // Append user's unit operations at the positions they were relative to the end
         return [...freshOrder, ...unitOps];
@@ -166,7 +166,7 @@ const PlatingProtocolModal = ({
 
     // Add regular material plating-dispense operations
     regularMaterials.forEach(index => {
-      operations.push({ type: 'plating-dispense', materialIndex: index });
+      operations.push({ type: 'dispense', materialIndex: index });
     });
 
     return operations;
@@ -508,10 +508,10 @@ const PlatingProtocolModal = ({
       const remapped = [];
       let cocktailOpInserted = false;
       prev.forEach(op => {
-        if (op.type === 'plating-dispense') {
+        if (op.type === 'dispense') {
           if (mergedIndices.has(op.materialIndex)) {
             if (!cocktailOpInserted) {
-              remapped.push({ type: 'plating-dispense', materialIndex: newCocktailIndex });
+              remapped.push({ type: 'dispense', materialIndex: newCocktailIndex });
               cocktailOpInserted = true;
             }
             // Skip the duplicate op for the second (and any further) merged material
@@ -559,11 +559,11 @@ const PlatingProtocolModal = ({
     setDispenseOrder(prev => {
       const remapped = [];
       prev.forEach(op => {
-        if (op.type === 'plating-dispense') {
+        if (op.type === 'dispense') {
           if (op.materialIndex === cocktailIndex) {
             // Expand cocktail op into individual ops for each component
             components.forEach((_, cIdx) => {
-              remapped.push({ type: 'plating-dispense', materialIndex: cocktailIndex + cIdx });
+              remapped.push({ type: 'dispense', materialIndex: cocktailIndex + cIdx });
             });
           } else {
             remapped.push({ ...op, materialIndex: oldToNew.get(op.materialIndex) ?? op.materialIndex });

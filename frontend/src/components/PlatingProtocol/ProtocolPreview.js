@@ -34,7 +34,7 @@ const ProtocolPreview = ({
   const getDispenseOperations = useCallback(() => {
     const materials = [];
     dispenseOrder.forEach(op => {
-      if (op.type === 'plating-dispense') {
+      if (op.type === 'dispense') {
         const material = materialConfigs[op.materialIndex];
         if (material) materials.push(material);
       } else if (op.type === 'kit') {
@@ -52,7 +52,7 @@ const ProtocolPreview = ({
   const getMaterialsForPlateMaps = useCallback(() => {
     const materials = [];
     dispenseOrder.forEach(op => {
-      if (op.type === 'plating-dispense') {
+      if (op.type === 'dispense') {
         const material = materialConfigs[op.materialIndex];
         if (material) materials.push(material);
       } else if (op.type === 'kit') {
@@ -293,7 +293,7 @@ const ProtocolPreview = ({
     const configToFlatIndex = new Map();
     let flatIdx = 0;
     dispenseOrder.forEach(op => {
-      if (op.type === 'plating-dispense') {
+      if (op.type === 'dispense') {
         const material = materialConfigs[op.materialIndex];
         if (material) {
           configToFlatIndex.set(op.materialIndex, flatIdx);
@@ -312,7 +312,7 @@ const ProtocolPreview = ({
 
     const remappedOperations = [];
     dispenseOrder.forEach(op => {
-      if (op.type === 'plating-dispense') {
+      if (op.type === 'dispense') {
         const material = materialConfigs[op.materialIndex];
         // Only include operations that point to a valid material
         if (material) {
@@ -565,7 +565,7 @@ const ProtocolPreview = ({
           {(() => {
             let visualIndex = 0;
             return dispenseOrder.map((operation, idx) => {
-              const isDispense = operation.type === 'plating-dispense';
+              const isDispense = operation.type === 'dispense';
               const isKit = operation.type === 'kit';
               const material = isDispense ? materialConfigs[operation.materialIndex] : null;
 

@@ -35,7 +35,7 @@ const StepTypeChooser = ({ onSelect, onClose, position }) => {
 
 // Inline content for each operation type
 const OperationContent = ({ operation, material, materialConfigs, onUpdate }) => {
-  const isDispense = operation.type === 'plating-dispense';
+  const isDispense = operation.type === 'dispense';
   const isKit = operation.type === 'kit';
 
   // Dispense — read-only title + details
@@ -163,7 +163,7 @@ const TimelineRow = ({
   onClick
 }) => {
   const opConfig = OPERATION_TYPES[operation.type];
-  const isDispense = operation.type === 'plating-dispense';
+  const isDispense = operation.type === 'dispense';
   const isKit = operation.type === 'kit';
 
   return (
@@ -189,7 +189,7 @@ const TimelineRow = ({
       </div>
 
       {/* Step number badge + emoji/icon */}
-      <div className="plating-timeline-plating-step-indicator">
+      <div className="plating-timeline-step-indicator">
         <div className="plating-timeline-step-badge">
           <span className="step-num">{visualIndex !== undefined ? visualIndex + 1 : index + 1}</span>
         </div>
@@ -317,7 +317,7 @@ const DispenseOrderStep = ({ materialConfigs, dispenseOrder, onOrderChange }) =>
   // Delete operation (only unit ops)
   const deleteOperation = useCallback((index) => {
     const op = dispenseOrder[index];
-    if (op.type === 'plating-dispense') return;
+    if (op.type === 'dispense') return;
     const newOrder = dispenseOrder.filter((_, i) => i !== index);
     onOrderChange(newOrder);
 
@@ -352,11 +352,11 @@ const DispenseOrderStep = ({ materialConfigs, dispenseOrder, onOrderChange }) =>
         {(() => {
           let visualIndex = 0;
           return dispenseOrder.map((operation, index) => {
-            const material = operation.type === 'plating-dispense'
+            const material = operation.type === 'dispense'
               ? materialConfigs[operation.materialIndex]
               : null;
 
-            if (operation.type === 'plating-dispense' && !material) return null;
+            if (operation.type === 'dispense' && !material) return null;
 
             const currentVisualIndex = visualIndex++;
 
