@@ -15,17 +15,17 @@ const PlateGridView = ({ material, plateType = '96', showTitle = true }) => {
       case '24':
         return {
           rows: ['A', 'B', 'C', 'D'],
-          columns: [1, 2, 3, 4, 5, 6]
+          columns: [1, plating-2, plating-3, 4, plating-5, 6]
         };
       case '48':
         return {
           rows: ['A', 'B', 'C', 'D', 'E', 'F'],
-          columns: [1, 2, 3, 4, 5, 6, 7, 8]
+          columns: [1, plating-2, plating-3, 4, plating-5, 6, plating-7, plating-8]
         };
       default: // 96
         return {
           rows: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
-          columns: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+          columns: [1, plating-2, plating-3, 4, plating-5, 6, plating-7, plating-8, 9, 10, 11, 12]
         };
     }
   };
@@ -71,8 +71,8 @@ const PlateGridView = ({ material, plateType = '96', showTitle = true }) => {
       let tooltipValue = null;
 
       if (isKit) {
-        displayValue = amount.toFixed(2);
-        tooltipValue = `${wellId}: ${amount.toFixed(2)} ${unit}`;
+        displayValue = amount.toFixed(plating-2);
+        tooltipValue = `${wellId}: ${amount.toFixed(plating-2)} ${unit}`;
       } else if (isStockMaterial) {
         const volume = calculateVolumeForWell(amount, concentrationM);
         if (volume !== null && !isNaN(volume)) {
@@ -88,8 +88,8 @@ const PlateGridView = ({ material, plateType = '96', showTitle = true }) => {
       } else {
         const mass = calculateNeatMassForWell(amount, material?.molecular_weight);
         if (mass !== null && !isNaN(mass)) {
-          displayValue = mass.toFixed(2);
-          tooltipValue = `${wellId}: ${mass.toFixed(2)} mg`;
+          displayValue = mass.toFixed(plating-2);
+          tooltipValue = `${wellId}: ${mass.toFixed(plating-2)} mg`;
         }
       }
 
@@ -102,9 +102,9 @@ const PlateGridView = ({ material, plateType = '96', showTitle = true }) => {
   }, [material, wellAmounts]);
 
   return (
-    <div className="plate-grid-preview">
+    <div className="plating-plate-grid-preview">
       {showTitle && (
-        <div className="plate-grid-title">
+        <div className="plating-plate-grid-title">
           {material?.alias || material?.name || 'Material'}
           <span style={{ marginLeft: '8px', fontWeight: 'normal', color: 'var(--color-text-secondary)' }}>
             (amounts in {unitLabel})
@@ -112,19 +112,19 @@ const PlateGridView = ({ material, plateType = '96', showTitle = true }) => {
         </div>
       )}
 
-      <div className="plate-grid-container">
+      <div className="plating-plate-grid-container">
         {/* Column Headers */}
-        <div className="plate-grid-header">
-          <div className="plate-grid-corner" />
+        <div className="plating-plate-grid-header">
+          <div className="plating-plate-grid-corner" />
           {config.columns.map(col => (
-            <div key={col} className="plate-grid-col-header">{col}</div>
+            <div key={col} className="plating-plate-grid-col-header">{col}</div>
           ))}
         </div>
 
         {/* Rows */}
         {config.rows.map(row => (
-          <div key={row} className="plate-grid-row">
-            <div className="plate-grid-row-header">{row}</div>
+          <div key={row} className="plating-plate-grid-row">
+            <div className="plating-plate-grid-row-header">{row}</div>
             {config.columns.map(col => {
               const wellId = `${row}${col}`;
               const wellData = wellDisplayValues[wellId];
@@ -134,7 +134,7 @@ const PlateGridView = ({ material, plateType = '96', showTitle = true }) => {
               return (
                 <div
                   key={wellId}
-                  className={`plate-grid-cell ${displayValue ? 'has-amount' : 'empty'}`}
+                  className={`plating-plate-grid-cell ${displayValue ? 'plating-has-amount' : 'plating-empty'}`}
                   title={tooltipText}
                 >
                   {displayValue || '-'}

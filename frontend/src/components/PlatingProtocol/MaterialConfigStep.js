@@ -6,8 +6,8 @@ const MaterialConfigStep = ({ materialConfigs, onConfigChange, onKitConfigChange
 
   if (materialConfigs.length === 0) {
     return (
-      <div className="material-config-step">
-        <div className="no-materials-warning">
+      <div className="plating-material-config-step">
+        <div className="plating-no-materials-warning">
           <h4>No Materials Found</h4>
           <p>There are no materials in the current procedure to configure.</p>
           <p>Please add materials to wells in the Design tab first.</p>
@@ -98,7 +98,7 @@ const MaterialConfigStep = ({ materialConfigs, onConfigChange, onKitConfigChange
           </div>
         </td>
         <td>
-          <span className="well-count-badge">
+          <span className="plating-well-count-badge">
             {wellCount}
           </span>
         </td>
@@ -129,15 +129,15 @@ const MaterialConfigStep = ({ materialConfigs, onConfigChange, onKitConfigChange
             </div>
           ) : (
             <>
-              <div className="dispense-method-toggle">
+              <div className="plating-dispense-method-toggle">
                 <button
-                  className={`method-btn neat ${material.dispensingMethod === 'neat' ? 'active' : ''}`}
+                  className={`plating-method-btn neat ${material.dispensingMethod === 'neat' ? 'active' : ''}`}
                   onClick={() => onConfigChange(index, 'dispensingMethod', 'neat')}
                 >
                   Neat
                 </button>
                 <button
-                  className={`method-btn stock ${material.dispensingMethod === 'stock' ? 'active' : ''}`}
+                  className={`plating-method-btn stock ${material.dispensingMethod === 'stock' ? 'active' : ''}`}
                   onClick={() => onConfigChange(index, 'dispensingMethod', 'stock')}
                   disabled={!material.molecular_weight}
                 >
@@ -157,8 +157,8 @@ const MaterialConfigStep = ({ materialConfigs, onConfigChange, onKitConfigChange
   };
 
   return (
-    <div className="material-config-step">
-      <table className="material-config-table">
+    <div className="plating-material-config-step">
+      <table className="plating-material-config-table">
         <thead>
           <tr>
             <th>Material</th>
@@ -175,7 +175,7 @@ const MaterialConfigStep = ({ materialConfigs, onConfigChange, onKitConfigChange
           {Object.entries(groupedMaterials.kits)
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([kitId, kitMaterials]) => {
-              // Derive kit-level dispense method from members
+              // Derive kit-level plating-dispense method from members
               const allNeat = kitMaterials.every(({ material }) => material.dispensingMethod === 'neat');
               const allStock = kitMaterials.every(({ material }) => material.dispensingMethod === 'stock');
               const kitMethod = allStock ? 'stock' : allNeat ? 'neat' : 'mixed';
@@ -211,15 +211,15 @@ const MaterialConfigStep = ({ materialConfigs, onConfigChange, onKitConfigChange
                         </div>
                       ) : (
                         <>
-                          <div className="dispense-method-toggle">
+                          <div className="plating-dispense-method-toggle">
                             <button
-                              className={`method-btn neat ${kitMethod === 'neat' ? 'active' : ''}`}
+                              className={`plating-method-btn neat ${kitMethod === 'neat' ? 'active' : ''}`}
                               onClick={() => onKitConfigChange(kitId, 'dispensingMethod', 'neat')}
                             >
                               Neat
                             </button>
                             <button
-                              className={`method-btn stock ${kitMethod === 'stock' ? 'active' : ''}`}
+                              className={`plating-method-btn stock ${kitMethod === 'stock' ? 'active' : ''}`}
                               onClick={() => onKitConfigChange(kitId, 'dispensingMethod', 'stock')}
                               disabled={anyMissingMW}
                             >

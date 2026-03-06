@@ -34,12 +34,12 @@
   background: var(--color-surface);
 }
 
-.footer-spacer {
+.plating-footer-spacer {
   flex: 1;
 }
 
 /* Step Indicator */
-.step-indicator {
+.plating-step-indicator {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -51,13 +51,13 @@
   bottom: 16px;
 }
 
-.step-item {
+.plating-step-item {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.step-number {
+.plating-step-number {
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -72,62 +72,62 @@
   transition: all 0.2s ease;
 }
 
-.step-item.active .step-number {
+.plating-step-item.active .plating-step-number {
   background: var(--color-primary);
   color: white;
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-primary) 40%, transparent 60%);
 }
 
-.step-item.completed .step-number {
+.plating-step-item.completed .plating-step-number {
   background: var(--color-success);
   color: white;
 }
 
-.step-title {
+.plating-step-title {
   font-weight: 500;
   font-size: 13px;
   color: var(--color-text-secondary);
 }
 
-.step-item.active .step-title {
+.plating-step-item.active .plating-step-title {
   color: var(--color-primary);
   font-weight: 600;
 }
 
-.step-item.completed .step-title {
+.plating-step-item.completed .plating-step-title {
   color: var(--color-success);
 }
 
-.step-connector {
+.plating-step-connector {
   width: 36px;
   height: 2px;
   background: var(--color-border);
   margin: 0 3px;
 }
 
-.step-item.completed .step-connector {
+.plating-step-item.completed .plating-step-connector {
   background: var(--color-success);
 }
 
 /* Material Configuration Step */
-.material-config-step {
+.plating-material-config-step {
   padding: 0;
 }
 
-.material-config-table {
+.plating-material-config-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
 }
 
-.material-config-table th,
-.material-config-table td {
+.plating-material-config-table th,
+.plating-material-config-table td {
   padding: 12px 16px;
   border-bottom: 1px solid var(--color-border);
   vertical-align: middle;
 }
 
-.material-config-table th {
+.plating-material-config-table th {
   background: var(--color-background);
   font-weight: 600;
   font-size: 14px;
@@ -136,37 +136,37 @@
   white-space: nowrap;
 }
 
-.material-config-table th:first-child {
+.plating-material-config-table th:first-child {
   text-align: left;
 }
 
-.material-config-table th:last-child {
+.plating-material-config-table th:last-child {
   text-align: center;
 }
 
-.material-config-table td {
+.plating-material-config-table td {
   text-align: center;
 }
 
-.material-config-table td:first-child {
+.plating-material-config-table td:first-child {
   text-align: left;
 }
 
-.material-config-table td:last-child {
+.plating-material-config-table td:last-child {
   text-align: center;
 }
 
-.material-config-table tbody tr:hover {
+.plating-material-config-table tbody tr:hover {
   background: color-mix(in srgb, var(--color-primary) 5%, var(--color-surface) 95%);
 }
 
-.dispense-method-toggle {
+.plating-dispense-method-toggle {
   display: inline-flex;
   gap: 6px;
   justify-content: center;
 }
 
-.method-btn {
+.plating-method-btn {
   padding: 8px 16px;
   border: 1px solid var(--color-border);
   background: var(--color-surface);
@@ -177,32 +177,32 @@
   transition: all 0.15s ease;
 }
 
-.method-btn:hover:not(:disabled) {
+.plating-method-btn:hover:not(:disabled) {
   border-color: var(--color-primary);
 }
 
-.method-btn:disabled {
+.plating-method-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.method-btn.active {
+.plating-method-btn.active {
   background: var(--color-primary);
   color: white;
   border-color: var(--color-primary);
 }
 
-.method-btn.neat.active {
+.plating-method-btn.neat.active {
   background: var(--color-success);
   border-color: var(--color-success);
 }
 
-.method-btn.stock.active {
+.plating-method-btn.stock.active {
   background: var(--color-accent);
   border-color: var(--color-accent);
 }
 
-.well-count-badge {
+.plating-well-count-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -216,12 +216,12 @@
 }
 
 /* Stock Solution Form Step */
-.stock-solution-step {
+.plating-stock-solution-step {
   padding: 0;
 }
 
 /* Batch Operations Panel - Ultra Compact & Beautiful */
-.batch-operations-panel {
+.plating-batch-operations-panel {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -230,7 +230,7 @@
 }
 
 /* Two-Column Layout: Meta | Form */
-.batch-compact-row {
+.plating-batch-compact-row {
   display: grid;
   grid-template-columns: 220px 1fr;
   gap: 24px;
@@ -238,7 +238,7 @@
 }
 
 /* Left Column: Title on top, Select All below */
-.batch-left-col {
+.plating-batch-left-col {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -246,14 +246,14 @@
 }
 
 /* Title + Badge Row */
-.batch-title-row {
+.plating-batch-title-row {
   display: flex;
   flex-direction: row;
   gap: 90px;
   align-items: center;
 }
 
-.batch-main-title {
+.plating-batch-main-title {
   font-size: 18px;
   font-weight: 700;
   color: var(--color-heading);
@@ -265,7 +265,7 @@
 
 
 /* Select All (below title) */
-.batch-select-all {
+.plating-batch-select-all {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -278,7 +278,7 @@
   margin-top: 6px;
 }
 
-.batch-select-all input[type="checkbox"] {
+.plating-batch-select-all input[type="checkbox"] {
   width: 16px;
   height: 16px;
   cursor: pointer;
@@ -286,7 +286,7 @@
   margin-top: 2px;
 }
 
-.batch-count-badge {
+.plating-batch-count-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -301,7 +301,7 @@
 }
 
 /* Form Grid: Solvent | Volume | Excess | Apply */
-.batch-form-grid {
+.plating-batch-form-grid {
   display: flex;
   gap: 16px;
   align-items: end;
@@ -309,14 +309,14 @@
 }
 
 /* Form Fields */
-.batch-field-compact {
+.plating-batch-field-compact {
   display: flex;
   flex-direction: column;
   gap: 0px;
   align-items: flex-start;
 }
 
-.batch-field-compact label {
+.plating-batch-field-compact label {
   font-size: 14px;
   font-weight: 600;
   color: var(--color-text-secondary);
@@ -325,7 +325,7 @@
 }
 
 /* Compact Inputs */
-.batch-input-compact {
+.plating-batch-input-compact {
   height: 38px;
   padding: 0 12px;
   font-size: 14px;
@@ -336,18 +336,18 @@
   transition: all 0.2s;
 }
 
-.batch-input-compact:focus {
+.plating-batch-input-compact:focus {
   border-color: var(--color-primary);
   outline: none;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 10%, transparent 90%);
 }
 
-.batch-input-compact::placeholder {
+.plating-batch-input-compact::placeholder {
   color: var(--color-text-tertiary);
 }
 
 /* Input with Unit (Volume field) */
-.batch-input-with-unit-compact {
+.plating-batch-input-with-unit-compact {
   display: flex;
   height: 38px;
   width: 120px;
@@ -358,12 +358,12 @@
   transition: all 0.2s;
 }
 
-.batch-input-with-unit-compact:focus-within {
+.plating-batch-input-with-unit-compact:focus-within {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 10%, transparent 90%);
 }
 
-.batch-input-with-unit-compact input {
+.plating-batch-input-with-unit-compact input {
   flex: 1;
   height: 100%;
   padding: 0 10px;
@@ -374,11 +374,11 @@
   min-width: 0;
 }
 
-.batch-input-with-unit-compact input:focus {
+.plating-batch-input-with-unit-compact input:focus {
   outline: none;
 }
 
-.batch-input-with-unit-compact select {
+.plating-batch-input-with-unit-compact select {
   height: 100%;
   padding: 0 10px;
   border: none;
@@ -391,28 +391,28 @@
   min-width: 45px;
 }
 
-.batch-input-with-unit-compact select:focus {
+.plating-batch-input-with-unit-compact select:focus {
   outline: none;
 }
 
 /* Solvent Container */
-.batch-field-compact .solvent-search-container {
+.plating-batch-field-compact .plating-solvent-search-container {
   position: relative;
 }
 
 /* Specific field widths */
-.batch-field-compact:nth-child(1) .batch-input-compact {
+.plating-batch-field-compact:nth-child(1) .plating-batch-input-compact {
   width: 300px;
   /* Solvent */
 }
 
-.batch-field-compact:nth-child(3) .batch-input-compact {
+.plating-batch-field-compact:nth-child(3) .plating-batch-input-compact {
   width: 80px;
   /* Excess */
 }
 
 /* Apply Button */
-.batch-apply-compact {
+.plating-batch-apply-compact {
   height: 38px;
   padding: 0 24px;
   font-size: 14px;
@@ -422,7 +422,7 @@
   min-width: 140px;
 }
 
-.batch-apply-compact:disabled {
+.plating-batch-apply-compact:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -430,34 +430,34 @@
 /* Responsive Design */
 
 @media (max-width: 900px) {
-  .batch-compact-row {
+  .plating-batch-compact-row {
     grid-template-columns: 1fr;
     gap: 16px;
   }
 
-  .batch-form-grid {
+  .plating-batch-form-grid {
     grid-template-columns: 1fr 1fr;
     gap: 14px;
   }
 
-  .batch-apply-compact {
+  .plating-batch-apply-compact {
     grid-column: 1 / -1;
   }
 }
 
 @media (max-width: 600px) {
-  .batch-operations-panel {
+  .plating-batch-operations-panel {
     padding: 14px;
   }
 
-  .batch-form-grid {
+  .plating-batch-form-grid {
     grid-template-columns: 1fr;
     gap: 12px;
   }
 }
 
 /* Material Checkbox */
-.material-checkbox {
+.plating-material-checkbox {
   width: 18px;
   height: 18px;
   cursor: pointer;
@@ -465,7 +465,7 @@
   margin-right: 12px;
 }
 
-.stock-material-card {
+.plating-stock-material-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -473,7 +473,7 @@
   margin-bottom: 20px;
 }
 
-.stock-material-header {
+.plating-stock-material-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -486,36 +486,36 @@
   border: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent 85%);
 }
 
-.stock-material-info-row {
+.plating-stock-material-info-row {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.stock-material-name {
+.plating-stock-material-name {
   font-weight: 700;
   font-size: 18px;
   color: var(--color-heading);
   margin: 0;
 }
 
-.meta-item {
+.plating-meta-item {
   font-weight: 500;
   font-size: 14px;
   white-space: nowrap;
   color: var(--color-text-secondary);
 }
 
-.meta-separator,
-.meta-separator-main {
+.plating-meta-separator,
+.plating-meta-separator-main {
   color: color-mix(in srgb, var(--color-primary) 40%, var(--color-text-secondary) 60%);
   font-weight: 400;
   font-size: 14px;
 }
 
 /* Two-column layout container */
-.stock-form-container {
+.plating-stock-form-container {
   display: flex;
   flex-wrap: nowrap;
   gap: 24px;
@@ -527,40 +527,40 @@
   justify-content: center;
 }
 
-.stock-form-inputs {
+.plating-stock-form-inputs {
   display: contents;
 }
 
-.stock-form-row {
+.plating-stock-form-row {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.stock-form-row.full-width {
+.plating-stock-form-row.full-width {
   grid-column: 1 / -1;
 }
 
 /* Row for solvent, volume, and excess in one line */
-.stock-input-row {
+.plating-stock-input-row {
   display: flex;
   gap: 12px;
   align-items: end;
 }
 
-.stock-form-row label {
+.plating-stock-form-row label {
   font-weight: 600;
   font-size: 14px;
   color: var(--color-text-secondary);
   text-align: left;
 }
 
-.form-label-large {
+.plating-form-label-large {
   font-size: 14px !important;
   font-weight: 600 !important;
 }
 
-.input-with-unit {
+.plating-input-with-unit {
   display: flex;
   height: 38px;
   width: 120px;
@@ -571,7 +571,7 @@
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.input-with-unit input {
+.plating-input-with-unit input {
   flex: 1;
   padding: 0 10px;
   border: none;
@@ -582,11 +582,11 @@
   height: 100%;
 }
 
-.input-with-unit input:focus {
+.plating-input-with-unit input:focus {
   outline: none;
 }
 
-.input-with-unit select {
+.plating-input-with-unit select {
   height: 100%;
   padding: 0 10px;
   border: none;
@@ -599,11 +599,11 @@
   min-width: 45px;
 }
 
-.solvent-search-container {
+.plating-solvent-search-container {
   position: relative;
 }
 
-.solvent-search-input {
+.plating-solvent-search-input {
   width: 200px;
   padding: 10px 12px;
   border: 1px solid var(--color-border);
@@ -614,13 +614,13 @@
   height: 38px;
 }
 
-.solvent-search-input:focus {
+.plating-solvent-search-input:focus {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 25%, transparent 75%);
 }
 
-.solvent-dropdown {
+.plating-solvent-dropdown {
   position: fixed;
   /* Fixed to escape card boundaries */
   max-height: 300px;
@@ -636,33 +636,33 @@
   margin-top: 2px;
 }
 
-.solvent-option {
+.plating-solvent-option {
   padding: 10px 12px;
   cursor: pointer;
   border-bottom: 1px solid var(--color-border);
 }
 
-.solvent-option:last-child {
+.plating-solvent-option:last-child {
   border-bottom: none;
 }
 
-.solvent-option:hover {
+.plating-solvent-option:hover {
   background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface) 90%);
 }
 
-.solvent-option-name {
+.plating-solvent-option-name {
   font-weight: 500;
   font-size: 15px;
   color: var(--color-text-primary);
 }
 
-.solvent-option-details {
+.plating-solvent-option-details {
   font-size: 13px;
   color: var(--color-text-secondary);
   margin-top: 2px;
 }
 
-.selected-solvent {
+.plating-selected-solvent {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -672,12 +672,12 @@
   border-radius: var(--radius-sm);
 }
 
-.selected-solvent-name {
+.plating-selected-solvent-name {
   font-weight: 500;
   font-size: 15px;
 }
 
-.clear-solvent-btn {
+.plating-clear-solvent-btn {
   background: none;
   border: none;
   color: var(--color-text-secondary);
@@ -688,13 +688,13 @@
   border-radius: var(--radius-sm);
 }
 
-.clear-solvent-btn:hover {
+.plating-clear-solvent-btn:hover {
   background: color-mix(in srgb, var(--color-text-secondary) 10%, transparent 90%);
   color: var(--color-text-primary);
 }
 
 /* Summary panel (right column, sticky) */
-.stock-form-summary {
+.plating-stock-form-summary {
   flex: none;
   padding: 0;
   background: transparent;
@@ -704,7 +704,7 @@
   padding-bottom: 2px;
 }
 
-.calculation-display {
+.plating-calculation-display {
   display: flex;
   flex-direction: row;
   align-items: flex-end;
@@ -712,14 +712,14 @@
   height: 100%;
 }
 
-.calculation-row {
+.plating-calculation-row {
   display: flex;
   flex-direction: column;
   gap: 2px;
   align-items: center;
 }
 
-.calculation-label {
+.plating-calculation-label {
   font-weight: 600;
   font-size: 10px;
   color: var(--color-text-secondary);
@@ -727,7 +727,7 @@
   letter-spacing: 0.6px;
 }
 
-.calculation-value {
+.plating-calculation-value {
   font-weight: 600;
   font-size: 14px;
   color: var(--color-primary);
@@ -744,24 +744,24 @@
   white-space: nowrap;
 }
 
-.calculation-value.warning {
+.plating-calculation-value.warning {
   color: var(--color-warning);
   background: color-mix(in srgb, var(--color-warning) 7%, var(--color-surface) 93%);
   border-color: color-mix(in srgb, var(--color-warning) 15%, transparent 85%);
 }
 
 /* Dispense Order Step */
-.dispense-order-step {
+.plating-dispense-order-step {
   padding: 0;
 }
 
-.dispense-order-list {
+.plating-dispense-order-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-.dispense-order-item {
+.plating-dispense-order-item {
   display: flex;
   align-items: center;
   gap: 14px;
@@ -774,33 +774,33 @@
   transition: all 0.15s ease;
 }
 
-.dispense-order-item:hover {
+.plating-dispense-order-item:hover {
   border-color: var(--color-primary);
   box-shadow: var(--shadow-sm);
 }
 
-.dispense-order-item.dragging {
+.plating-dispense-order-item.dragging {
   opacity: 0.5;
   cursor: grabbing;
 }
 
-.dispense-order-item.drag-over {
+.plating-dispense-order-item.drag-over {
   border-color: var(--color-primary);
   background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface) 90%);
 }
 
-.drag-handle {
+.plating-drag-handle {
   color: var(--color-text-secondary);
   font-size: 18px;
   cursor: grab;
   user-select: none;
 }
 
-.drag-handle:active {
+.plating-drag-handle:active {
   cursor: grabbing;
 }
 
-.order-number {
+.plating-order-number {
   width: 28px;
   height: 28px;
   background: var(--color-primary);
@@ -814,17 +814,17 @@
   flex-shrink: 0;
 }
 
-.order-material-info {
+.plating-order-material-info {
   flex: 1;
 }
 
-.order-material-name {
+.plating-order-material-name {
   font-weight: 600;
   font-size: 14px;
   color: var(--color-text-primary);
 }
 
-.order-material-method {
+.plating-order-material-method {
   font-size: 13px;
   color: var(--color-text-secondary);
   margin-top: 4px;
@@ -833,7 +833,7 @@
   gap: 8px;
 }
 
-.method-badge {
+.plating-method-badge {
   display: inline-block;
   padding: 6px 12px;
   border-radius: 10px;
@@ -844,22 +844,22 @@
   flex-shrink: 0;
 }
 
-.method-badge.neat {
+.plating-method-badge.neat {
   background: color-mix(in srgb, var(--color-success) 20%, var(--color-surface) 80%);
   color: var(--color-success);
 }
 
-.method-badge.stock {
+.plating-method-badge.stock {
   background: color-mix(in srgb, var(--color-accent) 20%, var(--color-surface) 80%);
   color: var(--color-accent);
 }
 
 /* Dispense Order Header */
-.dispense-order-header {
+.plating-dispense-order-header {
   margin-bottom: 12px;
 }
 
-.dispense-order-hint {
+.plating-dispense-order-hint {
   font-size: 13px;
   color: var(--color-text-secondary);
   margin: 0;
@@ -869,25 +869,25 @@
    TIMELINE LAYOUT - Dispense Order Step
    ======================================== */
 
-.dispense-order-step.timeline-layout {
+.plating-dispense-order-step.plating-timeline-layout {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
 }
 
-.timeline-header {
+.plating-timeline-header {
   flex-shrink: 0;
   margin-bottom: 12px;
 }
 
-.timeline-hint {
+.plating-timeline-hint {
   font-size: 12px;
   color: var(--color-text-tertiary);
   margin: 0;
 }
 
-.timeline-list {
+.plating-timeline-list {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
@@ -895,12 +895,12 @@
 }
 
 /* Timeline Row Wrapper (includes inline add slot) */
-.timeline-row-wrapper {
+.plating-timeline-row-wrapper {
   position: relative;
 }
 
 /* Timeline Row */
-.timeline-row {
+.plating-timeline-row {
   display: flex;
   align-items: stretch;
   padding: 8px 8px 8px 0;
@@ -911,22 +911,22 @@
   min-height: 48px;
 }
 
-.timeline-row:hover {
+.plating-timeline-row:hover {
   background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface) 96%);
 }
 
-.timeline-row.dragging {
+.plating-timeline-row.dragging {
   opacity: 0.5;
   box-shadow: var(--shadow-lg);
 }
 
-.timeline-row.drag-over {
+.plating-timeline-row.drag-over {
   background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface) 88%);
   box-shadow: inset 0 0 0 2px var(--color-primary);
 }
 
 /* Timeline Rail (left side: number + icon + connector) */
-.timeline-rail {
+.plating-timeline-rail {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -936,7 +936,7 @@
   position: relative;
 }
 
-.timeline-step-number {
+.plating-timeline-step-number {
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -950,13 +950,13 @@
   flex-shrink: 0;
 }
 
-.timeline-icon {
+.plating-timeline-icon {
   font-size: 14px;
   margin-top: 4px;
   flex-shrink: 0;
 }
 
-.timeline-connector {
+.plating-timeline-connector {
   position: absolute;
   top: 50px;
   bottom: -8px;
@@ -967,7 +967,7 @@
 }
 
 /* Drag Handle */
-.timeline-drag-handle {
+.plating-timeline-drag-handle {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -981,16 +981,16 @@
   transition: opacity 0.15s ease;
 }
 
-.timeline-row:hover .timeline-drag-handle {
+.plating-timeline-row:hover .plating-timeline-drag-handle {
   opacity: 1;
 }
 
-.timeline-drag-handle:active {
+.plating-timeline-drag-handle:active {
   cursor: grabbing;
 }
 
 /* Timeline Content */
-.timeline-content {
+.plating-timeline-content {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -999,7 +999,7 @@
   padding: 0 8px;
 }
 
-.timeline-title {
+.plating-timeline-title {
   font-size: 13px;
   font-weight: 600;
   color: var(--color-text-primary);
@@ -1008,7 +1008,7 @@
   text-overflow: ellipsis;
 }
 
-.timeline-summary {
+.plating-timeline-summary {
   font-size: 12px;
   color: var(--color-text-secondary);
   margin-top: 2px;
@@ -1018,7 +1018,7 @@
 }
 
 /* Kebab Menu */
-.kebab-menu-container {
+.plating-kebab-menu-container {
   position: relative;
   display: flex;
   align-items: center;
@@ -1026,13 +1026,13 @@
   transition: opacity 0.15s ease;
 }
 
-.timeline-row:hover .kebab-menu-container,
-.timeline-row:focus-within .kebab-menu-container,
-.kebab-menu-container:focus-within {
+.plating-timeline-row:hover .plating-kebab-menu-container,
+.plating-timeline-row:focus-within .plating-kebab-menu-container,
+.plating-kebab-menu-container:focus-within {
   opacity: 1;
 }
 
-.kebab-btn {
+.plating-kebab-btn {
   width: 28px;
   height: 28px;
   display: flex;
@@ -1047,11 +1047,11 @@
   transition: background 0.1s ease;
 }
 
-.kebab-btn:hover {
+.plating-kebab-btn:hover {
   background: var(--color-border);
 }
 
-.kebab-backdrop {
+.plating-kebab-backdrop {
   position: fixed;
   top: 0;
   left: 0;
@@ -1060,7 +1060,7 @@
   z-index: 98;
 }
 
-.kebab-dropdown {
+.plating-kebab-dropdown {
   position: absolute;
   top: 100%;
   right: 0;
@@ -1073,7 +1073,7 @@
   overflow: hidden;
 }
 
-.kebab-dropdown button {
+.plating-kebab-dropdown button {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1088,23 +1088,23 @@
   transition: background 0.1s ease;
 }
 
-.kebab-dropdown button:hover {
+.plating-kebab-dropdown button:hover {
   background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface) 90%);
 }
 
-.kebab-dropdown button.danger:hover {
+.plating-kebab-dropdown button.danger:hover {
   background: color-mix(in srgb, var(--color-error, #dc3545) 10%, var(--color-surface) 90%);
   color: var(--color-error, #dc3545);
 }
 
-.kebab-dropdown button span {
+.plating-kebab-dropdown button span {
   font-size: 12px;
   width: 14px;
   text-align: center;
 }
 
 /* Inline Add Slot (between rows) */
-.inline-add-slot {
+.plating-inline-add-slot {
   height: 0;
   display: flex;
   align-items: center;
@@ -1114,7 +1114,7 @@
   z-index: 1;
 }
 
-.inline-add-btn {
+.plating-inline-add-btn {
   position: absolute;
   top: -10px;
   width: 20px;
@@ -1134,39 +1134,39 @@
   transition: all 0.15s ease;
 }
 
-.timeline-row-wrapper.show-inline-add .inline-add-btn,
-.inline-add-btn:focus {
+.plating-timeline-row-wrapper.plating-show-inline-add .plating-inline-add-btn,
+.plating-inline-add-btn:focus {
   opacity: 1;
   transform: scale(1);
 }
 
-.inline-add-btn:hover {
+.plating-inline-add-btn:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
   background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface) 92%);
 }
 
 /* Timeline Add Footer */
-.timeline-add-footer {
+.plating-timeline-add-footer {
   flex-shrink: 0;
   padding-top: 12px;
   border-top: 1px solid var(--color-border);
   margin-top: 8px;
 }
 
-.add-step-btn {
+.plating-add-step-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-.add-step-btn .add-icon {
+.plating-add-step-btn .plating-add-icon {
   font-size: 14px;
   font-weight: 700;
 }
 
 /* Portal-based kebab dropdown (fixed positioning to prevent clipping) */
-.kebab-dropdown-portal {
+.plating-kebab-dropdown-portal {
   position: fixed;
   z-index: 1000;
   background: var(--color-surface);
@@ -1177,7 +1177,7 @@
   overflow: hidden;
 }
 
-.kebab-backdrop {
+.plating-kebab-backdrop {
   z-index: 998;
 }
 
@@ -1186,14 +1186,14 @@
    Compact, centered, card-based rows
    ======================================== */
 
-.timeline-layout-dense {
+.plating-timeline-layout-dense {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
 }
 
-.timeline-header {
+.plating-timeline-header {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1203,7 +1203,7 @@
   width: 100%;
 }
 
-.timeline-hint {
+.plating-timeline-hint {
   flex: 1;
   text-align: center;
   font-size: 12px;
@@ -1211,20 +1211,20 @@
   margin: 0;
 }
 
-.add-step-btn {
+.plating-add-step-btn {
   flex-shrink: 0;
   padding: 6px 12px !important;
   font-size: 13px !important;
   height: auto !important;
 }
 
-.add-step-btn .add-icon {
+.plating-add-step-btn .plating-add-icon {
   font-size: 16px;
   font-weight: 600;
   margin-right: 4px;
 }
 
-.timeline-list-dense {
+.plating-timeline-list-dense {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
@@ -1236,7 +1236,7 @@
 }
 
 /* Dense Timeline Row — compact card */
-.timeline-row-dense {
+.plating-timeline-row-dense {
   display: flex;
   align-items: center;
   padding: 6px 10px 6px 6px;
@@ -1253,25 +1253,25 @@
   width: 100%;
 }
 
-.timeline-row-dense:hover {
+.plating-timeline-row-dense:hover {
   background: color-mix(in srgb, var(--color-primary) 3%, var(--color-surface) 97%);
   border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border) 60%);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
-.timeline-row-dense.dragging {
+.plating-timeline-row-dense.dragging {
   opacity: 0.5;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
   cursor: grabbing;
 }
 
-.timeline-row-dense.drag-over {
+.plating-timeline-row-dense.drag-over {
   background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface) 92%);
   border-color: var(--color-primary);
   box-shadow: inset 0 0 0 2px var(--color-primary);
 }
 
-.timeline-row-dense.editing {
+.plating-timeline-row-dense.editing {
   background: color-mix(in srgb, var(--color-primary) 3%, var(--color-surface) 97%);
   border: 1.5px solid color-mix(in srgb, var(--color-primary) 40%, var(--color-border) 60%);
   padding: 10px 14px;
@@ -1281,7 +1281,7 @@
 
 
 /* Left border only for dispense — blue rail */
-.timeline-row-dense[data-op-type="dispense"] {
+.plating-timeline-row-dense[data-op-type="dispense"] {
   border-left: 3px solid var(--color-primary);
 }
 
@@ -1289,7 +1289,7 @@
 
 
 /* Drag Handle — far left, only on hover */
-.timeline-drag-handle-dense {
+.plating-timeline-drag-handle-dense {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1304,18 +1304,18 @@
   user-select: none;
 }
 
-.timeline-row-dense:hover .timeline-drag-handle-dense {
+.plating-timeline-row-dense:hover .plating-timeline-drag-handle-dense {
   opacity: 0.5;
 }
 
-.timeline-row-dense:active .timeline-drag-handle-dense,
-.timeline-drag-handle-dense:active {
+.plating-timeline-row-dense:active .plating-timeline-drag-handle-dense,
+.plating-timeline-drag-handle-dense:active {
   cursor: grabbing;
   opacity: 1;
 }
 
 /* Step Indicator — Badge circle + SVG icon */
-.timeline-step-indicator {
+.plating-timeline-step-indicator {
   display: flex;
   align-items: center;
   flex-shrink: 0;
@@ -1324,7 +1324,7 @@
   position: relative;
 }
 
-.timeline-step-badge {
+.plating-timeline-step-badge {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1340,7 +1340,7 @@
   box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
 }
 
-.step-icon-svg {
+.plating-step-icon-svg {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1349,12 +1349,12 @@
   font-size: 20px;
 }
 
-.step-icon-svg svg {
+.plating-step-icon-svg svg {
   display: block;
 }
 
 /* Vertical Connector — subtle line between badges */
-.timeline-connector-dense {
+.plating-timeline-connector-dense {
   position: absolute;
   left: 34px;
   /* 20px drag handle + 14px badge center */
@@ -1366,7 +1366,7 @@
 }
 
 /* Content Area — Title + Details, left-aligned */
-.timeline-content-dense {
+.plating-timeline-content-dense {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -1377,7 +1377,7 @@
 }
 
 /* Title — Bold, 1 line with ellipsis */
-.timeline-title-dense {
+.plating-timeline-title-dense {
   font-size: 13.5px;
   font-weight: 600;
   color: var(--color-text-primary);
@@ -1388,7 +1388,7 @@
 }
 
 /* Details — Secondary info, 1 line */
-.timeline-details-dense {
+.plating-timeline-details-dense {
   font-size: 11.5px;
   color: var(--color-text-secondary);
   white-space: nowrap;
@@ -1397,19 +1397,19 @@
   line-height: 1.35;
 }
 
-.timeline-content-inline {
+.plating-timeline-content-inline {
   flex-direction: row !important;
   align-items: center !important;
   gap: 8px;
 }
 
-.timeline-row-dense.selected {
+.plating-timeline-row-dense.selected {
   border-color: var(--color-primary);
   background: color-mix(in srgb, var(--color-primary) 5%, var(--color-surface) 95%);
   box-shadow: 0 0 0 1px var(--color-primary);
 }
 
-.timeline-op-label {
+.plating-timeline-op-label {
   font-size: 13px;
   font-weight: 600;
   color: var(--color-text-primary);
@@ -1417,18 +1417,18 @@
   min-width: 52px;
 }
 
-.inline-fields {
+.plating-inline-fields {
   display: flex;
   align-items: center;
   gap: 4px;
   flex-wrap: nowrap;
 }
 
-.inline-fields-grow {
+.plating-inline-fields-grow {
   flex: 1;
 }
 
-.inline-input {
+.plating-inline-input {
   border: 1px solid var(--color-border);
   border-radius: 4px;
   padding: 3px 6px;
@@ -1439,26 +1439,26 @@
   outline: none;
 }
 
-.inline-input:focus {
+.plating-inline-input:focus {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent 85%);
 }
 
-.inline-input-num {
+.plating-inline-input-num {
   width: 48px;
   text-align: center;
 }
 
-.inline-input-rpm {
+.plating-inline-input-rpm {
   width: 52px;
 }
 
-.inline-input-text {
+.plating-inline-input-text {
   flex: 1;
   min-width: 80px;
 }
 
-.inline-select {
+.plating-inline-select {
   border: 1px solid var(--color-border);
   border-radius: 4px;
   padding: 3px 4px;
@@ -1469,24 +1469,24 @@
   outline: none;
 }
 
-.inline-select:focus {
+.plating-inline-select:focus {
   border-color: var(--color-primary);
 }
 
-.inline-unit {
+.plating-inline-unit {
   font-size: 11px;
   color: var(--color-text-secondary);
   margin: 0 -1px;
 }
 
-.inline-hint {
+.plating-inline-hint {
   font-size: 11.5px;
   color: var(--color-text-secondary);
   font-style: italic;
 }
 
 /* Delete button — small, appears on hover */
-.timeline-delete-btn {
+.plating-timeline-delete-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1503,18 +1503,18 @@
   transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
-.timeline-row-dense:hover .timeline-delete-btn {
+.plating-timeline-row-dense:hover .plating-timeline-delete-btn {
   opacity: 0.7;
 }
 
-.timeline-delete-btn:hover {
+.plating-timeline-delete-btn:hover {
   opacity: 1 !important;
   background: color-mix(in srgb, var(--color-danger, #dc3545) 10%, transparent 90%);
   color: var(--color-danger, #dc3545);
 }
 
 /* Step Type Chooser Popover */
-.chooser-backdrop {
+.plating-chooser-backdrop {
   position: fixed;
   top: 0;
   left: 0;
@@ -1523,7 +1523,7 @@
   z-index: 199;
 }
 
-.step-type-chooser {
+.plating-step-type-chooser {
   position: fixed;
   top: 50%;
   left: 50%;
@@ -1537,7 +1537,7 @@
   overflow: hidden;
 }
 
-.chooser-header {
+.plating-chooser-header {
   padding: 12px 16px 8px;
   font-size: 12px;
   font-weight: 600;
@@ -1546,7 +1546,7 @@
   letter-spacing: 0.5px;
 }
 
-.chooser-option {
+.plating-chooser-option {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1561,16 +1561,16 @@
   transition: background 0.1s ease;
 }
 
-.chooser-option:hover {
+.plating-chooser-option:hover {
   background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface) 90%);
 }
 
-.chooser-icon {
+.plating-chooser-icon {
   font-size: 16px;
 }
 
 /* Timeline Edit Form (inline) */
-.timeline-edit-form {
+.plating-timeline-edit-form {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1578,48 +1578,48 @@
   padding: 4px 0;
 }
 
-.timeline-edit-form form {
+.plating-timeline-edit-form form {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 
-.edit-form-row {
+.plating-edit-form-row {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.edit-form-fields {
+.plating-edit-form-fields {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.edit-form-row label {
+.plating-edit-form-row label {
   font-size: 12px;
   font-weight: 500;
   color: var(--color-text-secondary);
   white-space: nowrap;
 }
 
-.compact-input {
+.plating-compact-input {
   height: 28px;
   width: 100px;
 }
 
-.compact-input input {
+.plating-compact-input input {
   font-size: 12px;
   padding: 0 8px;
 }
 
-.compact-input select {
+.plating-compact-input select {
   font-size: 11px;
   padding: 0 6px;
 }
 
-.compact-input .unit-suffix {
+.plating-compact-input .plating-unit-suffix {
   padding: 0 8px;
   font-size: 12px;
   font-weight: 500;
@@ -1630,7 +1630,7 @@
   align-items: center;
 }
 
-.compact-input-simple {
+.plating-compact-input-simple {
   height: 28px;
   padding: 0 8px;
   font-size: 12px;
@@ -1640,12 +1640,12 @@
   color: var(--color-text-primary);
 }
 
-.compact-input-simple:focus {
+.plating-compact-input-simple:focus {
   outline: none;
   border-color: var(--color-primary);
 }
 
-.compact-textarea {
+.plating-compact-textarea {
   width: 220px;
   padding: 6px 8px;
   font-size: 12px;
@@ -1657,18 +1657,18 @@
   resize: none;
 }
 
-.compact-textarea:focus {
+.plating-compact-textarea:focus {
   outline: none;
   border-color: var(--color-primary);
 }
 
-.edit-form-hint {
+.plating-edit-form-hint {
   font-size: 12px;
   font-style: italic;
   color: var(--color-text-tertiary);
 }
 
-.edit-form-actions {
+.plating-edit-form-actions {
   display: flex;
   gap: 6px;
   margin-left: 8px;
@@ -1692,44 +1692,44 @@
 }
 
 /* Protocol Preview Step */
-.protocol-preview-step {
+.plating-protocol-preview-step {
   padding: 0;
 }
 
-.preview-section {
+.plating-preview-section {
   margin-bottom: 24px;
 }
 
-.preview-section h4 {
+.plating-preview-section h4 {
   margin: 0 0 12px 0;
   color: var(--color-heading);
   font-size: 15px;
   font-weight: 600;
 }
 
-.preview-summary-table {
+.plating-preview-summary-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
 }
 
 /* ── Stock Solution Preparation Table ── */
-.preview-stock-table {
+.plating-preview-stock-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
   margin-bottom: 8px;
 }
 
-.preview-stock-table th,
-.preview-stock-table td {
+.plating-preview-stock-table th,
+.plating-preview-stock-table td {
   padding: 8px 10px;
   border: 1px solid var(--color-border);
   text-align: center;
   vertical-align: middle;
 }
 
-.preview-stock-table th {
+.plating-preview-stock-table th {
   background: var(--color-background);
   font-weight: 600;
   font-size: 12px;
@@ -1737,7 +1737,7 @@
   white-space: nowrap;
 }
 
-.preview-stock-table td.stock-table-name {
+.plating-preview-stock-table td.plating-stock-table-name {
   text-align: left;
   font-weight: 600;
   white-space: normal;
@@ -1747,13 +1747,13 @@
 }
 
 /* ── Protocol Steps List — 2 columns ── */
-.preview-steps-list {
+.plating-preview-steps-list {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
 
-.preview-step-card {
+.plating-preview-step-card {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md, 8px);
   background: var(--color-surface);
@@ -1763,22 +1763,22 @@
   align-items: center;
 }
 
-.preview-step-card.dispense {
+.plating-preview-step-card.dispense {
   border-left: 3px solid var(--color-primary);
 }
 
-.preview-step-card.unit-op {
+.plating-preview-step-card.plating-unit-op {
   border-left: 3px solid transparent;
 }
 
-.preview-step-header {
+.plating-preview-step-header {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
 }
 
-.preview-step-badge {
+.plating-preview-step-badge {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1792,13 +1792,13 @@
   font-weight: 700;
 }
 
-.preview-step-icon {
+.plating-preview-step-icon {
   font-size: 18px;
   line-height: 1;
   flex-shrink: 0;
 }
 
-.preview-step-label {
+.plating-preview-step-label {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -1806,24 +1806,24 @@
   justify-content: center;
 }
 
-.preview-step-label strong {
+.plating-preview-step-label strong {
   font-size: 13px;
   color: var(--color-text-primary);
 }
 
-.preview-step-meta {
+.plating-preview-step-meta {
   font-size: 11px;
   color: var(--color-text-secondary);
   display: block;
 }
 
-.preview-step-label>span {
+.plating-preview-step-label>span {
   font-size: 13px;
   color: var(--color-text-primary);
 }
 
 /* Plate Maps Grid (clustered below steps) */
-.preview-plate-maps {
+.plating-preview-plate-maps {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
   gap: 16px;
@@ -1831,47 +1831,47 @@
 }
 
 /* Compact plate grids in Plate Maps section */
-.preview-plate-maps .plate-grid-preview {
+.plating-preview-plate-maps .plating-plate-grid-preview {
   padding: 12px;
 }
 
-.preview-plate-maps .plate-grid-title {
+.plating-preview-plate-maps .plating-plate-grid-title {
   font-size: 13px;
   margin-bottom: 8px;
 }
 
-.preview-plate-maps .plate-grid-cell {
+.plating-preview-plate-maps .plating-plate-grid-cell {
   width: 32px;
   height: 26px;
   font-size: 9px;
 }
 
-.preview-plate-maps .plate-grid-col-header {
+.plating-preview-plate-maps .plating-plate-grid-col-header {
   width: 32px;
   height: 20px;
   font-size: 10px;
 }
 
-.preview-plate-maps .plate-grid-row-header {
+.plating-preview-plate-maps .plating-plate-grid-row-header {
   width: 24px;
   height: 26px;
   font-size: 10px;
 }
 
-.preview-plate-maps .plate-grid-corner {
+.plating-preview-plate-maps .plating-plate-grid-corner {
   width: 24px;
   height: 20px;
 }
 
-.preview-summary-table th,
-.preview-summary-table td {
+.plating-preview-summary-table th,
+.plating-preview-summary-table td {
   padding: 10px 12px;
   border: 1px solid var(--color-border);
   text-align: center;
   vertical-align: middle;
 }
 
-.preview-summary-table th {
+.plating-preview-summary-table th {
   background: var(--color-background);
   font-weight: 600;
   font-size: 14px;
@@ -1879,24 +1879,24 @@
   white-space: nowrap;
 }
 
-.preview-summary-table th:nth-child(2) {
+.plating-preview-summary-table th:nth-child(2) {
   text-align: left;
 }
 
-.preview-summary-table td:nth-child(2) {
+.plating-preview-summary-table td:nth-child(2) {
   text-align: left;
 }
 
-.preview-summary-table tbody tr {
+.plating-preview-summary-table tbody tr {
   cursor: pointer;
 }
 
-.preview-summary-table tbody tr:hover td {
+.plating-preview-summary-table tbody tr:hover td {
   background: color-mix(in srgb, var(--color-primary) 5%, var(--color-surface) 95%);
 }
 
 /* Plate Grid View */
-.plate-grid-preview {
+.plating-plate-grid-preview {
   background: var(--color-background);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -1904,28 +1904,28 @@
   overflow-x: auto;
 }
 
-.plate-grid-title {
+.plating-plate-grid-title {
   margin: 0 0 12px 0;
   font-size: 14px;
   color: var(--color-heading);
   font-weight: 600;
 }
 
-.plate-grid-container {
+.plating-plate-grid-container {
   display: inline-block;
 }
 
-.plate-grid-header {
+.plating-plate-grid-header {
   display: flex;
   margin-bottom: 2px;
 }
 
-.plate-grid-corner {
+.plating-plate-grid-corner {
   width: 28px;
   height: 24px;
 }
 
-.plate-grid-col-header {
+.plating-plate-grid-col-header {
   width: 40px;
   height: 24px;
   display: flex;
@@ -1936,12 +1936,12 @@
   color: var(--color-text-secondary);
 }
 
-.plate-grid-row {
+.plating-plate-grid-row {
   display: flex;
   margin-bottom: 2px;
 }
 
-.plate-grid-row-header {
+.plating-plate-grid-row-header {
   width: 28px;
   height: 32px;
   display: flex;
@@ -1952,7 +1952,7 @@
   color: var(--color-text-secondary);
 }
 
-.plate-grid-cell {
+.plating-plate-grid-cell {
   width: 40px;
   height: 32px;
   border: 1px solid var(--color-border);
@@ -1963,25 +1963,25 @@
   background: var(--color-surface);
 }
 
-.plate-grid-cell.has-amount {
+.plating-plate-grid-cell.plating-has-amount {
   background: color-mix(in srgb, var(--color-primary) 15%, var(--color-surface) 85%);
   font-weight: 600;
   color: var(--color-primary);
 }
 
-.plate-grid-cell.empty {
+.plating-plate-grid-cell.empty {
   color: var(--color-text-secondary);
 }
 
 /* Export Buttons */
-.export-buttons {
+.plating-export-buttons {
   display: flex;
   gap: 12px;
   margin-top: 20px;
   flex-wrap: wrap;
 }
 
-.export-btn {
+.plating-export-btn {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1990,45 +1990,45 @@
   font-weight: 500;
 }
 
-.export-btn.loading {
+.plating-export-btn.loading {
   opacity: 0.7;
   cursor: wait;
 }
 
 /* No Materials Warning */
-.no-materials-warning {
+.plating-no-materials-warning {
   padding: 60px 20px;
   text-align: center;
   color: var(--color-text-secondary);
 }
 
-.no-materials-warning h4 {
+.plating-no-materials-warning h4 {
   color: var(--color-warning);
   margin-bottom: 12px;
   font-size: 16px;
 }
 
-.no-materials-warning p {
+.plating-no-materials-warning p {
   font-size: 14px;
   margin: 8px 0;
 }
 
 /* Responsive adjustments */
 @media (max-width: 900px) {
-  .step-title {
+  .plating-step-title {
     display: none;
   }
 
-  .step-connector {
+  .plating-step-connector {
     width: 20px;
   }
 
-  .material-config-table {
+  .plating-material-config-table {
     font-size: 12px;
   }
 
-  .material-config-table th,
-  .material-config-table td {
+  .plating-material-config-table th,
+  .plating-material-config-table td {
     padding: 8px 10px;
   }
 }
@@ -2042,38 +2042,38 @@
     border-radius: 0;
   }
 
-  .step-indicator {
+  .plating-step-indicator {
     padding: 16px;
   }
 
-  .step-number {
+  .plating-step-number {
     width: 32px;
     height: 32px;
     font-size: 14px;
   }
 
-  .step-connector {
+  .plating-step-connector {
     width: 16px;
   }
 
-  .stock-form-container {
+  .plating-stock-form-container {
     grid-template-columns: 1fr;
   }
 
-  .stock-input-row {
+  .plating-stock-input-row {
     grid-template-columns: 1fr;
   }
 
-  .export-buttons {
+  .plating-export-buttons {
     flex-direction: column;
   }
 
-  .dispense-method-toggle {
+  .plating-dispense-method-toggle {
     flex-direction: column;
     gap: 4px;
   }
 
-  .method-btn {
+  .plating-method-btn {
     padding: 6px 12px;
     font-size: 12px;
   }

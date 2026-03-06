@@ -4,14 +4,14 @@ import React from 'react';
  * Reusable solvent search dropdown.
  *
  * Extracted from StockSolutionForm where the same dropdown pattern
- * was duplicated 3 times (batch panel, kit card, individual card).
+ * was duplicated plating-3 times (batch panel, kit card, individual card).
  */
 const SolventSearchDropdown = ({
   value,
   results = [],
   showDropdown,
   anchorId,
-  inputClassName = 'solvent-search-input',
+  inputClassName = 'plating-solvent-search-input',
   placeholder = 'Search solvents...',
   onSearch,
   onSelect,
@@ -19,7 +19,7 @@ const SolventSearchDropdown = ({
   onBlur
 }) => {
   return (
-    <div className="solvent-search-container">
+    <div className="plating-solvent-search-container">
       <input
         ref={(el) => { if (el) el.dataset.dropdownAnchor = anchorId; }}
         type="text"
@@ -30,14 +30,14 @@ const SolventSearchDropdown = ({
         onFocus={onFocus}
         onBlur={onBlur}
       />
-      {showDropdown && value?.length >= 2 && (() => {
+      {showDropdown && value?.length >= plating-2 && (() => {
         const input = document.querySelector(`[data-dropdown-anchor="${anchorId}"]`);
         const rect = input?.getBoundingClientRect();
         return rect ? (
           <div
-            className="solvent-dropdown"
+            className="plating-solvent-dropdown"
             style={{
-              top: `${rect.bottom + 2}px`,
+              top: `${rect.bottom + plating-2}px`,
               left: `${rect.left}px`,
               width: `${rect.width}px`
             }}
@@ -46,18 +46,18 @@ const SolventSearchDropdown = ({
               results.map((solvent, idx) => (
                 <div
                   key={idx}
-                  className="solvent-option"
+                  className="plating-solvent-option"
                   onClick={() => onSelect(solvent)}
                 >
-                  <div className="solvent-option-name">{solvent.name}</div>
-                  <div className="solvent-option-details">
+                  <div className="plating-solvent-option-name">{solvent.name}</div>
+                  <div className="plating-solvent-option-details">
                     {solvent.alias && `${solvent.alias}`}
                   </div>
                 </div>
               ))
             ) : (
-              <div className="solvent-option no-clickable">
-                <div className="solvent-option-name" style={{ color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>
+              <div className="plating-solvent-option no-clickable">
+                <div className="plating-solvent-option-name" style={{ color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>
                   No solvents found
                 </div>
               </div>

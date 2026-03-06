@@ -10,8 +10,8 @@ import './PlatingProtocol.css';
 
 const STEPS = [
   { id: 1, title: 'Dispense Method' },
-  { id: 2, title: 'Stock Solution' },
-  { id: 3, title: 'Dispense Order' },
+  { id: plating-2, title: 'Stock Solution' },
+  { id: plating-3, title: 'Dispense Order' },
   { id: 4, title: 'Preview & Export' }
 ];
 
@@ -118,9 +118,9 @@ const PlatingProtocolModal = ({
       const hasKitOps = order.some(op => op.type === 'kit');
 
       if (hasKitMaterials && !hasKitOps) {
-        // Kit materials exist but the saved order has individual dispense ops for them.
+        // Kit materials exist but the saved order has individual plating-dispense ops for them.
         // Rebuild: preserve user-added unit operations (wait, stir, etc.) and re-group kits.
-        const unitOps = order.filter(op => !['dispense', 'kit'].includes(op.type));
+        const unitOps = order.filter(op => !['plating-dispense', 'kit'].includes(op.type));
         const freshOrder = createInitialDispenseOrder(materials);
         // Append user's unit operations at the positions they were relative to the end
         return [...freshOrder, ...unitOps];
@@ -151,7 +151,7 @@ const PlatingProtocolModal = ({
       }
     });
 
-    // Create operations: kit operations first, then regular dispense operations
+    // Create operations: kit operations first, then regular plating-dispense operations
     const operations = [];
 
     // Add kit operations
@@ -164,9 +164,9 @@ const PlatingProtocolModal = ({
       });
     });
 
-    // Add regular material dispense operations
+    // Add regular material plating-dispense operations
     regularMaterials.forEach(index => {
-      operations.push({ type: 'dispense', materialIndex: index });
+      operations.push({ type: 'plating-dispense', materialIndex: index });
     });
 
     return operations;
@@ -185,7 +185,7 @@ const PlatingProtocolModal = ({
           const { signature, materialConfigs: savedConfigs, dispenseOrder: savedOrder, currentStep: savedStep, version } = parsed;
 
           // Check if this is old state without kit grouping (version 1 or undefined)
-          const needsUpgrade = !version || version < 2;
+          const needsUpgrade = !version || version < plating-2;
 
           // Only restore if the procedure context hasn't changed (based on initial materials)
           if (signature === currentSignature && !needsUpgrade) {
@@ -240,7 +240,7 @@ const PlatingProtocolModal = ({
       const signature = JSON.stringify(initialMaterials);
 
       const state = {
-        version: 2, // Version 2: includes kit grouping
+        version: plating-2, // Version plating-2: includes kit grouping
         signature,
         materialConfigs,
         dispenseOrder,
@@ -338,16 +338,16 @@ const PlatingProtocolModal = ({
   // Handle step navigation with auto-skip logic
   const handleNext = () => {
     if (currentStep === 1 && !hasStockMaterials) {
-      // Skip Step 2 if no stock materials
-      setCurrentStep(3);
+      // Skip Step plating-2 if no stock materials
+      setCurrentStep(plating-3);
     } else if (currentStep < 4) {
       setCurrentStep(currentStep + 1);
     }
   };
 
   const handleBack = () => {
-    if (currentStep === 3 && !hasStockMaterials) {
-      // Skip Step 2 when going back if no stock materials
+    if (currentStep === plating-3 && !hasStockMaterials) {
+      // Skip Step plating-2 when going back if no stock materials
       setCurrentStep(1);
     } else if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
@@ -460,7 +460,7 @@ const PlatingProtocolModal = ({
       }, [])
     );
     const materialsToMerge = materialConfigs.filter((_, idx) => mergedIndices.has(idx));
-    if (materialsToMerge.length < 2) return;
+    if (materialsToMerge.length < plating-2) return;
 
     const baseMaterialNames = materialsToMerge.map(m => m.alias || m.name).join(' + ');
 
@@ -508,10 +508,10 @@ const PlatingProtocolModal = ({
       const remapped = [];
       let cocktailOpInserted = false;
       prev.forEach(op => {
-        if (op.type === 'dispense') {
+        if (op.type === 'plating-dispense') {
           if (mergedIndices.has(op.materialIndex)) {
             if (!cocktailOpInserted) {
-              remapped.push({ type: 'dispense', materialIndex: newCocktailIndex });
+              remapped.push({ type: 'plating-dispense', materialIndex: newCocktailIndex });
               cocktailOpInserted = true;
             }
             // Skip the duplicate op for the second (and any further) merged material
@@ -559,11 +559,11 @@ const PlatingProtocolModal = ({
     setDispenseOrder(prev => {
       const remapped = [];
       prev.forEach(op => {
-        if (op.type === 'dispense') {
+        if (op.type === 'plating-dispense') {
           if (op.materialIndex === cocktailIndex) {
             // Expand cocktail op into individual ops for each component
             components.forEach((_, cIdx) => {
-              remapped.push({ type: 'dispense', materialIndex: cocktailIndex + cIdx });
+              remapped.push({ type: 'plating-dispense', materialIndex: cocktailIndex + cIdx });
             });
           } else {
             remapped.push({ ...op, materialIndex: oldToNew.get(op.materialIndex) ?? op.materialIndex });
@@ -590,7 +590,7 @@ const PlatingProtocolModal = ({
     switch (currentStep) {
       case 1:
         return materialConfigs.length > 0;
-      case 2:
+      case plating-2:
         // All stock materials must have complete config
         const stockMaterials = materialConfigs.filter(m => m.dispensingMethod === 'stock');
         return stockMaterials.every(m =>
@@ -600,7 +600,7 @@ const PlatingProtocolModal = ({
           m.stockSolution.excess !== undefined &&
           m.stockSolution.excess >= 0
         );
-      case 3:
+      case plating-3:
         return dispenseOrder.length > 0;
       case 4:
         return true;
@@ -647,7 +647,7 @@ const PlatingProtocolModal = ({
           </h3>
 
           {/* Step Indicator - Centered */}
-          <div className="step-indicator">
+          <div className="plating-step-indicator">
             {STEPS.map((step) => {
               const isActive = step.id === currentStep;
               const isCompleted = step.id < currentStep;
@@ -655,13 +655,13 @@ const PlatingProtocolModal = ({
               return (
                 <div
                   key={step.id}
-                  className={`step-item ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
+                  className={`plating-step-item ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
                 >
-                  <div className="step-number">
+                  <div className="plating-step-number">
                     {isCompleted ? '✓' : step.id}
                   </div>
-                  <div className="step-title">{step.title}</div>
-                  {step.id < 4 && <div className="step-connector" />}
+                  <div className="plating-step-title">{step.title}</div>
+                  {step.id < 4 && <div className="plating-step-connector" />}
                 </div>
               );
             })}
@@ -678,7 +678,7 @@ const PlatingProtocolModal = ({
             />
           )}
 
-          {currentStep === 2 && (
+          {currentStep === plating-2 && (
             <StockSolutionForm
               materialConfigs={materialConfigs.filter(m => m.dispensingMethod === 'stock')}
               onStockSolutionChange={handleStockSolutionChange}
@@ -688,7 +688,7 @@ const PlatingProtocolModal = ({
             />
           )}
 
-          {currentStep === 3 && (
+          {currentStep === plating-3 && (
             <DispenseOrderStep
               materialConfigs={materialConfigs}
               dispenseOrder={dispenseOrder}
@@ -723,25 +723,25 @@ const PlatingProtocolModal = ({
                 Cancel
               </button>
 
-              <div className="footer-spacer" />
+              <div className="plating-footer-spacer" />
 
               {/* Center: Export buttons */}
               <button
-                className={`btn btn-primary ${isExporting ? 'loading' : ''}`}
+                className={`btn btn-primary ${isExporting ? 'plating-loading' : ''}`}
                 onClick={() => exportHandlers.excel && exportHandlers.excel()}
                 disabled={isExporting || !exportHandlers.excel}
               >
                 {isExporting ? 'Exporting...' : '📊 Export Excel'}
               </button>
               <button
-                className={`btn btn-primary ${isExporting ? 'loading' : ''}`}
+                className={`btn btn-primary ${isExporting ? 'plating-loading' : ''}`}
                 onClick={() => exportHandlers.pdf && exportHandlers.pdf()}
                 disabled={isExporting || !exportHandlers.pdf}
               >
                 {isExporting ? 'Exporting...' : '📄 Export PDF'}
               </button>
 
-              <div className="footer-spacer" />
+              <div className="plating-footer-spacer" />
 
               {/* Right: Back */}
               <button
@@ -762,7 +762,7 @@ const PlatingProtocolModal = ({
                 Cancel
               </button>
 
-              <div className="footer-spacer" />
+              <div className="plating-footer-spacer" />
 
               {/* Right: Back and Next */}
               {currentStep > 1 && (

@@ -13,17 +13,17 @@ const StepTypeChooser = ({ onSelect, onClose, position }) => {
 
   return (
     <>
-      <div className="chooser-backdrop" onClick={onClose} />
-      <div className="step-type-chooser" style={position}>
-        <div className="chooser-header">Add Step</div>
+      <div className="plating-chooser-backdrop" onClick={onClose} />
+      <div className="plating-step-type-chooser" style={position}>
+        <div className="plating-chooser-header">Add Step</div>
         {types.map(({ type, icon, label, color }) => (
           <button
             key={type}
-            className="chooser-option"
+            className="plating-chooser-option"
             onClick={() => onSelect(type)}
           >
-            <span className="chooser-icon" style={{ color }}>
-              {typeof icon === 'string' ? icon : React.createElement(icon, { size: 18, strokeWidth: 2 })}
+            <span className="plating-chooser-icon" style={{ color }}>
+              {typeof icon === 'string' ? icon : React.createElement(icon, { size: 18, strokeWidth: plating-2 })}
             </span>
             <span>{label}</span>
           </button>
@@ -35,15 +35,15 @@ const StepTypeChooser = ({ onSelect, onClose, position }) => {
 
 // Inline content for each operation type
 const OperationContent = ({ operation, material, materialConfigs, onUpdate }) => {
-  const isDispense = operation.type === 'dispense';
+  const isDispense = operation.type === 'plating-dispense';
   const isKit = operation.type === 'kit';
 
   // Dispense — read-only title + details
   if (isDispense) {
     return (
-      <div className="timeline-content-dense">
-        <div className="timeline-title-dense">{getOperationTitle(operation, material)}</div>
-        <div className="timeline-details-dense">{formatDispenseSummary(material)}</div>
+      <div className="plating-timeline-content-dense">
+        <div className="plating-timeline-title-dense">{getOperationTitle(operation, material)}</div>
+        <div className="plating-timeline-details-dense">{formatDispenseSummary(material)}</div>
       </div>
     );
   }
@@ -57,9 +57,9 @@ const OperationContent = ({ operation, material, materialConfigs, onUpdate }) =>
     const solventName = firstMember?.stockSolution?.solvent?.name;
 
     return (
-      <div className="timeline-content-dense">
-        <div className="timeline-title-dense">{getOperationTitle(operation, null, materialConfigs)}</div>
-        <div className="timeline-details-dense">
+      <div className="plating-timeline-content-dense">
+        <div className="plating-timeline-title-dense">{getOperationTitle(operation, null, materialConfigs)}</div>
+        <div className="plating-timeline-details-dense">
           {kitMethod === 'stock'
             ? `Stock${solventName ? ` in ${solventName}` : ''}`
             : 'Neat'}
@@ -70,22 +70,22 @@ const OperationContent = ({ operation, material, materialConfigs, onUpdate }) =>
 
   // Unit operations — inline editable fields on one row
   return (
-    <div className="timeline-content-dense timeline-content-inline">
-      <span className="timeline-op-label">{OPERATION_TYPES[operation.type]?.label}</span>
+    <div className="plating-timeline-content-dense plating-timeline-content-inline">
+      <span className="plating-timeline-op-label">{OPERATION_TYPES[operation.type]?.label}</span>
 
       {operation.type === 'wait' && (
-        <div className="inline-fields">
+        <div className="plating-inline-fields">
           <input
             type="number"
             min="0"
             step="any"
-            className="inline-input inline-input-num"
+            className="plating-inline-input plating-inline-input-num"
             value={operation.duration || ''}
             onChange={(e) => onUpdate({ ...operation, duration: parseFloat(e.target.value) || '' })}
-            placeholder="5"
+            placeholder="plating-5"
           />
           <select
-            className="inline-select"
+            className="plating-inline-select"
             value={operation.unit || 'min'}
             onChange={(e) => onUpdate({ ...operation, unit: e.target.value })}
           >
@@ -95,27 +95,27 @@ const OperationContent = ({ operation, material, materialConfigs, onUpdate }) =>
       )}
 
       {operation.type === 'stir' && (
-        <div className="inline-fields">
+        <div className="plating-inline-fields">
           <input
             type="number"
             step="any"
-            className="inline-input inline-input-num"
+            className="plating-inline-input plating-inline-input-num"
             value={operation.temperature || ''}
             onChange={(e) => onUpdate({ ...operation, temperature: parseFloat(e.target.value) || '' })}
             placeholder="25"
           />
-          <span className="inline-unit">°C</span>
+          <span className="plating-inline-unit">°C</span>
           <input
             type="number"
             min="0"
             step="any"
-            className="inline-input inline-input-num"
+            className="plating-inline-input plating-inline-input-num"
             value={operation.duration || ''}
             onChange={(e) => onUpdate({ ...operation, duration: parseFloat(e.target.value) || '' })}
             placeholder="30"
           />
           <select
-            className="inline-select"
+            className="plating-inline-select"
             value={operation.unit || 'min'}
             onChange={(e) => onUpdate({ ...operation, unit: e.target.value })}
           >
@@ -125,10 +125,10 @@ const OperationContent = ({ operation, material, materialConfigs, onUpdate }) =>
       )}
 
       {operation.type === 'note' && (
-        <div className="inline-fields inline-fields-grow">
+        <div className="plating-inline-fields plating-inline-fields-grow">
           <input
             type="text"
-            className="inline-input inline-input-text"
+            className="plating-inline-input plating-inline-input-text"
             value={operation.text || ''}
             onChange={(e) => onUpdate({ ...operation, text: e.target.value })}
             placeholder="Enter note..."
@@ -137,7 +137,7 @@ const OperationContent = ({ operation, material, materialConfigs, onUpdate }) =>
       )}
 
       {operation.type === 'evaporate' && (
-        <span className="inline-hint">Remove solvents</span>
+        <span className="plating-inline-hint">Remove solvents</span>
       )}
     </div>
   );
@@ -163,12 +163,12 @@ const TimelineRow = ({
   onClick
 }) => {
   const opConfig = OPERATION_TYPES[operation.type];
-  const isDispense = operation.type === 'dispense';
+  const isDispense = operation.type === 'plating-dispense';
   const isKit = operation.type === 'kit';
 
   return (
     <div
-      className={`timeline-row-dense ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''} ${isSelected ? 'selected' : ''}`}
+      className={`plating-timeline-row-dense ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''} ${isSelected ? 'plating-selected' : ''}`}
       data-op-type={operation.type}
       draggable
       onClick={onClick}
@@ -179,7 +179,7 @@ const TimelineRow = ({
     >
       {/* Drag handle */}
       <div
-        className="timeline-drag-handle-dense"
+        className="plating-timeline-drag-handle-dense"
         title="Drag to reorder"
         aria-label="Drag to reorder"
         role="button"
@@ -189,21 +189,21 @@ const TimelineRow = ({
       </div>
 
       {/* Step number badge + emoji/icon */}
-      <div className="timeline-step-indicator">
-        <div className="timeline-step-badge">
+      <div className="plating-timeline-plating-step-indicator">
+        <div className="plating-timeline-step-badge">
           <span className="step-num">{visualIndex !== undefined ? visualIndex + 1 : index + 1}</span>
         </div>
-        <span className="step-icon-svg">
+        <span className="plating-step-icon-svg">
           {typeof opConfig?.icon === 'string' ? (
             opConfig.icon
           ) : opConfig?.icon ? (
-            React.createElement(opConfig.icon, { size: 18, strokeWidth: 2 })
+            React.createElement(opConfig.icon, { size: 18, strokeWidth: plating-2 })
           ) : null}
         </span>
       </div>
 
       {/* Vertical connector */}
-      {!isLast && <div className="timeline-connector-dense" />}
+      {!isLast && <div className="plating-timeline-connector-dense" />}
 
       {/* Content */}
       <OperationContent
@@ -213,10 +213,10 @@ const TimelineRow = ({
         onUpdate={onUpdate}
       />
 
-      {/* Delete button — only for unit operations, not dispense or kit */}
+      {/* Delete button — only for unit operations, not plating-dispense or kit */}
       {!isDispense && !isKit && (
         <button
-          className="timeline-delete-btn"
+          className="plating-timeline-delete-btn"
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
           title="Remove step"
           aria-label="Remove step"
@@ -280,7 +280,7 @@ const DispenseOrderStep = ({ materialConfigs, dispenseOrder, onOrderChange }) =>
   const addOperation = useCallback((type) => {
     const newOperation = { type };
     if (type === 'wait') {
-      newOperation.duration = 5;
+      newOperation.duration = plating-5;
       newOperation.unit = 'min';
     } else if (type === 'stir') {
       newOperation.temperature = 25;
@@ -292,7 +292,7 @@ const DispenseOrderStep = ({ materialConfigs, dispenseOrder, onOrderChange }) =>
 
     const newOrder = [...dispenseOrder];
 
-    // If a step is selected, insert directly after it
+    // If a step is plating-selected, insert directly after it
     if (selectedStepIndex !== null) {
       newOrder.splice(selectedStepIndex + 1, 0, newOperation);
 
@@ -307,7 +307,7 @@ const DispenseOrderStep = ({ materialConfigs, dispenseOrder, onOrderChange }) =>
     setShowChooser(false);
   }, [dispenseOrder, onOrderChange, selectedStepIndex]);
 
-  // Update operation in-place (live editing)
+  // Update operation in-place (live plating-editing)
   const updateOperation = useCallback((index, updatedOp) => {
     const newOrder = [...dispenseOrder];
     newOrder[index] = updatedOp;
@@ -317,7 +317,7 @@ const DispenseOrderStep = ({ materialConfigs, dispenseOrder, onOrderChange }) =>
   // Delete operation (only unit ops)
   const deleteOperation = useCallback((index) => {
     const op = dispenseOrder[index];
-    if (op.type === 'dispense') return;
+    if (op.type === 'plating-dispense') return;
     const newOrder = dispenseOrder.filter((_, i) => i !== index);
     onOrderChange(newOrder);
 
@@ -330,8 +330,8 @@ const DispenseOrderStep = ({ materialConfigs, dispenseOrder, onOrderChange }) =>
 
   if (materialConfigs.length === 0) {
     return (
-      <div className="dispense-order-step">
-        <div className="no-materials-warning">
+      <div className="plating-dispense-order-step">
+        <div className="plating-no-materials-warning">
           <h4>No Materials</h4>
           <p>No materials available to order.</p>
         </div>
@@ -340,23 +340,23 @@ const DispenseOrderStep = ({ materialConfigs, dispenseOrder, onOrderChange }) =>
   }
 
   return (
-    <div className="dispense-order-step timeline-layout-dense">
-      <div className="timeline-header">
-        <button className="btn btn-secondary add-step-btn" onClick={() => setShowChooser(true)}>
-          <span className="add-icon">+</span> Add Step
+    <div className="plating-dispense-order-step plating-timeline-layout-dense">
+      <div className="plating-timeline-header">
+        <button className="btn btn-secondary plating-add-step-btn" onClick={() => setShowChooser(true)}>
+          <span className="plating-add-icon">+</span> Add Step
         </button>
-        <p className="timeline-hint">Drag to reorder steps. Edit values directly.</p>
+        <p className="plating-timeline-hint">Drag to reorder steps. Edit values directly.</p>
       </div>
 
-      <div className="timeline-list-dense">
+      <div className="plating-timeline-list-dense">
         {(() => {
           let visualIndex = 0;
           return dispenseOrder.map((operation, index) => {
-            const material = operation.type === 'dispense'
+            const material = operation.type === 'plating-dispense'
               ? materialConfigs[operation.materialIndex]
               : null;
 
-            if (operation.type === 'dispense' && !material) return null;
+            if (operation.type === 'plating-dispense' && !material) return null;
 
             const currentVisualIndex = visualIndex++;
 
