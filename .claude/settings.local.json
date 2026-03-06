@@ -27,7 +27,8 @@
       "Bash(npm install:*)",
       "Bash(npm run build:*)",
       "Bash(dir \"C:\\\\Cursor\\\\HTE App\\\\frontend\\\\src\\\\components\\\\PlatingProtocol\")",
-      "Bash(npx react-scripts build)"
+      "Bash(npx react-scripts build)",
+      "Bash(findstr :3000\", project-template-checklist.md\\):*)"
     ]
   }
 }
