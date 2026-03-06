@@ -40,12 +40,12 @@ const StockFormInputs = ({
   volumeRange
 }) => {
   return (
-    <div className="stock-form-container">
-      <div className="stock-form-inputs">
-        <div className="stock-input-row">
+    <div className="plating-stock-form-container">
+      <div className="plating-stock-form-inputs">
+        <div className="plating-stock-input-row">
           {/* Solvent */}
-          <div className="stock-form-row">
-            <label className="form-label-large">Solvent</label>
+          <div className="plating-stock-form-row">
+            <label className="plating-form-label-large">Solvent</label>
             <SolventSearchDropdown
               value={solventSearchValue}
               results={solventResults}
@@ -59,11 +59,11 @@ const StockFormInputs = ({
           </div>
 
           {/* Volume per Well */}
-          <div className="stock-form-row">
-            <label className="form-label-large" title="Volume to dispense for the smallest amount in your design">
+          <div className="plating-stock-form-row">
+            <label className="plating-form-label-large" title="Volume to plating-dispense for the smallest amount in your design">
               Volume per Well
             </label>
-            <div className="input-with-unit">
+            <div className="plating-input-with-unit">
               <input
                 type="number"
                 step="0.1"
@@ -71,7 +71,7 @@ const StockFormInputs = ({
                 placeholder="e.g., 100"
                 value={volumePerWell}
                 onChange={(e) => onVolumeChange(e.target.value)}
-                title="Enter the volume to dispense for the smallest \u03bcmol amount in your design"
+                title="Enter the volume to plating-dispense for the smallest \u03bcmol amount in your design"
               />
               <select
                 value={volumeUnit}
@@ -84,8 +84,8 @@ const StockFormInputs = ({
           </div>
 
           {/* Excess % */}
-          <div className="stock-form-row">
-            <label className="form-label-large">Excess %</label>
+          <div className="plating-stock-form-row">
+            <label className="plating-form-label-large">Excess %</label>
             <input
               type="number"
               step="1"
@@ -104,25 +104,25 @@ const StockFormInputs = ({
         </div>
 
         {/* Summary Panel */}
-        <div className="stock-form-summary">
-          <div className="calculation-display">
-            <div className="calculation-row">
-              <span className="calculation-label">Total Volume</span>
-              <span className="calculation-value">{formatVolume(totalVolumeUL)}</span>
+        <div className="plating-stock-form-summary">
+          <div className="plating-calculation-display">
+            <div className="plating-calculation-row">
+              <span className="plating-calculation-label">Total Volume</span>
+              <span className="plating-calculation-value">{formatVolume(totalVolumeUL)}</span>
             </div>
-            <div className="calculation-row">
-              <span className="calculation-label">Concentration</span>
-              <span className="calculation-value">{formatConcentration(concentrationM)}</span>
+            <div className="plating-calculation-row">
+              <span className="plating-calculation-label">Concentration</span>
+              <span className="plating-calculation-value">{formatConcentration(concentrationM)}</span>
             </div>
-            <div className="calculation-row">
-              <span className="calculation-label">Total Amount</span>
-              <span className="calculation-value">
-                {totalAmountMg !== null ? `${formatNumber(totalAmountMg, 2)} mg` : '--'}
+            <div className="plating-calculation-row">
+              <span className="plating-calculation-label">Total Amount</span>
+              <span className="plating-calculation-value">
+                {totalAmountMg !== null ? `${formatNumber(totalAmountMg, plating-2)} mg` : '--'}
               </span>
             </div>
-            <div className="calculation-row">
-              <span className="calculation-label">Volume Range</span>
-              <span className="calculation-value">{formatRange(volumeRange)}</span>
+            <div className="plating-calculation-row">
+              <span className="plating-calculation-label">Volume Range</span>
+              <span className="plating-calculation-value">{formatRange(volumeRange)}</span>
             </div>
           </div>
         </div>

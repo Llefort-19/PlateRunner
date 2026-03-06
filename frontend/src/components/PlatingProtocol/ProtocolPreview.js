@@ -34,7 +34,7 @@ const ProtocolPreview = ({
   const getDispenseOperations = useCallback(() => {
     const materials = [];
     dispenseOrder.forEach(op => {
-      if (op.type === 'dispense') {
+      if (op.type === 'plating-dispense') {
         const material = materialConfigs[op.materialIndex];
         if (material) materials.push(material);
       } else if (op.type === 'kit') {
@@ -52,7 +52,7 @@ const ProtocolPreview = ({
   const getMaterialsForPlateMaps = useCallback(() => {
     const materials = [];
     dispenseOrder.forEach(op => {
-      if (op.type === 'dispense') {
+      if (op.type === 'plating-dispense') {
         const material = materialConfigs[op.materialIndex];
         if (material) materials.push(material);
       } else if (op.type === 'kit') {
@@ -293,7 +293,7 @@ const ProtocolPreview = ({
     const configToFlatIndex = new Map();
     let flatIdx = 0;
     dispenseOrder.forEach(op => {
-      if (op.type === 'dispense') {
+      if (op.type === 'plating-dispense') {
         const material = materialConfigs[op.materialIndex];
         if (material) {
           configToFlatIndex.set(op.materialIndex, flatIdx);
@@ -312,7 +312,7 @@ const ProtocolPreview = ({
 
     const remappedOperations = [];
     dispenseOrder.forEach(op => {
-      if (op.type === 'dispense') {
+      if (op.type === 'plating-dispense') {
         const material = materialConfigs[op.materialIndex];
         // Only include operations that point to a valid material
         if (material) {
@@ -408,7 +408,7 @@ const ProtocolPreview = ({
   }, []);
 
   return (
-    <div className="protocol-preview-step">
+    <div className="plating-protocol-preview-step">
       {/* Error Messages */}
       {exportError && (
         <div className="alert alert-error" style={{ marginBottom: '16px' }}>
@@ -418,9 +418,9 @@ const ProtocolPreview = ({
 
       {/* ─── Section 1: Stock Solution Preparation ─── */}
       {stockItems.length > 0 && (
-        <div className="preview-section">
+        <div className="plating-preview-section">
           <h4>🧪 Stock Solution Preparation</h4>
-          <table className="preview-stock-table">
+          <table className="plating-preview-stock-table">
             <thead>
               <tr>
                 <th>Material</th>
@@ -470,9 +470,9 @@ const ProtocolPreview = ({
                           return n;
                         })}
                       >
-                        <td className="stock-table-name">
+                        <td className="plating-stock-table-name">
                           📦 {kitId}
-                          <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginLeft: '6px' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginLeft: 'plating-6px' }}>
                             ({members.length} materials {isExpanded ? '▲' : '▼'})
                           </span>
                         </td>
@@ -490,7 +490,7 @@ const ProtocolPreview = ({
                           <tr key={`${kitId}-${mIdx}`} style={{ backgroundColor: 'rgba(0,123,255,0.03)' }}>
                             <td style={{ paddingLeft: '28px', fontSize: '12px' }}>{m.alias || m.name}</td>
                             <td style={{ fontSize: '12px' }}>{mStock?.solvent?.name || '-'}</td>
-                            <td style={{ fontSize: '12px' }}>{mMass !== null ? `${formatNumber(mMass, 2)} mg` : '-'}</td>
+                            <td style={{ fontSize: '12px' }}>{mMass !== null ? `${formatNumber(mMass, plating-2)} mg` : '-'}</td>
                             <td style={{ fontSize: '12px' }}>{formatMaterialVolume(m)}</td>
                             <td style={{ fontSize: '12px' }}>{formatMaterialConcentration(m)}</td>
                             <td style={{ fontSize: '12px' }}>{formatVolumeRange(m)}</td>
@@ -507,7 +507,7 @@ const ProtocolPreview = ({
                     return (
                       <React.Fragment key={idx}>
                         <tr>
-                          <td className="stock-table-name" style={{ backgroundColor: 'var(--color-surface-hover)' }}>
+                          <td className="plating-stock-table-name" style={{ backgroundColor: 'var(--color-surface-hover)' }}>
                             {material.alias || material.name} (Premixed)
                           </td>
                           <td style={{ backgroundColor: 'var(--color-surface-hover)' }}>-</td>
@@ -530,7 +530,7 @@ const ProtocolPreview = ({
                             <tr key={`${idx}-comp-${cIdx}`} style={{ backgroundColor: 'rgba(23, 162, 184, 0.03)' }}>
                               <td style={{ paddingLeft: '28px', fontSize: '12px' }}>{c.alias || c.name}</td>
                               <td colSpan={6} style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-                                Mass: {mMass !== null ? `${formatNumber(mMass, 2)} mg` : '-'} • Concentration: {cConc !== null ? formatConcentration(cConc) : '--'}
+                                Mass: {mMass !== null ? `${formatNumber(mMass, plating-2)} mg` : '-'} • Concentration: {cConc !== null ? formatConcentration(cConc) : '--'}
                               </td>
                             </tr>
                           );
@@ -542,9 +542,9 @@ const ProtocolPreview = ({
                   const mass = calculateStockMass(material);
                   return (
                     <tr key={idx}>
-                      <td className="stock-table-name">{material.alias || material.name}</td>
+                      <td className="plating-stock-table-name">{material.alias || material.name}</td>
                       <td>{stock?.solvent?.name || '-'}</td>
-                      <td>{mass !== null ? `${formatNumber(mass, 2)} mg` : '-'}</td>
+                      <td>{mass !== null ? `${formatNumber(mass, plating-2)} mg` : '-'}</td>
                       <td>{formatMaterialVolume(material)}</td>
                       <td>{formatMaterialConcentration(material)}</td>
                       <td>{formatVolumeRange(material)}</td>
@@ -558,14 +558,14 @@ const ProtocolPreview = ({
         </div>
       )}
 
-      {/* ─── Section 2: Protocol Steps (2-column list) ─── */}
-      <div className="preview-section">
+      {/* ─── Section plating-2: Protocol Steps (2-column list) ─── */}
+      <div className="plating-preview-section">
         <h4>📋 Protocol Steps</h4>
-        <div className="preview-steps-list">
+        <div className="plating-preview-steps-list">
           {(() => {
             let visualIndex = 0;
             return dispenseOrder.map((operation, idx) => {
-              const isDispense = operation.type === 'dispense';
+              const isDispense = operation.type === 'plating-dispense';
               const isKit = operation.type === 'kit';
               const material = isDispense ? materialConfigs[operation.materialIndex] : null;
 
@@ -577,17 +577,17 @@ const ProtocolPreview = ({
               return (
                 <div
                   key={`step-${idx}`}
-                  className={`preview-step-card ${isDispense || isKit ? 'dispense' : 'unit-op'}`}
+                  className={`plating-preview-step-card ${isDispense || isKit ? 'plating-dispense' : 'plating-unit-op'}`}
                 >
                   {/* Step badge + icon */}
-                  <div className="preview-step-header">
-                    <span className="preview-step-badge">{currentVisualIndex + 1}</span>
-                    <span className="preview-step-icon">{opConfig.icon}</span>
-                    <span className="preview-step-label">
+                  <div className="plating-preview-step-header">
+                    <span className="plating-preview-step-badge">{currentVisualIndex + 1}</span>
+                    <span className="plating-preview-step-icon">{opConfig.icon}</span>
+                    <span className="plating-preview-step-label">
                       {isDispense ? (
                         <>
                           <strong>Dispense: {material.alias || material.name}</strong>
-                          <span className="preview-step-meta">
+                          <span className="plating-preview-step-meta">
                             {isSolvent(material) ? 'Solvent' : material.dispensingMethod === 'stock' ? 'Stock' : 'Neat'}
                             {' • '}
                             {Object.keys(material.wellAmounts).length} wells
@@ -607,7 +607,7 @@ const ProtocolPreview = ({
                       ) : isKit ? (
                         <>
                           <strong>{operation.kitId}</strong>
-                          <span className="preview-step-meta">
+                          <span className="plating-preview-step-meta">
                             {(() => {
                               const firstIdx = operation.materialIndices?.[0];
                               const firstMat = firstIdx !== undefined ? materialConfigs[firstIdx] : null;
@@ -639,10 +639,10 @@ const ProtocolPreview = ({
         </div>
       </div>
 
-      {/* ─── Section 3: Plate Maps ─── */}
-      <div className="preview-section">
+      {/* ─── Section plating-3: Plate Maps ─── */}
+      <div className="plating-preview-section">
         <h4>🗺️ Plate Maps</h4>
-        <div className="preview-plate-maps">
+        <div className="plating-preview-plate-maps">
           {getMaterialsForPlateMaps().map((material, idx) => (
             <PlateGridView
               key={idx}
