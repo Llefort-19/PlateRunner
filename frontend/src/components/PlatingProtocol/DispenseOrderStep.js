@@ -168,7 +168,7 @@ const TimelineRow = ({
 
   return (
     <div
-      className={`plating-timeline-row-dense ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''} ${isSelected ? 'plating-selected' : ''}`}
+      className={`plating-timeline-row-dense ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''} ${isSelected ? 'selected' : ''}`}
       data-op-type={operation.type}
       draggable
       onClick={onClick}
@@ -292,7 +292,7 @@ const DispenseOrderStep = ({ materialConfigs, dispenseOrder, onOrderChange }) =>
 
     const newOrder = [...dispenseOrder];
 
-    // If a step is plating-selected, insert directly after it
+    // If a step is selected, insert directly after it
     if (selectedStepIndex !== null) {
       newOrder.splice(selectedStepIndex + 1, 0, newOperation);
 
