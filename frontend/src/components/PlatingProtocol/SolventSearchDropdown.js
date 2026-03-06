@@ -47,7 +47,7 @@ const SolventSearchDropdown = ({
                 <div
                   key={idx}
                   className="solvent-option"
-                  onClick={() => onSelect(solvent)}
+                  onMouseDown={(e) => { e.preventDefault(); onSelect(solvent); }}
                 >
                   <div className="solvent-option-name">{solvent.name}</div>
                   <div className="solvent-option-details">

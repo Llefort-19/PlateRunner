@@ -101,7 +101,6 @@ const Help = ({ tabId, visible, onClose }) => {
                 <li>Role assignments are saved and persist across tab switches</li>
               </ul>
 
-
             </div>
           )
         };

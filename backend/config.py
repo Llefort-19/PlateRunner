@@ -5,6 +5,9 @@ Provides environment-driven configuration with sensible defaults.
 import os
 import sys
 from pathlib import Path
+import logging
+
+logger = logging.getLogger(__name__)
 
 def get_exe_path():
     """Get the directory where the executable lives (for PyInstaller)."""
@@ -55,22 +58,12 @@ def ensure_data_folder_exists():
     if not os.path.exists(data_folder):
         try:
             os.makedirs(data_folder)
-            print(f"Created data folder: {data_folder}")
+            logger.debug(f"Created data folder: {data_folder}")
         except OSError as e:
-            print(f"Warning: Could not create data folder: {e}")
+            logger.warning(f"Warning: Could not create data folder: {e}")
             return False
     
     return True
-
-def get_data_root_path():
-    """DEPRECATED: Use get_data_folder_path() or get_app_resources_path() instead.
-    Kept for backward compatibility."""
-    # Check environment variable first
-    if os.environ.get('DATA_ROOT_PATH'):
-        return os.environ.get('DATA_ROOT_PATH')
-    
-    # For backward compatibility, return the data folder path
-    return get_data_folder_path()
 
 class Config:
     """Base configuration class with common settings."""
@@ -95,9 +88,6 @@ class Config:
     # DATA_FOLDER_PATH: user data files (Excel) - sits next to exe in frozen mode
     APP_RESOURCES_PATH = get_app_resources_path()
     DATA_FOLDER_PATH = get_data_folder_path()
-    
-    # Legacy alias for backward compatibility
-    DATA_ROOT_PATH = DATA_FOLDER_PATH
     
     # Excel file paths - these are user-managed files
     INVENTORY_PATH = os.path.join(DATA_FOLDER_PATH, 'Inventory.xlsx')

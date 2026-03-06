@@ -8,6 +8,9 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 from state import current_experiment, inventory_data, load_inventory
 from config import get_config
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Create blueprint
 uploads_bp = Blueprint('uploads', __name__, url_prefix='/api/experiment')
@@ -127,14 +130,14 @@ def export_analytical_template():
 def upload_analytical_data():
     """Upload analytical data file"""
     try:
-        print("Upload endpoint called")
+        logger.debug("Upload endpoint called")
         
         if 'file' not in request.files:
-            print("No file in request.files")
+            logger.debug("No file in request.files")
             return jsonify({'error': 'No file provided'}), 400
         
         file = request.files['file']
-        print(f"File received: {file.filename}")
+        logger.debug(f"File received: {file.filename}")
         
         # Validate file upload with security checks
         try:
@@ -158,7 +161,7 @@ def upload_analytical_data():
         
         # Read the file based on its type
         try:
-            print("Attempting to read file")
+            logger.debug("Attempting to read file")
             if file_ext == '.csv':
                 df = pd.read_csv(file)
             else:  # Excel files
@@ -192,21 +195,21 @@ def upload_analytical_data():
                     if target_sheet is None:
                         target_sheet = sheet_names[0]
 
-                print(f"Excel sheets: {sheet_names}, selected: '{target_sheet}'")
+                logger.debug(f"Excel sheets: {sheet_names}, selected: '{target_sheet}'")
                 df = pd.read_excel(excel_file, sheet_name=target_sheet)
-            print(f"File read successfully. Shape: {df.shape}")
+            logger.debug(f"File read successfully. Shape: {df.shape}")
         except Exception as e:
-            print(f"Error reading file: {str(e)}")
+            logger.error(f"Error reading file: {str(e)}")
             return jsonify({'error': f'Error reading file: {str(e)}'}), 400
         
         # Basic validation - check if file has expected structure
         if len(df.columns) < 2:
-            print(f"File has insufficient columns: {len(df.columns)}")
+            logger.debug(f"File has insufficient columns: {len(df.columns)}")
             return jsonify({'error': 'File must have at least 2 columns (Well and Sample ID)'}), 400
         
         # Validate area columns (columns containing "Area_" in their names)
         area_columns = [col for col in df.columns if col.startswith('Area_')]
-        print(f"Found area columns: {area_columns}")
+        logger.debug(f"Found area columns: {area_columns}")
         
         # Pre-process area columns: replace empty cells with 0
         for col in area_columns:
@@ -214,7 +217,7 @@ def upload_analytical_data():
             df[col] = df[col].replace(['', ' ', 'nan', 'NaN', 'None', None], pd.NA)
             # Fill NaN values with 0
             df[col] = df[col].fillna(0)
-            print(f"Pre-processed column {col}: replaced empty cells with 0")
+            logger.debug(f"Pre-processed column {col}: replaced empty cells with 0")
         
         # Check if area columns contain only numerical data
         invalid_area_columns = []
@@ -226,21 +229,21 @@ def upload_analytical_data():
                 # After our pre-processing, NaN should only occur for truly non-numeric data
                 if numeric_col.isna().any():
                     invalid_area_columns.append(col)
-                    print(f"Column {col} contains non-numeric data")
+                    logger.debug(f"Column {col} contains non-numeric data")
                     # Show which values couldn't be converted
                     nan_mask = numeric_col.isna()
                     problematic_values = df.loc[nan_mask, col].unique()
-                    print(f"Problematic values in {col}: {problematic_values}")
+                    logger.debug(f"Problematic values in {col}: {problematic_values}")
             except Exception as e:
                 invalid_area_columns.append(col)
-                print(f"Error validating column {col}: {str(e)}")
+                logger.error(f"Error validating column {col}: {str(e)}")
         
         if invalid_area_columns:
             return jsonify({
                 'error': f'Area columns must contain only numerical data. Invalid columns: {", ".join(invalid_area_columns)}'
             }), 400
         
-        print(f"Current experiment state before upload: {list(current_experiment.keys())}")
+        logger.debug(f"Current experiment state before upload: {list(current_experiment.keys())}")
         
         # Process the data to ensure correct ID format
         # Get ELN number from context
@@ -298,7 +301,7 @@ def upload_analytical_data():
                     correct_sample_id = f"{eln_number}_{well_part}"
                     processed_row['Sample ID'] = correct_sample_id
 
-                    print(f"Mapped ID '{id_value}' to Sample ID '{correct_sample_id}'")
+                    logger.debug(f"Mapped ID '{id_value}' to Sample ID '{correct_sample_id}'")
 
             processed_data.append(processed_row)
         
@@ -329,7 +332,7 @@ def upload_analytical_data():
         
         current_experiment['analytical_data']['uploadedFiles'].append(uploaded_data)
         
-        print(f"Upload successful. Current experiment keys: {list(current_experiment.keys())}")
+        logger.debug(f"Upload successful. Current experiment keys: {list(current_experiment.keys())}")
         
         return jsonify({
             'message': 'File uploaded successfully',
@@ -340,7 +343,7 @@ def upload_analytical_data():
         }), 200
         
     except Exception as e:
-        print(f"Unexpected error in upload: {str(e)}")
+        logger.error(f"Unexpected error in upload: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': f'Upload failed: {str(e)}'}), 500
@@ -349,39 +352,39 @@ def upload_analytical_data():
 def upload_materials_from_excel():
     """Upload materials from Excel file"""
     try:
-        print("Materials upload endpoint called")
+        logger.debug("Materials upload endpoint called")
         
         # Ensure inventory is loaded
         if not inventory_data:
             if not load_inventory():
-                print("Warning: Could not load inventory data")
+                logger.warning("Warning: Could not load inventory data")
         
         if 'file' not in request.files:
-            print("No file in request.files")
+            logger.debug("No file in request.files")
             return jsonify({'error': 'No file provided'}), 400
         
         file = request.files['file']
-        print(f"File received: {file.filename}")
+        logger.debug(f"File received: {file.filename}")
         
         if file.filename == '':
-            print("Empty filename")
+            logger.debug("Empty filename")
             return jsonify({'error': 'No file selected'}), 400
         
         # Check file extension
         allowed_extensions = {'.xlsx', '.xls'}
         file_ext = os.path.splitext(file.filename)[1].lower()
-        print(f"File extension: {file_ext}")
+        logger.debug(f"File extension: {file_ext}")
         
         if file_ext not in allowed_extensions:
             return jsonify({'error': f'Invalid file type. Allowed: {", ".join(allowed_extensions)}'}), 400
         
         # Read the Excel file
         try:
-            print("Attempting to read Excel file")
+            logger.debug("Attempting to read Excel file")
             excel_file = pd.ExcelFile(file)
-            print(f"Excel sheets: {excel_file.sheet_names}")
+            logger.debug(f"Excel sheets: {excel_file.sheet_names}")
         except Exception as e:
-            print(f"Error reading Excel file: {str(e)}")
+            logger.error(f"Error reading Excel file: {str(e)}")
             return jsonify({'error': f'Error reading Excel file: {str(e)}'}), 400
         
         # Look for Materials sheet
@@ -391,9 +394,9 @@ def upload_materials_from_excel():
         # Read the Materials sheet
         try:
             materials_df = pd.read_excel(excel_file, sheet_name='Materials')
-            print(f"Materials sheet read successfully. Shape: {materials_df.shape}")
+            logger.debug(f"Materials sheet read successfully. Shape: {materials_df.shape}")
         except Exception as e:
-            print(f"Error reading Materials sheet: {str(e)}")
+            logger.error(f"Error reading Materials sheet: {str(e)}")
             return jsonify({'error': f'Error reading Materials sheet: {str(e)}'}), 400
         
         # Extract materials from the sheet
@@ -432,9 +435,9 @@ def upload_materials_from_excel():
         if not materials:
             return jsonify({'error': 'No valid materials found in the Materials sheet'}), 400
         
-        print(f"Extracted {len(materials)} materials from Excel file")
+        logger.debug(f"Extracted {len(materials)} materials from Excel file")
         for i, mat in enumerate(materials):
-            print(f"  Material {i+1}: {mat['name']} - CAS: {mat['cas']} - Alias: {mat['alias']}")
+            logger.debug(f"  Material {i+1}: {mat['name']} - CAS: {mat['cas']} - Alias: {mat['alias']}")
         
         # Get current materials
         current_materials = current_experiment.get('materials', [])
@@ -445,7 +448,7 @@ def upload_materials_from_excel():
         
         # First, check all materials against the original current_materials list
         for material in materials:
-            print(f"Processing material: {material.get('name', 'Unknown')} (CAS: {material.get('cas', 'Unknown')})")
+            logger.debug(f"Processing material: {material.get('name', 'Unknown')} (CAS: {material.get('cas', 'Unknown')})")
             # Check if material already exists in current experiment (by name, CAS, or SMILES)
             is_duplicate = any(
                 (existing.get('name') and material.get('name') and existing.get('name') == material.get('name')) or
@@ -455,7 +458,7 @@ def upload_materials_from_excel():
             )
             
             if is_duplicate:
-                print(f"  -> Skipping {material.get('name', 'Unknown')} (duplicate)")
+                logger.debug(f"  -> Skipping {material.get('name', 'Unknown')} (duplicate)")
                 skipped_materials.append(material.get('alias') or material.get('name', 'Unknown'))
             else:
                 # Check if material exists in inventory or private inventory by CAS number
@@ -468,9 +471,9 @@ def upload_materials_from_excel():
                         ]
                         if not inventory_match.empty:
                             inventory_material = inventory_match.iloc[0].to_dict()
-                            print(f"  -> Found in main inventory: {inventory_material.get('chemical_name')}")
+                            logger.debug(f"  -> Found in main inventory: {inventory_material.get('chemical_name')}")
                         else:
-                            print(f"  -> Not found in main inventory")
+                            logger.debug(f"  -> Not found in main inventory")
                     
                     # Check private inventory if not found in main inventory
                     if inventory_material is None:
@@ -489,15 +492,15 @@ def upload_materials_from_excel():
                                 ]
                                 if not private_match.empty:
                                     inventory_material = private_match.iloc[0].to_dict()
-                                    print(f"  -> Found in private inventory: {inventory_material.get('chemical_name')}")
+                                    logger.debug(f"  -> Found in private inventory: {inventory_material.get('chemical_name')}")
                                 else:
-                                    print(f"  -> Not found in private inventory")
+                                    logger.debug(f"  -> Not found in private inventory")
                             except Exception as e:
-                                print(f"Error checking private inventory: {e}")
+                                logger.error(f"Error checking private inventory: {e}")
                 
                 # Use inventory data if found, otherwise use uploaded data
                 if inventory_material:
-                    print(f"  -> Using inventory data for {material.get('name', 'Unknown')}")
+                    logger.debug(f"  -> Using inventory data for {material.get('name', 'Unknown')}")
                     # Use inventory data but preserve some uploaded data
                     final_material = {
                         'name': inventory_material.get('chemical_name', material.get('name', '')),
@@ -512,7 +515,7 @@ def upload_materials_from_excel():
                         'supplier': inventory_material.get('supplier', '')
                     }
                 else:
-                    print(f"  -> Using uploaded data for {material.get('name', 'Unknown')}")
+                    logger.debug(f"  -> Using uploaded data for {material.get('name', 'Unknown')}")
                     # Use uploaded data
                     final_material = material.copy()
                     final_material['source'] = 'excel_upload'
@@ -529,9 +532,9 @@ def upload_materials_from_excel():
         inventory_matches = len([m for m in added_materials if m.get('source') == 'inventory_match'])
         excel_uploads = len([m for m in added_materials if m.get('source') == 'excel_upload'])
         
-        print(f"Final results: Added {len(added_materials)} materials ({inventory_matches} from inventory, {excel_uploads} from upload data)")
+        logger.debug(f"Final results: Added {len(added_materials)} materials ({inventory_matches} from inventory, {excel_uploads} from upload data)")
         for i, mat in enumerate(added_materials):
-            print(f"  Added {i+1}: {mat.get('name', 'Unknown')} (source: {mat.get('source', 'Unknown')})")
+            logger.debug(f"  Added {i+1}: {mat.get('name', 'Unknown')} (source: {mat.get('source', 'Unknown')})")
         
         return jsonify({
             'message': 'Materials uploaded successfully',
@@ -546,7 +549,7 @@ def upload_materials_from_excel():
         }), 200
         
     except Exception as e:
-        print(f"Unexpected error in materials upload: {str(e)}")
+        logger.error(f"Unexpected error in materials upload: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': f'Materials upload failed: {str(e)}'}), 500
@@ -559,7 +562,7 @@ def update_procedure_plate_type():
         new_plate_type = data.get('plate_type', '96')
         current_procedure = data.get('current_procedure', [])
         
-        print(f"Updating procedure plate type to: {new_plate_type}")
+        logger.debug(f"Updating procedure plate type to: {new_plate_type}")
         
         # Store the plate type information in the experiment context
         if 'context' not in current_experiment:
@@ -598,5 +601,5 @@ def update_procedure_plate_type():
         })
         
     except Exception as e:
-        print(f"Error updating procedure plate type: {str(e)}")
+        logger.error(f"Error updating procedure plate type: {str(e)}")
         return jsonify({'error': f'Failed to update plate type: {str(e)}'}), 500

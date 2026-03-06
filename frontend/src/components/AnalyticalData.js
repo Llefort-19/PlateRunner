@@ -79,7 +79,6 @@ const AnalyticalData = () => {
         })).reverse(); // Show newest first
       }
 
-      console.log("Loaded selected compounds:", compounds);
       setSelectedCompounds(compounds);
       setUploadHistory(history);
     } catch (error) {
@@ -90,11 +89,9 @@ const AnalyticalData = () => {
 
   const saveSelectedCompounds = async (compounds) => {
     try {
-      console.log("Saving selected compounds:", compounds);
       const response = await axios.post("/api/experiment/analytical", {
         selectedCompounds: compounds
       });
-      console.log("Selected compounds saved successfully:", response.data);
     } catch (error) {
       console.error("Error saving selected compounds:", error);
       console.error("Error details:", {

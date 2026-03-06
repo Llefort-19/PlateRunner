@@ -31,33 +31,6 @@ code {
 
 /* Button hover styles are already defined in theme.css */
 
-.btn-secondary {
-    background: var(--color-secondary);
-}
-
-.btn-secondary:hover {
-    background: color-mix(in srgb, var(--color-secondary) 85%, #000 15%);
-}
-
-.btn-success {
-    background: var(--color-success);
-}
-
-.btn-success:hover {
-    background: color-mix(in srgb, var(--color-success) 85%, #000 15%);
-}
-
-.btn-danger {
-    color: var(--color-surface);
-    background-color: var(--color-danger);
-    border-color: var(--color-danger);
-}
-
-.btn-danger:hover:not(:disabled) {
-    background-color: color-mix(in srgb, var(--color-danger) 85%, #000 15%);
-    border-color: color-mix(in srgb, var(--color-danger) 85%, #000 15%);
-}
-
 .form-group {
     margin-bottom: 15px;
 }
@@ -226,16 +199,16 @@ code {
     justify-content: center;
     font-weight: 600;
     font-size: 11px;
-    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
-    color: #334155;
-    border: 1px solid #cbd5e1;
+    background: linear-gradient(135deg, var(--color-slate-200) 0%, var(--color-slate-300) 100%);
+    color: var(--color-slate-600);
+    border: 1px solid var(--color-slate-300);
     cursor: pointer;
     transition: all 0.2s ease;
     user-select: none;
 }
 
 .header-cell:hover {
-    background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
+    background: linear-gradient(135deg, var(--color-slate-300) 0%, var(--color-slate-400) 100%);
     color: white;
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(148, 163, 184, 0.3);
@@ -283,16 +256,16 @@ code {
     justify-content: center;
     font-weight: 600;
     font-size: 11px;
-    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
-    color: #334155;
-    border: 1px solid #cbd5e1;
+    background: linear-gradient(135deg, var(--color-slate-200) 0%, var(--color-slate-300) 100%);
+    color: var(--color-slate-600);
+    border: 1px solid var(--color-slate-300);
     cursor: pointer;
     transition: all 0.2s ease;
     user-select: none;
 }
 
 .row-header:hover {
-    background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
+    background: linear-gradient(135deg, var(--color-slate-300) 0%, var(--color-slate-400) 100%);
     color: white;
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(148, 163, 184, 0.3);
@@ -614,12 +587,3 @@ code {
     cursor: not-allowed;
 }
 
-/* Button warning style */
-.btn-warning {
-    background: var(--color-warning);
-    color: white;
-}
-
-.btn-warning:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--color-warning) 85%, #000 15%);
-}

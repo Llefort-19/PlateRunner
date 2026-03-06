@@ -136,7 +136,6 @@ const Procedure = ({ plateType: propPlateType, setPlateType: propSetPlateType })
       const context = contextResponse.data || {};
       setExperimentContext(context);
       if (context.plate_type) {
-        console.log(`Loading plate type from context: ${context.plate_type}`);
         setPlateType(context.plate_type);
       }
     } catch (error) {

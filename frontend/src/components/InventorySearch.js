@@ -56,13 +56,10 @@ const InventorySearch = ({
     try {
       setSearchLoading(true);
       setShowSelectedInventory(false); // Auto-hide selected view when new search starts
-      console.log(`Searching for: "${query}"`);
 
       const url = `/api/inventory/search?q=${encodeURIComponent(query)}`;
-      console.log(`Making request to: ${url}`);
 
       const response = await axios.get(url);
-      console.log("Search response received:", response.data);
 
       // Parse JSON string if response.data is a string
       let parsedData = response.data;
@@ -78,7 +75,6 @@ const InventorySearch = ({
       }
 
       const results = Array.isArray(parsedData) ? parsedData : [];
-      console.log(`Found ${results.length} results`);
 
       setSearchResults(results);
       setShowSearch(true); // Always show results container, even if empty
@@ -176,7 +172,6 @@ const InventorySearch = ({
   };
 
   const addFromInventory = async (chemical) => {
-    console.log("Adding individual material from inventory:", chemical);
     
     const material = {
       name: chemical.chemical_name || chemical.name,
@@ -216,7 +211,6 @@ const InventorySearch = ({
     }
 
     try {
-      console.log(`Adding ${selectedInventoryItems.length} selected materials:`, selectedInventoryItems);
       
       // Convert all selected items to material format
       const materialsToAdd = selectedInventoryItems.map(item => ({

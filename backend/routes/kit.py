@@ -9,6 +9,9 @@ from state import current_experiment
 from utils import (
     apply_kit_design_to_procedure
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Create blueprint
 kit_bp = Blueprint('kit', __name__, url_prefix='/api/experiment/kit')
@@ -17,34 +20,34 @@ kit_bp = Blueprint('kit', __name__, url_prefix='/api/experiment/kit')
 def analyze_kit():
     """Analyze kit Excel file and return materials and design data"""
     try:
-        print("Kit analyze endpoint called")
+        logger.debug("Kit analyze endpoint called")
         
         if 'file' not in request.files:
-            print("No file in request.files")
+            logger.debug("No file in request.files")
             return jsonify({'error': 'No file provided'}), 400
         
         file = request.files['file']
-        print(f"File received: {file.filename}")
+        logger.debug(f"File received: {file.filename}")
         
         if file.filename == '':
-            print("Empty filename")
+            logger.debug("Empty filename")
             return jsonify({'error': 'No file selected'}), 400
         
         # Check file extension
         allowed_extensions = {'.xlsx', '.xls'}
         file_ext = os.path.splitext(file.filename)[1].lower()
-        print(f"File extension: {file_ext}")
+        logger.debug(f"File extension: {file_ext}")
         
         if file_ext not in allowed_extensions:
             return jsonify({'error': f'Invalid file type. Allowed: {", ".join(allowed_extensions)}'}), 400
         
         # Read the Excel file
         try:
-            print("Attempting to read Excel file")
+            logger.debug("Attempting to read Excel file")
             excel_file = pd.ExcelFile(file)
-            print(f"Excel sheets: {excel_file.sheet_names}")
+            logger.debug(f"Excel sheets: {excel_file.sheet_names}")
         except Exception as e:
-            print(f"Error reading Excel file: {str(e)}")
+            logger.error(f"Error reading Excel file: {str(e)}")
             return jsonify({'error': f'Error reading Excel file: {str(e)}'}), 400
         
         # Look for Materials sheet
@@ -58,17 +61,17 @@ def analyze_kit():
         # Read the Materials sheet using the excel_file object (not file stream which is consumed)
         try:
             materials_df = pd.read_excel(excel_file, sheet_name='Materials')
-            print(f"Materials sheet read successfully. Shape: {materials_df.shape}")
+            logger.debug(f"Materials sheet read successfully. Shape: {materials_df.shape}")
         except Exception as e:
-            print(f"Error reading Materials sheet: {str(e)}")
+            logger.error(f"Error reading Materials sheet: {str(e)}")
             return jsonify({'error': f'Error reading Materials sheet: {str(e)}'}), 400
         
         # Read the Design sheet using the excel_file object
         try:
             design_df = pd.read_excel(excel_file, sheet_name='Design')
-            print(f"Design sheet read successfully. Shape: {design_df.shape}")
+            logger.debug(f"Design sheet read successfully. Shape: {design_df.shape}")
         except Exception as e:
-            print(f"Error reading Design sheet: {str(e)}")
+            logger.error(f"Error reading Design sheet: {str(e)}")
             return jsonify({'error': f'Error reading Design sheet: {str(e)}'}), 400
         
         # Extract materials from the Materials sheet
@@ -106,12 +109,12 @@ def analyze_kit():
                 # Safe print - encode to ASCII with replacement for special chars
                 safe_name = material.get('name', '').encode('ascii', 'replace').decode('ascii')
                 safe_alias = material.get('alias', '').encode('ascii', 'replace').decode('ascii')
-                print(f"Added material: name='{safe_name}', alias='{safe_alias}'")
+                logger.debug(f"Added material: name='{safe_name}', alias='{safe_alias}'")
             else:
                 # Safe print for skipped materials too
                 safe_name = str(material.get('name', '')).encode('ascii', 'replace').decode('ascii')
                 safe_alias = str(material.get('alias', '')).encode('ascii', 'replace').decode('ascii')
-                print(f"Skipped material: name='{safe_name}', alias='{safe_alias}' (both empty)")
+                logger.debug(f"Skipped material: name='{safe_name}', alias='{safe_alias}' (both empty)")
         
         if not materials:
             return jsonify({'error': 'No valid materials found in the Materials sheet'}), 400
@@ -190,7 +193,7 @@ def analyze_kit():
             else:
                 if well in ['A1', 'A12', 'B1', 'B12']:
                     safe_alias = alias_val.encode('ascii', 'replace').decode('ascii')
-                    print(f"DEBUG: Well {well}: material_nr={mat_nr} alias='{safe_alias}' NOT FOUND")
+                    logger.debug(f"DEBUG: Well {well}: material_nr={mat_nr} alias='{safe_alias}' NOT FOUND")
         
         # Apply amount override if provided
         amount_override = request.form.get('amount_override', '').strip()
@@ -205,7 +208,7 @@ def analyze_kit():
                     for material in materials_list:
                         material['amount'] = str(override_value)
                 
-                print(f"Applied amount override: {override_value} µmol to all materials")
+                logger.debug(f"Applied amount override: {override_value} µmol to all materials")
             except ValueError:
                 return jsonify({'error': f'Invalid amount override value: {amount_override}'}), 400
         
@@ -262,11 +265,11 @@ def analyze_kit():
             'wells': sorted(all_kit_wells)
         }
         
-        print(f"Kit analysis complete: {len(materials)} materials, {len(design_data)} wells with content")
-        print(f"Kit size calculated: rows={kit_rows}, columns={kit_cols}, total_wells={total_possible_wells}")
-        print(f"Content wells with materials: {sorted(content_wells)}")
-        print(f"Full kit range: {min(rows) if rows else 'N/A'}-{max(rows) if rows else 'N/A'} × {min(cols) if cols else 'N/A'}-{max(cols) if cols else 'N/A'}")
-        print(f"All kit wells: {sorted(all_kit_wells)}")
+        logger.debug(f"Kit analysis complete: {len(materials)} materials, {len(design_data)} wells with content")
+        logger.debug(f"Kit size calculated: rows={kit_rows}, columns={kit_cols}, total_wells={total_possible_wells}")
+        logger.debug(f"Content wells with materials: {sorted(content_wells)}")
+        logger.debug(f"Full kit range: {min(rows) if rows else 'N/A'}-{max(rows) if rows else 'N/A'} × {min(cols) if cols else 'N/A'}-{max(cols) if cols else 'N/A'}")
+        logger.debug(f"All kit wells: {sorted(all_kit_wells)}")
         
         return jsonify({
             'materials': materials,
@@ -276,7 +279,7 @@ def analyze_kit():
         }), 200
         
     except Exception as e:
-        print(f"Unexpected error in kit analysis: {str(e)}")
+        logger.error(f"Unexpected error in kit analysis: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': f'Kit analysis failed: {str(e)}'}), 500
@@ -285,7 +288,7 @@ def analyze_kit():
 def apply_kit():
     """Apply kit to experiment with specified positioning"""
     try:
-        print("Kit apply endpoint called")
+        logger.debug("Kit apply endpoint called")
         
         data = request.json
         materials = data.get('materials', [])
@@ -297,7 +300,7 @@ def apply_kit():
         if not materials or not design or not position:
             return jsonify({'error': 'Missing required data: materials, design, or position'}), 400
         
-        print(f"Applying kit with position: {position} on {destination_plate}-well plate")
+        logger.debug(f"Applying kit with position: {position} on {destination_plate}-well plate")
         
         # Get current experiment data
         current_materials = current_experiment.get('materials', [])
@@ -323,7 +326,7 @@ def apply_kit():
 
         # Format kit ID as kit_01, kit_02, etc.
         kit_id = f"kit_{str(next_kit_num).zfill(2)}"
-        print(f"Assigning kit ID: {kit_id}")
+        logger.debug(f"Assigning kit ID: {kit_id}")
 
         # ── Step 1: Deduplicate within the kit's own Materials list ─────────────────
         # Two materials in the same kit that share a name or real CAS are treated
@@ -350,7 +353,7 @@ def apply_kit():
             if any(is_same_material(material, seen) for seen in unique_kit_materials):
                 label = material.get('alias') or material.get('name', 'Unknown')
                 skipped_in_kit.append(label)
-                print(f"Intra-kit duplicate dropped: '{label}' (same name/CAS as an earlier entry)")
+                logger.debug(f"Intra-kit duplicate dropped: '{label}' (same name/CAS as an earlier entry)")
             else:
                 unique_kit_materials.append(material)
 
@@ -370,7 +373,7 @@ def apply_kit():
                         'alias_b': alias_b,
                         'smiles': smiles_a[:80]
                     })
-                    print(f"SMILES-only match (kept both): '{alias_a}' and '{alias_b}'")
+                    logger.debug(f"SMILES-only match (kept both): '{alias_a}' and '{alias_b}'")
 
         # ── Step 2: Check deduplicated kit list against pre-existing experiment materials
         added_materials = []
@@ -418,7 +421,7 @@ def apply_kit():
         }), 200
         
     except Exception as e:
-        print(f"Unexpected error in kit application: {str(e)}")
+        logger.error(f"Unexpected error in kit application: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': f'Kit application failed: {str(e)}'}), 500

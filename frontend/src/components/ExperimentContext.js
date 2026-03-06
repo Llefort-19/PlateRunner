@@ -138,8 +138,6 @@ const ExperimentContext = () => {
     const formData = new FormData();
     formData.append('file', file);
 
-    console.log('Uploading SDF file:', file.name);
-    console.log('File size:', file.size);
 
     try {
       const response = await axios.post('/api/upload/sdf', formData, {
@@ -148,7 +146,6 @@ const ExperimentContext = () => {
         },
       });
 
-      console.log('Upload successful:', response.data);
       setSdfData(response.data);
       saveSdfData(response.data);
     } catch (error) {

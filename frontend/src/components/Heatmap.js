@@ -354,8 +354,6 @@ const Heatmap = () => {
       const min = Math.min(...nonZeroValues);
       const max = Math.max(...nonZeroValues);
       
-      console.log("Final heatmap data structure:", heatmap);
-      console.log("Heatmap dimensions:", heatmap.length, "rows x", heatmap[0]?.length, "columns");
       
       const newHeatmapData = {
         data: heatmap,

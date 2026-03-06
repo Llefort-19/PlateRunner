@@ -7,6 +7,9 @@ import pandas as pd
 from flask import Blueprint, request, jsonify
 from state import inventory_data, load_inventory
 from config import get_config
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Create blueprint
 inventory_bp = Blueprint('inventory', __name__, url_prefix='/api/inventory')
@@ -112,7 +115,7 @@ def search_inventory():
                 private_df['smiles'].astype(str).str.lower().str.contains(query, na=False)
             ]
         except Exception as e:
-            print(f"Error loading private inventory: {e}")
+            logger.error(f"Error loading private inventory: {e}")
             pass
     
     # Combine with main inventory priority

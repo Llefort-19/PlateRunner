@@ -1093,8 +1093,8 @@
 }
 
 .kebab-dropdown button.danger:hover {
-  background: color-mix(in srgb, var(--color-error, #dc3545) 10%, var(--color-surface) 90%);
-  color: var(--color-error, #dc3545);
+  background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface) 90%);
+  color: var(--color-danger);
 }
 
 .kebab-dropdown button span {
@@ -1333,7 +1333,7 @@
   border-radius: 50%;
   background: var(--color-primary);
   /* all badges blue */
-  color: #fff;
+  color: white;
   font-size: 12px;
   font-weight: 700;
   flex-shrink: 0;

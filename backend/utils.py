@@ -7,6 +7,9 @@ from datetime import datetime
 # Third-party imports
 import pandas as pd
 from PIL import Image
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Chemical informatics imports
 try:
@@ -14,7 +17,7 @@ try:
     from rdkit.Chem import Draw, AllChem
     RDKIT_AVAILABLE = True
 except ImportError:
-    print("Warning: RDKit not available. Molecule rendering will be disabled.")
+    logger.warning("Warning: RDKit not available. Molecule rendering will be disabled.")
     RDKIT_AVAILABLE = False
 
 def image_to_base64(img_or_bytes):
@@ -28,7 +31,7 @@ def image_to_base64(img_or_bytes):
             img_bytes = img_or_bytes
         return base64.b64encode(img_bytes).decode()
     except Exception as e:
-        print(f"[image_to_base64] Error: {e}")
+        logger.error(f"[image_to_base64] Error: {e}")
         return None
 
 def blank_png_base64(size=(300, 300)):
@@ -45,7 +48,7 @@ def normalize_2d_coordinates(mol):
         AllChem.Compute2DCoords(mol)
         return mol
     except Exception as e:
-        print(f"[normalize_2d_coordinates] Error: {e}")
+        logger.error(f"[normalize_2d_coordinates] Error: {e}")
         return mol
 
 def prepare_molecule(smiles_string):
@@ -56,13 +59,13 @@ def prepare_molecule(smiles_string):
     try:
         mol = Chem.MolFromSmiles(smiles_string.strip())
         if mol is None:
-            print(f"[prepare_molecule] Invalid SMILES: {smiles_string}")
+            logger.debug(f"[prepare_molecule] Invalid SMILES: {smiles_string}")
             return None
         
         mol = normalize_2d_coordinates(mol)
         return mol
     except Exception as e:
-        print(f"[prepare_molecule] Error: {e}")
+        logger.error(f"[prepare_molecule] Error: {e}")
         return None
 
 def render_molecule_png(mol, image_size=(300, 300)):
@@ -81,7 +84,7 @@ def render_molecule_png(mol, image_size=(300, 300)):
         
         return png_bytes
     except Exception as e:
-        print(f"[render_molecule_png] Error: {e}")
+        logger.error(f"[render_molecule_png] Error: {e}")
         return None
 
 def generate_molecule_image(smiles_string, image_size=(300, 300)):
@@ -90,23 +93,23 @@ def generate_molecule_image(smiles_string, image_size=(300, 300)):
     Returns: base64 encoded PNG image or None if error.
     """
     if not RDKIT_AVAILABLE:
-        print("[generate_molecule_image] RDKit not available")
+        logger.warning("[generate_molecule_image] RDKit not available")
         return blank_png_base64(image_size)
     
     try:
         mol = prepare_molecule(smiles_string)
         if mol is None:
-            print(f"[generate_molecule_image] Could not prepare molecule from: {smiles_string}")
+            logger.debug(f"[generate_molecule_image] Could not prepare molecule from: {smiles_string}")
             return blank_png_base64(image_size)
         
         png_bytes = render_molecule_png(mol, image_size)
         if png_bytes:
             return image_to_base64(png_bytes)
         else:
-            print(f"[generate_molecule_image] Could not render PNG for: {smiles_string}")
+            logger.debug(f"[generate_molecule_image] Could not render PNG for: {smiles_string}")
             return blank_png_base64(image_size)
     except Exception as e:
-        print(f"[generate_molecule_image] Error with {smiles_string}: {e}")
+        logger.error(f"[generate_molecule_image] Error with {smiles_string}: {e}")
         return blank_png_base64(image_size)
 
 def parse_sdf_file(sdf_content):
@@ -120,13 +123,13 @@ def parse_sdf_file(sdf_content):
         list: List of molecule dictionaries with name, smiles, and image
     """
     if not RDKIT_AVAILABLE:
-        print("[parse_sdf_file] RDKit not available")
+        logger.warning("[parse_sdf_file] RDKit not available")
         return []
     
     molecules = []
     
     try:
-        print(f"[parse_sdf_file] Processing SDF content, length: {len(sdf_content)}")
+        logger.debug(f"[parse_sdf_file] Processing SDF content, length: {len(sdf_content)}")
         
         # Use RDKit to parse SDF
         mol_supplier = Chem.SDMolSupplier()
@@ -134,7 +137,7 @@ def parse_sdf_file(sdf_content):
         
         for i, mol in enumerate(mol_supplier):
             if mol is None:
-                print(f"[parse_sdf_file] Skipping invalid molecule at index {i}")
+                logger.debug(f"[parse_sdf_file] Skipping invalid molecule at index {i}")
                 continue
             
             try:
@@ -161,17 +164,17 @@ def parse_sdf_file(sdf_content):
                 }
                 
                 molecules.append(molecule_data)
-                print(f"[parse_sdf_file] Processed molecule {i+1}: {mol_name}")
+                logger.debug(f"[parse_sdf_file] Processed molecule {i+1}: {mol_name}")
                 
             except Exception as e:
-                print(f"[parse_sdf_file] Error processing molecule {i+1}: {e}")
+                logger.error(f"[parse_sdf_file] Error processing molecule {i+1}: {e}")
                 continue
         
-        print(f"[parse_sdf_file] Successfully processed {len(molecules)} molecules")
+        logger.debug(f"[parse_sdf_file] Successfully processed {len(molecules)} molecules")
         return molecules
         
     except Exception as e:
-        print(f"[parse_sdf_file] Error parsing SDF: {e}")
+        logger.error(f"[parse_sdf_file] Error parsing SDF: {e}")
         return []
 
 def apply_kit_design_to_procedure(design, position, kit_size, current_procedure, destination_plate='96'):
@@ -229,10 +232,10 @@ def calculate_well_mappings(position, kit_size, destination_plate='96'):
     kit_wells = kit_size.get('wells', [])
     mappings = {}
     
-    print(f"Calculating well mappings for position: {position}")
-    print(f"Destination plate: {destination_plate}")
-    print(f"Kit size: {kit_size}")
-    print(f"Kit wells: {kit_wells}")
+    logger.debug(f"Calculating well mappings for position: {position}")
+    logger.debug(f"Destination plate: {destination_plate}")
+    logger.debug(f"Kit size: {kit_size}")
+    logger.debug(f"Kit wells: {kit_wells}")
     
     if not kit_wells:
         return mappings
@@ -242,7 +245,7 @@ def calculate_well_mappings(position, kit_size, destination_plate='96'):
         return calculate_flexible_well_mappings(position, kit_size, destination_plate)
     
     else:
-        print(f"Warning: Legacy string-based positioning is no longer supported. Received: {position}")
+        logger.warning(f"Warning: Legacy string-based positioning is no longer supported. Received: {position}")
         return mappings
 
 def calculate_flexible_well_mappings(position_data, kit_size, destination_plate='96'):
@@ -258,9 +261,9 @@ def calculate_flexible_well_mappings(position_data, kit_size, destination_plate=
     kit_rows = position_data.get('kit_size', {}).get('rows', 1)
     kit_cols = position_data.get('kit_size', {}).get('cols', 1)
     
-    print(f"Flexible positioning - Strategy: {strategy}")
-    print(f"Positions: {positions}")
-    print(f"Kit dimensions: {kit_rows}x{kit_cols}")
+    logger.debug(f"Flexible positioning - Strategy: {strategy}")
+    logger.debug(f"Positions: {positions}")
+    logger.debug(f"Kit dimensions: {kit_rows}x{kit_cols}")
     
     # Get destination plate config
     plate_configs = {
@@ -459,5 +462,5 @@ def calculate_flexible_well_mappings(position_data, kit_size, destination_plate=
                             mappings[well] = []
                         mappings[well].append(f"{dest_row}{dest_col}")
     
-    print(f"Flexible mappings result: {mappings}")
+    logger.debug(f"Flexible mappings result: {mappings}")
     return mappings

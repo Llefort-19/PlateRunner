@@ -333,19 +333,6 @@ const Materials = () => {
     }
   };
 
-  const handleSubRoleUpdate = async (index, subRole) => {
-    try {
-      // Note: This function appears to handle legacy sub_role field
-      // Current implementation uses role_id instead
-      const updatedMaterials = materials.map((material, i) =>
-        i === index ? { ...material, sub_role: subRole } : material
-      );
-      await saveMaterials(updatedMaterials);
-    } catch (error) {
-      showError("Error updating material sub-role: " + error.message);
-    }
-  };
-
   // Selection handlers
   const handleSelectionChange = (index, event) => {
     const newSelection = new Set(selectedMaterialIndices);
@@ -680,7 +667,6 @@ const Materials = () => {
       if (boilingPointFilter) params.append('bp_filter', boilingPointFilter);
       if (selectedTier) params.append('tier_filter', selectedTier);
 
-      console.log('Searching solvents with params:', params.toString());
 
       const response = await axios.get(`/api/solvent/search?${params.toString()}`);
       setSolventSearchResults(response.data || []);

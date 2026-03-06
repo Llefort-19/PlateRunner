@@ -44,6 +44,12 @@
   /* emphasis borders */
   --color-overlay: rgba(0, 0, 0, 0.5);
 
+  /* Slate scale - used for well plate header/row cells */
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-600: #334155;
+
   /* Text colors - Improved contrast and hierarchy */
   --color-text-primary: #111827;
   /* darker main text */
@@ -95,18 +101,10 @@
   --color-danger-text: #9f1239;
 
   --color-warning: #d97706;
-  /* Amber 600 */
   --color-warning-hover: #b45309;
   --color-warning-light: #fffbeb;
-  --color-warning-border: #fde68a;
-  --color-warning-text: #92400e;
-  /* modern amber */
-  --color-warning-light: #fffbeb;
-  /* light amber background */
   --color-warning-border: #fed7aa;
-  /* light amber border */
   --color-warning-text: #92400e;
-  /* dark amber text */
 
   --color-info: #0891b2;
   /* modern cyan */
@@ -251,6 +249,22 @@
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.6);
     --shadow-md: 0 4px 10px rgba(0, 0, 0, 0.6);
     --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.6);
+    /* Heatmap - lighten pale entries that vanish on dark backgrounds */
+    --color-heatmap-yellow: #c4c43a;
+    --color-heatmap-green-light: #6b6b1a;
+    --color-heatmap-green-1: #a8c96a;
+    /* Well plate empty state - match dark surface */
+    --color-well-empty: #2a2a2a;
+    /* Quadrant section backgrounds - darkened pastels */
+    --color-quadrant-1: #1a4d5a;
+    --color-quadrant-2: #1a4d2e;
+    --color-quadrant-3: #1a4d25;
+    --color-quadrant-4: #1a3a4d;
+    /* Slate scale for well plate headers */
+    --color-slate-200: #2d3748;
+    --color-slate-300: #4a5568;
+    --color-slate-400: #718096;
+    --color-slate-600: #e2e8f0;
   }
 }
 
@@ -268,6 +282,22 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.6);
   --shadow-md: 0 4px 10px rgba(0, 0, 0, 0.6);
   --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.6);
+  /* Heatmap - lighten pale entries that vanish on dark backgrounds */
+  --color-heatmap-yellow: #c4c43a;
+  --color-heatmap-green-light: #6b6b1a;
+  --color-heatmap-green-1: #a8c96a;
+  /* Well plate empty state - match dark surface */
+  --color-well-empty: #2a2a2a;
+  /* Quadrant section backgrounds - darkened pastels */
+  --color-quadrant-1: #1a4d5a;
+  --color-quadrant-2: #1a4d2e;
+  --color-quadrant-3: #1a4d25;
+  --color-quadrant-4: #1a3a4d;
+  /* Slate scale for well plate headers */
+  --color-slate-200: #2d3748;
+  --color-slate-300: #4a5568;
+  --color-slate-400: #718096;
+  --color-slate-600: #e2e8f0;
 }
 
 /* =====================================================

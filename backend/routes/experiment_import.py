@@ -14,6 +14,10 @@ from validation import (
     ProcedureSettingsSchema, AnalyticalDataSchema, ResultsSchema
 )
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 # Create blueprint
 import_bp = Blueprint('import', __name__, url_prefix='/api/experiment')
 
@@ -153,22 +157,11 @@ def import_experiment():
                         import_results['analytical_data']['count'] = len(analytical_data.get('data', []))
                         import_results['analytical_data']['data'] = analytical_data
                         
-                        # Store analytical data in the expected format (same as upload)
-                        if 'analytical_data' not in current_experiment:
-                            current_experiment['analytical_data'] = {}
-                        
-                        # If analytical_data is a list (old format), convert it to new format
-                        if isinstance(current_experiment['analytical_data'], list):
-                            old_uploads = current_experiment['analytical_data']
-                            current_experiment['analytical_data'] = {
-                                'selectedCompounds': [],
-                                'uploadedFiles': old_uploads
-                            }
-                        
-                        if 'uploadedFiles' not in current_experiment['analytical_data']:
-                            current_experiment['analytical_data']['uploadedFiles'] = []
-                        
-                        current_experiment['analytical_data']['uploadedFiles'].append(analytical_data)
+                        # Replace analytical data entirely — import should not accumulate
+                        current_experiment['analytical_data'] = {
+                            'selectedCompounds': [],
+                            'uploadedFiles': [analytical_data]
+                        }
                 except Exception as e:
                     import_results['errors'].append(f"Analytical data import error: {str(e)}")
             
@@ -578,7 +571,7 @@ def import_analytical_sheet(ws):
                     correct_sample_id = f"{eln_number}_{well_part}"
                     data_item['Sample ID'] = correct_sample_id
                     
-                    print(f"Import: Mapped ID '{id_value}' to Sample ID '{correct_sample_id}'")
+                    logger.debug(f"Import: Mapped ID '{id_value}' to Sample ID '{correct_sample_id}'")
         
         # Only add data item if it has content beyond just the well ID
         if data_item and len([k for k, v in data_item.items() if v and str(v).strip()]) > 1:

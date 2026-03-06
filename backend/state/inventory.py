@@ -6,6 +6,9 @@ import os
 import threading
 import pandas as pd
 from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Thread lock for inventory state
 _inventory_lock = threading.RLock()
@@ -44,7 +47,7 @@ def load_inventory() -> bool:
         set_inventory_data(df)
         return True
     except Exception as e:
-        print(f"Error loading inventory: {e}")
+        logger.error(f"Error loading inventory: {e}")
         return False
 
 def is_inventory_loaded() -> bool:
