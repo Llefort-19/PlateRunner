@@ -10,8 +10,8 @@ import './PlatingProtocol.css';
 
 const STEPS = [
   { id: 1, title: 'Dispense Method' },
-  { id: plating-2, title: 'Stock Solution' },
-  { id: plating-3, title: 'Dispense Order' },
+  { id: 2, title: 'Stock Solution' },
+  { id: 3, title: 'Dispense Order' },
   { id: 4, title: 'Preview & Export' }
 ];
 
@@ -185,7 +185,7 @@ const PlatingProtocolModal = ({
           const { signature, materialConfigs: savedConfigs, dispenseOrder: savedOrder, currentStep: savedStep, version } = parsed;
 
           // Check if this is old state without kit grouping (version 1 or undefined)
-          const needsUpgrade = !version || version < plating-2;
+          const needsUpgrade = !version || version < 2;
 
           // Only restore if the procedure context hasn't changed (based on initial materials)
           if (signature === currentSignature && !needsUpgrade) {
@@ -240,7 +240,7 @@ const PlatingProtocolModal = ({
       const signature = JSON.stringify(initialMaterials);
 
       const state = {
-        version: plating-2, // Version plating-2: includes kit grouping
+        version: 2, // Version 2: includes kit grouping
         signature,
         materialConfigs,
         dispenseOrder,
@@ -338,16 +338,16 @@ const PlatingProtocolModal = ({
   // Handle step navigation with auto-skip logic
   const handleNext = () => {
     if (currentStep === 1 && !hasStockMaterials) {
-      // Skip Step plating-2 if no stock materials
-      setCurrentStep(plating-3);
+      // Skip Step 2 if no stock materials
+      setCurrentStep(3);
     } else if (currentStep < 4) {
       setCurrentStep(currentStep + 1);
     }
   };
 
   const handleBack = () => {
-    if (currentStep === plating-3 && !hasStockMaterials) {
-      // Skip Step plating-2 when going back if no stock materials
+    if (currentStep === 3 && !hasStockMaterials) {
+      // Skip Step 2 when going back if no stock materials
       setCurrentStep(1);
     } else if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
@@ -460,7 +460,7 @@ const PlatingProtocolModal = ({
       }, [])
     );
     const materialsToMerge = materialConfigs.filter((_, idx) => mergedIndices.has(idx));
-    if (materialsToMerge.length < plating-2) return;
+    if (materialsToMerge.length < 2) return;
 
     const baseMaterialNames = materialsToMerge.map(m => m.alias || m.name).join(' + ');
 
@@ -590,7 +590,7 @@ const PlatingProtocolModal = ({
     switch (currentStep) {
       case 1:
         return materialConfigs.length > 0;
-      case plating-2:
+      case 2:
         // All stock materials must have complete config
         const stockMaterials = materialConfigs.filter(m => m.dispensingMethod === 'stock');
         return stockMaterials.every(m =>
@@ -600,7 +600,7 @@ const PlatingProtocolModal = ({
           m.stockSolution.excess !== undefined &&
           m.stockSolution.excess >= 0
         );
-      case plating-3:
+      case 3:
         return dispenseOrder.length > 0;
       case 4:
         return true;
@@ -678,7 +678,7 @@ const PlatingProtocolModal = ({
             />
           )}
 
-          {currentStep === plating-2 && (
+          {currentStep === 2 && (
             <StockSolutionForm
               materialConfigs={materialConfigs.filter(m => m.dispensingMethod === 'stock')}
               onStockSolutionChange={handleStockSolutionChange}
@@ -688,7 +688,7 @@ const PlatingProtocolModal = ({
             />
           )}
 
-          {currentStep === plating-3 && (
+          {currentStep === 3 && (
             <DispenseOrderStep
               materialConfigs={materialConfigs}
               dispenseOrder={dispenseOrder}

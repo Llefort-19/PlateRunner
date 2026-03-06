@@ -62,7 +62,7 @@ const StockSolutionForm = ({ materialConfigs, onStockSolutionChange, onCombineSt
   // Search solvents
   const searchSolvents = useCallback(async (query, materialKey) => {
     // If query is plating-empty, allow it (to clear results) but check length for API call
-    if (!query || query.length < plating-2) {
+    if (!query || query.length < 2) {
       setSolventResults(prev => ({ ...prev, [materialKey]: [] }));
       return;
     }
@@ -95,7 +95,7 @@ const StockSolutionForm = ({ materialConfigs, onStockSolutionChange, onCombineSt
       clearTimeout(searchTimeoutRef.current[materialKey]);
     }
 
-    if (value.length >= plating-2) {
+    if (value.length >= 2) {
       searchTimeoutRef.current[materialKey] = setTimeout(() => {
         searchSolvents(value, materialKey);
       }, 300);
@@ -143,7 +143,7 @@ const StockSolutionForm = ({ materialConfigs, onStockSolutionChange, onCombineSt
       clearTimeout(batchSearchTimeoutRef.current);
     }
 
-    if (!value || value.length < plating-2) {
+    if (!value || value.length < 2) {
       setBatchSolventResults([]);
       return;
     }
@@ -190,8 +190,8 @@ const StockSolutionForm = ({ materialConfigs, onStockSolutionChange, onCombineSt
   // Validate if plating-selected materials can be combined
   const getCombinationError = () => {
     const selectedList = materialConfigs.filter(m => selectedMaterials[`${m.name}_${m.cas}`]);
-    if (selectedList.length < plating-2) {
-      return "Select at least plating-2 materials to combine.";
+    if (selectedList.length < 2) {
+      return "Select at least 2 materials to combine.";
     }
 
     // 1. Validate identical destination wells
@@ -205,7 +205,7 @@ const StockSolutionForm = ({ materialConfigs, onStockSolutionChange, onCombineSt
       }
     }
 
-    // plating-2. Validate constant ratio of amounts across all shared wells
+    // 2. Validate constant ratio of amounts across all shared wells
     if (referenceWells.length > 0) {
       // We check the ratio of [Material i] / [Reference Material(0)] for each well
       for (let i = 1; i < selectedList.length; i++) {
@@ -416,12 +416,12 @@ const StockSolutionForm = ({ materialConfigs, onStockSolutionChange, onCombineSt
                 />
               </div>
 
-              <div style={{ marginLeft: '10px', display: 'flex', flexDirection: 'column', gap: 'plating-6px', justifyContent: 'flex-end', height: '100%' }}>
+              <div style={{ marginLeft: '10px', display: 'flex', flexDirection: 'column', gap: '6px', justifyContent: 'flex-end', height: '100%' }}>
                 <button
                   className="btn btn-primary plating-batch-apply-compact"
                   onClick={handleCombineStocks}
-                  disabled={Object.values(selectedMaterials).filter(Boolean).length < plating-2}
-                  style={{ backgroundColor: 'var(--color-accent)', border: 'none', width: '100%', fontSize: '13px', padding: 'plating-6px' }}
+                  disabled={Object.values(selectedMaterials).filter(Boolean).length < 2}
+                  style={{ backgroundColor: 'var(--color-accent)', border: 'none', width: '100%', fontSize: '13px', padding: '6px' }}
                 >
                   Combine
                 </button>
@@ -618,7 +618,7 @@ const StockSolutionForm = ({ materialConfigs, onStockSolutionChange, onCombineSt
 
               {/* Expandable member list — full detail rows */}
               {expandedKits.has(kitId) && (
-                <div style={{ padding: '0 16px 8px', display: 'flex', flexDirection: 'column', gap: 'plating-6px' }}>
+                <div style={{ padding: '0 16px 8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {kitMaterials.map((m, i) => {
                     const mWellCount = Object.keys(m.wellAmounts).length;
                     const mMass = calcMass(m);
@@ -627,7 +627,7 @@ const StockSolutionForm = ({ materialConfigs, onStockSolutionChange, onCombineSt
                     const mVolRange = getVolumeRange(m);
                     const mStock = m.stockSolution || {};
                     return (
-                      <div key={i} style={{ background: 'var(--color-background)', borderRadius: 'plating-6px', padding: '8px 12px', border: '1px solid var(--color-border)' }}>
+                      <div key={i} style={{ background: 'var(--color-background)', borderRadius: '6px', padding: '8px 12px', border: '1px solid var(--color-border)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
                             <strong>{m.alias || m.name}</strong>
@@ -642,7 +642,7 @@ const StockSolutionForm = ({ materialConfigs, onStockSolutionChange, onCombineSt
                           <span>Excess: <strong style={{ color: 'var(--color-text-primary)' }}>{mStock.excess ?? '--'}%</strong></span>
                           <span>Total Vol: <strong style={{ color: 'var(--color-text-primary)' }}>{formatVolume(mTotalVol)}</strong></span>
                           <span>Conc: <strong style={{ color: 'var(--color-text-primary)' }}>{formatConcentration(mConc)}</strong></span>
-                          <span>Mass: <strong style={{ color: 'var(--color-text-primary)' }}>{mMass !== null ? `${formatNumber(mMass, plating-2)} mg` : '--'}</strong></span>
+                          <span>Mass: <strong style={{ color: 'var(--color-text-primary)' }}>{mMass !== null ? `${formatNumber(mMass, 2)} mg` : '--'}</strong></span>
                           <span>Vol Range: <strong style={{ color: 'var(--color-text-primary)' }}>
                             {formatRange(mVolRange, 1)}
                           </strong></span>
@@ -716,28 +716,28 @@ const StockSolutionForm = ({ materialConfigs, onStockSolutionChange, onCombineSt
                         material.components.map(c => {
                           const wellCountC = Object.keys(c.wellAmounts).length;
                           const umol = c.totalAmount?.value / wellCountC;
-                          return `${formatNumber(umol, plating-2)} μmol ${c.alias || c.name}`;
+                          return `${formatNumber(umol, 2)} μmol ${c.alias || c.name}`;
                         }).join(' + ')
                       }</span>
                     </>
                   ) : (
                     <>
                       <span className="plating-meta-separator">•</span>
-                      <span className="plating-meta-item">{formatNumber(material.totalAmount.value / wellCount, plating-2)} {material.totalAmount.unit || 'μmol'}/well</span>
+                      <span className="plating-meta-item">{formatNumber(material.totalAmount.value / wellCount, 2)} {material.totalAmount.unit || 'μmol'}/well</span>
                       <span className="plating-meta-separator">•</span>
-                      <span className="plating-meta-item">{formatNumber(material.totalAmount.value, plating-2)} {material.totalAmount.unit || 'μmol'} total</span>
+                      <span className="plating-meta-item">{formatNumber(material.totalAmount.value, 2)} {material.totalAmount.unit || 'μmol'} total</span>
                     </>
                   )}
                 </div>
                 {material.isCocktail ? (
-                  <div style={{ display: 'flex', gap: 'plating-6px', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                     <button
                       className="btn"
                       style={{
                         backgroundColor: '#fd7e14',
                         border: 'none',
                         color: 'white',
-                        padding: 'plating-6px 12px',
+                        padding: '6px 12px',
                         fontSize: '11px',
                         minWidth: 'auto',
                         fontWeight: 700,

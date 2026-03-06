@@ -15,17 +15,17 @@ const PlateGridView = ({ material, plateType = '96', showTitle = true }) => {
       case '24':
         return {
           rows: ['A', 'B', 'C', 'D'],
-          columns: [1, plating-2, plating-3, 4, plating-5, 6]
+          columns: [1, 2, 3, 4, 5, 6]
         };
       case '48':
         return {
           rows: ['A', 'B', 'C', 'D', 'E', 'F'],
-          columns: [1, plating-2, plating-3, 4, plating-5, 6, plating-7, plating-8]
+          columns: [1, 2, 3, 4, 5, 6, 7, 8]
         };
       default: // 96
         return {
           rows: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
-          columns: [1, plating-2, plating-3, 4, plating-5, 6, plating-7, plating-8, 9, 10, 11, 12]
+          columns: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
         };
     }
   };
@@ -71,8 +71,8 @@ const PlateGridView = ({ material, plateType = '96', showTitle = true }) => {
       let tooltipValue = null;
 
       if (isKit) {
-        displayValue = amount.toFixed(plating-2);
-        tooltipValue = `${wellId}: ${amount.toFixed(plating-2)} ${unit}`;
+        displayValue = amount.toFixed(2);
+        tooltipValue = `${wellId}: ${amount.toFixed(2)} ${unit}`;
       } else if (isStockMaterial) {
         const volume = calculateVolumeForWell(amount, concentrationM);
         if (volume !== null && !isNaN(volume)) {
@@ -88,8 +88,8 @@ const PlateGridView = ({ material, plateType = '96', showTitle = true }) => {
       } else {
         const mass = calculateNeatMassForWell(amount, material?.molecular_weight);
         if (mass !== null && !isNaN(mass)) {
-          displayValue = mass.toFixed(plating-2);
-          tooltipValue = `${wellId}: ${mass.toFixed(plating-2)} mg`;
+          displayValue = mass.toFixed(2);
+          tooltipValue = `${wellId}: ${mass.toFixed(2)} mg`;
         }
       }
 

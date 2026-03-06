@@ -472,7 +472,7 @@ const ProtocolPreview = ({
                       >
                         <td className="plating-stock-table-name">
                           📦 {kitId}
-                          <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginLeft: 'plating-6px' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginLeft: '6px' }}>
                             ({members.length} materials {isExpanded ? '▲' : '▼'})
                           </span>
                         </td>
@@ -490,7 +490,7 @@ const ProtocolPreview = ({
                           <tr key={`${kitId}-${mIdx}`} style={{ backgroundColor: 'rgba(0,123,255,0.03)' }}>
                             <td style={{ paddingLeft: '28px', fontSize: '12px' }}>{m.alias || m.name}</td>
                             <td style={{ fontSize: '12px' }}>{mStock?.solvent?.name || '-'}</td>
-                            <td style={{ fontSize: '12px' }}>{mMass !== null ? `${formatNumber(mMass, plating-2)} mg` : '-'}</td>
+                            <td style={{ fontSize: '12px' }}>{mMass !== null ? `${formatNumber(mMass, 2)} mg` : '-'}</td>
                             <td style={{ fontSize: '12px' }}>{formatMaterialVolume(m)}</td>
                             <td style={{ fontSize: '12px' }}>{formatMaterialConcentration(m)}</td>
                             <td style={{ fontSize: '12px' }}>{formatVolumeRange(m)}</td>
@@ -530,7 +530,7 @@ const ProtocolPreview = ({
                             <tr key={`${idx}-comp-${cIdx}`} style={{ backgroundColor: 'rgba(23, 162, 184, 0.03)' }}>
                               <td style={{ paddingLeft: '28px', fontSize: '12px' }}>{c.alias || c.name}</td>
                               <td colSpan={6} style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-                                Mass: {mMass !== null ? `${formatNumber(mMass, plating-2)} mg` : '-'} • Concentration: {cConc !== null ? formatConcentration(cConc) : '--'}
+                                Mass: {mMass !== null ? `${formatNumber(mMass, 2)} mg` : '-'} • Concentration: {cConc !== null ? formatConcentration(cConc) : '--'}
                               </td>
                             </tr>
                           );
@@ -544,7 +544,7 @@ const ProtocolPreview = ({
                     <tr key={idx}>
                       <td className="plating-stock-table-name">{material.alias || material.name}</td>
                       <td>{stock?.solvent?.name || '-'}</td>
-                      <td>{mass !== null ? `${formatNumber(mass, plating-2)} mg` : '-'}</td>
+                      <td>{mass !== null ? `${formatNumber(mass, 2)} mg` : '-'}</td>
                       <td>{formatMaterialVolume(material)}</td>
                       <td>{formatMaterialConcentration(material)}</td>
                       <td>{formatVolumeRange(material)}</td>
@@ -558,7 +558,7 @@ const ProtocolPreview = ({
         </div>
       )}
 
-      {/* ─── Section plating-2: Protocol Steps (2-column list) ─── */}
+      {/* ─── Section 2: Protocol Steps (2-column list) ─── */}
       <div className="plating-preview-section">
         <h4>📋 Protocol Steps</h4>
         <div className="plating-preview-steps-list">
@@ -639,7 +639,7 @@ const ProtocolPreview = ({
         </div>
       </div>
 
-      {/* ─── Section plating-3: Plate Maps ─── */}
+      {/* ─── Section 3: Plate Maps ─── */}
       <div className="plating-preview-section">
         <h4>🗺️ Plate Maps</h4>
         <div className="plating-preview-plate-maps">

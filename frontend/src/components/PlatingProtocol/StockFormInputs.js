@@ -117,7 +117,7 @@ const StockFormInputs = ({
             <div className="plating-calculation-row">
               <span className="plating-calculation-label">Total Amount</span>
               <span className="plating-calculation-value">
-                {totalAmountMg !== null ? `${formatNumber(totalAmountMg, plating-2)} mg` : '--'}
+                {totalAmountMg !== null ? `${formatNumber(totalAmountMg, 2)} mg` : '--'}
               </span>
             </div>
             <div className="plating-calculation-row">

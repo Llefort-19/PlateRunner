@@ -4,7 +4,7 @@ import React from 'react';
  * Reusable solvent search dropdown.
  *
  * Extracted from StockSolutionForm where the same dropdown pattern
- * was duplicated plating-3 times (batch panel, kit card, individual card).
+ * was duplicated 3 times (batch panel, kit card, individual card).
  */
 const SolventSearchDropdown = ({
   value,
@@ -30,14 +30,14 @@ const SolventSearchDropdown = ({
         onFocus={onFocus}
         onBlur={onBlur}
       />
-      {showDropdown && value?.length >= plating-2 && (() => {
+      {showDropdown && value?.length >= 2 && (() => {
         const input = document.querySelector(`[data-dropdown-anchor="${anchorId}"]`);
         const rect = input?.getBoundingClientRect();
         return rect ? (
           <div
             className="plating-solvent-dropdown"
             style={{
-              top: `${rect.bottom + plating-2}px`,
+              top: `${rect.bottom + 2}px`,
               left: `${rect.left}px`,
               width: `${rect.width}px`
             }}

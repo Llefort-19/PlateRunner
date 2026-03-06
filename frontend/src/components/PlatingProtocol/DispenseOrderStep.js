@@ -23,7 +23,7 @@ const StepTypeChooser = ({ onSelect, onClose, position }) => {
             onClick={() => onSelect(type)}
           >
             <span className="plating-chooser-icon" style={{ color }}>
-              {typeof icon === 'string' ? icon : React.createElement(icon, { size: 18, strokeWidth: plating-2 })}
+              {typeof icon === 'string' ? icon : React.createElement(icon, { size: 18, strokeWidth: 2 })}
             </span>
             <span>{label}</span>
           </button>
@@ -82,7 +82,7 @@ const OperationContent = ({ operation, material, materialConfigs, onUpdate }) =>
             className="plating-inline-input plating-inline-input-num"
             value={operation.duration || ''}
             onChange={(e) => onUpdate({ ...operation, duration: parseFloat(e.target.value) || '' })}
-            placeholder="plating-5"
+            placeholder="5"
           />
           <select
             className="plating-inline-select"
@@ -197,7 +197,7 @@ const TimelineRow = ({
           {typeof opConfig?.icon === 'string' ? (
             opConfig.icon
           ) : opConfig?.icon ? (
-            React.createElement(opConfig.icon, { size: 18, strokeWidth: plating-2 })
+            React.createElement(opConfig.icon, { size: 18, strokeWidth: 2 })
           ) : null}
         </span>
       </div>
@@ -280,7 +280,7 @@ const DispenseOrderStep = ({ materialConfigs, dispenseOrder, onOrderChange }) =>
   const addOperation = useCallback((type) => {
     const newOperation = { type };
     if (type === 'wait') {
-      newOperation.duration = plating-5;
+      newOperation.duration = 5;
       newOperation.unit = 'min';
     } else if (type === 'stir') {
       newOperation.temperature = 25;
