@@ -13,8 +13,7 @@ venv.bak/
 
 # Production builds
 build/
-dist/*
-!dist/Standalone_Distribution/
+dist/
 *.egg-info/
 
 # Environment variables
