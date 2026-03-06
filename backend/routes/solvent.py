@@ -48,9 +48,9 @@ def search_solvents():
         # Apply text search if query provided
         if query:
             text_filter = (
-                df['Name'].astype(str).str.lower().str.contains(query, na=False) |
-                df['Alias'].astype(str).str.lower().str.contains(query, na=False) |
-                df['CAS Number'].astype(str).str.lower().str.contains(query, na=False)
+                df['Name'].astype(str).str.lower().str.contains(query, na=False, regex=False) |
+                df['Alias'].astype(str).str.lower().str.contains(query, na=False, regex=False) |
+                df['CAS Number'].astype(str).str.lower().str.contains(query, na=False, regex=False)
             )
             results = results[text_filter]
 
@@ -61,7 +61,8 @@ def search_solvents():
                 class_variations.append(class_filter[:-1])
             else:
                 class_variations.append(class_filter + 's')
-            class_mask = results['Chemical Class'].astype(str).str.lower().str.contains('|'.join(class_variations), na=False)
+            class_pattern = '|'.join(re.escape(v) for v in class_variations)
+            class_mask = results['Chemical Class'].astype(str).str.lower().str.contains(class_pattern, na=False)
             results = results[class_mask]
 
         # Apply boiling point filter if provided

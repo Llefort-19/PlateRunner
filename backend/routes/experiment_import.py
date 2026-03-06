@@ -153,22 +153,11 @@ def import_experiment():
                         import_results['analytical_data']['count'] = len(analytical_data.get('data', []))
                         import_results['analytical_data']['data'] = analytical_data
                         
-                        # Store analytical data in the expected format (same as upload)
-                        if 'analytical_data' not in current_experiment:
-                            current_experiment['analytical_data'] = {}
-                        
-                        # If analytical_data is a list (old format), convert it to new format
-                        if isinstance(current_experiment['analytical_data'], list):
-                            old_uploads = current_experiment['analytical_data']
-                            current_experiment['analytical_data'] = {
-                                'selectedCompounds': [],
-                                'uploadedFiles': old_uploads
-                            }
-                        
-                        if 'uploadedFiles' not in current_experiment['analytical_data']:
-                            current_experiment['analytical_data']['uploadedFiles'] = []
-                        
-                        current_experiment['analytical_data']['uploadedFiles'].append(analytical_data)
+                        # Replace analytical data entirely — import should not accumulate
+                        current_experiment['analytical_data'] = {
+                            'selectedCompounds': [],
+                            'uploadedFiles': [analytical_data]
+                        }
                 except Exception as e:
                     import_results['errors'].append(f"Analytical data import error: {str(e)}")
             

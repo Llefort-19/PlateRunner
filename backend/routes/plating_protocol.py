@@ -126,11 +126,13 @@ def export_to_excel(protocol):
     kit_role_ids = set(e.get('kit_id', '') for e in kit_stock_entries)
 
     # Write kit stock entries first to the summary
+    item_num = 0
     for entry in kit_stock_entries:
         row += 1
+        item_num += 1
         stock = entry.get('stock_solution', {}) or {}
         row_data = [
-            row - 2,  # 1-indexed
+            item_num,
             entry.get('kit_id', ''),
             entry.get('kit_id', ''),
             '',  # no MW for kit
@@ -151,6 +153,7 @@ def export_to_excel(protocol):
         if material.get('role_id', '') in kit_role_ids and material.get('dispensing_method') == 'stock':
             continue
         row += 1
+        item_num += 1
         stock = material.get('stock_solution', {}) or {}
 
         # Calculate mass
@@ -202,7 +205,7 @@ def export_to_excel(protocol):
         is_cocktail = material.get('is_cocktail', False) or material.get('isCocktail', False)
 
         row_data = [
-            row - 2,
+            item_num,
             f"{material.get('name', '')} (Premixed)" if is_cocktail else material.get('name', ''),
             material.get('alias', ''),
             '' if is_cocktail else material.get('molecular_weight', ''),

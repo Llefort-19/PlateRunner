@@ -52,14 +52,22 @@ def get_experiment_context():
             except ValueError:
                 # Only fix if parsing as YYYY-MM-DD fails
                 try:
-                    date_formats = ['%m/%d/%Y', '%d/%m/%Y', '%d-%m-%Y', '%m-%d-%Y']
                     parsed_date = None
-                    for fmt in date_formats:
-                        try:
-                            parsed_date = datetime.strptime(date_str, fmt)
-                            break
-                        except ValueError:
-                            continue
+                    sep = '/' if '/' in date_str else '-' if date_str.count('-') == 2 else None
+                    if sep:
+                        parts = date_str.split(sep)
+                        if len(parts) == 3:
+                            try:
+                                a, b = int(parts[0]), int(parts[1])
+                                if a > 12:
+                                    # First part can't be a month — must be day-first (EU)
+                                    parsed_date = datetime.strptime(date_str, f'%d{sep}%m{sep}%Y')
+                                elif b > 12:
+                                    # Second part can't be a month — must be day-first reversed (US)
+                                    parsed_date = datetime.strptime(date_str, f'%m{sep}%d{sep}%Y')
+                                # else: both ≤ 12 — genuinely ambiguous, preserve original
+                            except (ValueError, TypeError):
+                                pass
 
                     if parsed_date:
                         context['date'] = parsed_date.strftime('%Y-%m-%d')

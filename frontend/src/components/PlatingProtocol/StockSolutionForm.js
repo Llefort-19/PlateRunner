@@ -374,7 +374,7 @@ const StockSolutionForm = ({ materialConfigs, onStockSolutionChange, onCombineSt
                     setShowBatchDropdown(false);
                   }}
                   onFocus={() => setShowBatchDropdown(true)}
-                  onBlur={() => setTimeout(() => setShowBatchDropdown(false), 200)}
+                  onBlur={() => setShowBatchDropdown(false)}
                 />
               </div>
 
@@ -662,7 +662,7 @@ const StockSolutionForm = ({ materialConfigs, onStockSolutionChange, onCombineSt
                 onSolventSearch={handleKitSolventSearch}
                 onSolventSelect={handleKitSolventSelect}
                 onSolventFocus={() => setShowDropdown(prev => ({ ...prev, [refKey]: true }))}
-                onSolventBlur={() => setTimeout(() => setShowDropdown(prev => ({ ...prev, [refKey]: false })), 200)}
+                onSolventBlur={() => setShowDropdown(prev => ({ ...prev, [refKey]: false }))}
                 volumePerWell={stock.amountPerWell?.value ?? ''}
                 volumeUnit={stock.amountPerWell?.unit || 'μL'}
                 onVolumeChange={(val) => handleKitValueChange('amountPerWell', val)}
@@ -766,7 +766,7 @@ const StockSolutionForm = ({ materialConfigs, onStockSolutionChange, onCombineSt
                 onSolventSearch={(val) => handleSolventSearch(material, val)}
                 onSolventSelect={(solvent) => handleSolventSelect(material, solvent)}
                 onSolventFocus={() => setShowDropdown(prev => ({ ...prev, [materialKey]: true }))}
-                onSolventBlur={() => setTimeout(() => setShowDropdown(prev => ({ ...prev, [materialKey]: false })), 200)}
+                onSolventBlur={() => setShowDropdown(prev => ({ ...prev, [materialKey]: false }))}
                 volumePerWell={stock.amountPerWell?.value ?? ''}
                 volumeUnit={stock.amountPerWell?.unit || 'μL'}
                 onVolumeChange={(val) => handleValueChange(material, 'amountPerWell', val)}
