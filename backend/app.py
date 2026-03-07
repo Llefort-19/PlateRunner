@@ -9,6 +9,7 @@ from logging.handlers import RotatingFileHandler
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
+from flask_login import current_user
 from config import get_config, get_app_resources_path
 
 def get_base_path():
@@ -43,9 +44,29 @@ def create_app(config_name=None):
     # Load configuration
     config_class = get_config() if config_name is None else config_name
     app.config.from_object(config_class)
-    
+
+    # Warn if using the default insecure secret key
+    if app.config.get('_warn_secret'):
+        import warnings
+        warnings.warn(
+            "SECRET_KEY is not set — using insecure default. "
+            "Set the SECRET_KEY environment variable before deploying.",
+            stacklevel=2
+        )
+
+    # Initialize database
+    from models import db
+    db.init_app(app)
+    with app.app_context():
+        db.create_all()
+
+    # Initialize auth
+    from auth import auth_bp, login_manager
+    login_manager.init_app(app)
+    app.register_blueprint(auth_bp)
+
     # Initialize extensions
-    CORS(app, 
+    CORS(app,
          origins=app.config['CORS_ORIGINS'],
          methods=app.config['CORS_METHODS'],
          allow_headers=app.config['CORS_HEADERS'])
@@ -117,12 +138,39 @@ def apply_security_measures(app):
     """Apply security measures to the application."""
     from security.headers import add_security_headers
     from security.rate_limiting import apply_rate_limits
-    
+
+    # Exempt routes that don't require authentication
+    _AUTH_EXEMPT = {
+        '/api/auth/login',
+        '/api/auth/register',
+        '/api/server/ping',
+        '/api/server/status',
+    }
+
+    @app.before_request
+    def require_auth():
+        """Enforce authentication on all /api/ routes except exempt ones."""
+        from flask import request, jsonify, g
+        if request.path.startswith('/api/') and request.path not in _AUTH_EXEMPT:
+            if not current_user.is_authenticated:
+                return jsonify({'error': 'Authentication required'}), 401
+            g.current_user_id = current_user.id
+
     # Add security headers to all responses
     @app.after_request
     def security_headers(response):
         return add_security_headers(response)
-    
+
+    @app.after_request
+    def save_experiment_state(response):
+        """Persist experiment state to DB if modified during this request."""
+        try:
+            from state.experiment import save_experiment_if_dirty
+            save_experiment_if_dirty()
+        except Exception:
+            pass  # Never let state save failure break a response
+        return response
+
     # Apply rate limiting to all requests
     @app.before_request
     def rate_limiting():

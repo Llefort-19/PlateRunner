@@ -1,0 +1,37 @@
+# Render.com Infrastructure-as-Code deployment for HTE App beta
+# Deploy: connect this repo in the Render dashboard and it will auto-detect this file.
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: hte-app
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/server/ping
+    # Single instance — SQLite cannot handle concurrent writes across processes
+    numInstances: 1
+
+    disk:
+      name: hte-data
+      mountPath: /data
+      sizeGB: 1          # Stores SQLite DB + Excel files + Private Inventory
+
+    envVars:
+      - key: FLASK_ENV
+        value: production
+
+      # Auto-generate a strong random secret on first deploy
+      - key: SECRET_KEY
+        generateValue: true
+
+      # SQLite on the persistent disk
+      - key: DATABASE_URL
+        value: sqlite:////data/hte_beta.db
+
+      # Excel reference data on the persistent disk
+      - key: DATA_FOLDER_PATH
+        value: /data
+
+      # Set your public domain here after first deploy (used for CORS)
+      - key: CORS_ORIGINS
+        value: https://hte-app.onrender.com

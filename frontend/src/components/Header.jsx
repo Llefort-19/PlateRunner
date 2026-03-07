@@ -2,15 +2,12 @@ import React, { useState, useEffect } from "react";
 import { useToast } from "./ToastContext";
 import axios from 'axios';
 
-const Header = ({ activeTab, onTabChange, onReset, onShowHelp, onImportComplete }) => {
+const Header = ({ activeTab, onTabChange, onReset, onShowHelp, onImportComplete, onLogout }) => {
   const { showSuccess, showError } = useToast();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedImportFile, setSelectedImportFile] = useState(null);
-  const [isPortableMode, setIsPortableMode] = useState(false);
-  const [showShutdownConfirm, setShowShutdownConfirm] = useState(false);
-  const [isShuttingDown, setIsShuttingDown] = useState(false);
   const [experimentContext, setExperimentContext] = useState({ eln: '', project: '' });
 
   // Custom confirmation modal state
@@ -18,17 +15,9 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp, onImportComplete 
   const openConfirm = (message, onConfirm) => setConfirmModal({ visible: true, message, onConfirm });
   const closeConfirm = () => setConfirmModal({ visible: false, message: '', onConfirm: null });
 
-  // Check server status and load experiment context on mount
+  // Load experiment context on mount
   useEffect(() => {
     const initializeHeader = async () => {
-      try {
-        // Check server status
-        const serverResponse = await axios.get('/api/server/status');
-        setIsPortableMode(serverResponse.data.shutdown_available);
-      } catch (error) {
-        setIsPortableMode(false);
-      }
-
       try {
         // Fetch experiment context for header display
         const contextResponse = await axios.get('/api/experiment/context');
@@ -86,21 +75,13 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp, onImportComplete 
     onShowHelp(activeTab);
   };
 
-  const handleShutdown = async () => {
-    setIsShuttingDown(true);
+  const handleLogout = async () => {
     try {
-      await axios.post('/api/server/shutdown');
-      // Show success message briefly before server shuts down
-      showSuccess("Server is shutting down. You can close this browser tab.");
-      setShowShutdownConfirm(false);
+      await axios.post('/api/auth/logout');
     } catch (error) {
-      if (error.response?.status === 403) {
-        showError("Shutdown is only available when running as a portable app.");
-      } else {
-        showError("Failed to shutdown server: " + error.message);
-      }
-      setIsShuttingDown(false);
+      // Proceed with logout regardless
     }
+    if (onLogout) onLogout();
   };
 
   const handleImportClick = () => {
@@ -280,66 +261,20 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp, onImportComplete 
                 <path d="M3 3v5h5" />
               </svg>
             </button>
-            {isPortableMode && (
-              <button
-                className="action-btn-icon action-btn-danger"
-                onClick={() => setShowShutdownConfirm(true)}
-                title="Exit the application"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-              </button>
-            )}
+            <button
+              className="action-btn-icon"
+              onClick={handleLogout}
+              title="Sign out"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+            </button>
           </div>
         </div>
       </header>
-
-      {/* Shutdown Confirmation Modal */}
-      {showShutdownConfirm && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: "400px", width: "90%" }}>
-            <div className="modal-header">
-              <h3>Exit Application</h3>
-              <button className="modal-close" onClick={() => setShowShutdownConfirm(false)}>×</button>
-            </div>
-            <div className="modal-body" style={{ textAlign: 'center', padding: '20px' }}>
-              <p style={{ marginBottom: '15px', fontSize: '16px' }}>
-                Are you sure you want to exit the HTE App?
-              </p>
-              <p style={{ marginBottom: '20px', color: 'var(--color-text-secondary)', fontSize: '14px' }}>
-                Make sure you have exported your experiment data before exiting.
-              </p>
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => setShowShutdownConfirm(false)}
-                  disabled={isShuttingDown}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="btn"
-                  onClick={handleShutdown}
-                  disabled={isShuttingDown}
-                  style={{
-                    backgroundColor: '#dc3545',
-                    color: 'white',
-                    border: 'none',
-                    padding: '10px 20px',
-                    borderRadius: '6px',
-                    cursor: isShuttingDown ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  {isShuttingDown ? 'Shutting down...' : 'Exit Application'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Import Modal */}
       {showImportModal && (

@@ -69,7 +69,9 @@ class Config:
     """Base configuration class with common settings."""
     
     # Flask settings
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
+    _secret = os.environ.get('SECRET_KEY')
+    SECRET_KEY = _secret if _secret else 'dev-secret-key-change-in-production'
+    _warn_secret = not bool(_secret)
     DEBUG = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
     TESTING = False
     
@@ -78,8 +80,8 @@ class Config:
     UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
     ALLOWED_EXTENSIONS = {'.xlsx', '.xls', '.csv', '.sdf'}
     
-    # CORS settings
-    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', '*').split(',')
+    # CORS settings (wildcard only in dev; production overrides this)
+    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'http://localhost:3000,http://localhost:5000').split(',')
     CORS_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
     CORS_HEADERS = ['Content-Type', 'Authorization']
     
@@ -114,6 +116,15 @@ class Config:
     VALIDATION_STRICT = os.environ.get('VALIDATION_STRICT', 'False').lower() == 'true'
     VALIDATION_LOG_WARNINGS = os.environ.get('VALIDATION_LOG_WARNINGS', 'True').lower() == 'true'
     
+    # Database settings
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///hte_beta.db')
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    # Session settings
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    REMEMBER_COOKIE_HTTPONLY = True
+
     # Security settings
     RATE_LIMITING_ENABLED = os.environ.get('RATE_LIMITING_ENABLED', 'True').lower() == 'true'
     API_RATE_LIMIT = int(os.environ.get('API_RATE_LIMIT', 100))  # requests per minute
@@ -143,6 +154,12 @@ class ProductionConfig(Config):
     CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'https://yourdomain.com').split(',')
     LOG_LEVEL = 'WARNING'
     VALIDATION_STRICT = True
+    SESSION_COOKIE_SECURE = True
+    REMEMBER_COOKIE_SECURE = True
+    DATA_FOLDER_PATH = os.environ.get('DATA_FOLDER_PATH', '/app/data')
+    INVENTORY_PATH = os.path.join(os.environ.get('DATA_FOLDER_PATH', '/app/data'), 'Inventory.xlsx')
+    PRIVATE_INVENTORY_PATH = os.path.join(os.environ.get('DATA_FOLDER_PATH', '/app/data'), 'Private_Inventory.xlsx')
+    SOLVENT_PATH = os.path.join(os.environ.get('DATA_FOLDER_PATH', '/app/data'), 'Solvent.xlsx')
 
 class TestingConfig(Config):
     """Testing configuration."""

@@ -1,15 +1,10 @@
 """
 Experiment state management.
-Handles the global current_experiment state with thread safety.
+Per-user, database-backed state with backward-compatible ExperimentState wrapper.
 """
-import threading
-from typing import Dict, Any, List
+import copy
 
-# Thread lock for experiment state
-_experiment_lock = threading.RLock()
-
-# Global experiment state
-_current_experiment = {
+_DEFAULT_EXPERIMENT = {
     'context': {},
     'materials': [],
     'procedure': [],
@@ -36,117 +31,168 @@ _current_experiment = {
     'plating_protocol': None
 }
 
-def get_current_experiment() -> Dict[str, Any]:
-    """Get a copy of the current experiment state."""
-    with _experiment_lock:
-        # Return a deep copy to prevent external modifications
-        import copy
-        return copy.deepcopy(_current_experiment)
 
-def update_experiment_context(context: Dict[str, Any]) -> None:
-    """Update experiment context."""
-    with _experiment_lock:
-        _current_experiment['context'] = context
-
-def update_experiment_materials(materials: List[Dict[str, Any]]) -> None:
-    """Update experiment materials."""
-    with _experiment_lock:
-        _current_experiment['materials'] = materials
-
-def update_experiment_procedure(procedure: List[Dict[str, Any]]) -> None:
-    """Update experiment procedure."""
-    with _experiment_lock:
-        _current_experiment['procedure'] = procedure
-
-def update_experiment_procedure_settings(settings: Dict[str, Any]) -> None:
-    """Update experiment procedure settings."""
-    with _experiment_lock:
-        _current_experiment['procedure_settings'] = settings
-
-def update_experiment_analytical_data(analytical_data: Dict[str, Any]) -> None:
-    """Update experiment analytical data."""
-    with _experiment_lock:
-        _current_experiment['analytical_data'] = analytical_data
-
-def update_experiment_results(results: List[Dict[str, Any]]) -> None:
-    """Update experiment results."""
-    with _experiment_lock:
-        _current_experiment['results'] = results
-
-def update_experiment_heatmap_data(heatmap_data: Dict[str, Any]) -> None:
-    """Update experiment heatmap data."""
-    with _experiment_lock:
-        _current_experiment['heatmap_data'] = heatmap_data
+def _default_experiment():
+    return copy.deepcopy(_DEFAULT_EXPERIMENT)
 
 
-def update_experiment_plating_protocol(protocol: Dict[str, Any]) -> None:
-    """Update experiment plating protocol."""
-    with _experiment_lock:
-        _current_experiment['plating_protocol'] = protocol
+def _get_experiment_data():
+    """Load current user's experiment from DB (cached on flask.g for this request)."""
+    from flask import g
+    if hasattr(g, '_experiment_data'):
+        return g._experiment_data
 
-def reset_experiment() -> None:
-    """Reset experiment to initial state."""
-    with _experiment_lock:
-        global _current_experiment
-        _current_experiment = {
-            'context': {},
-            'materials': [],
-            'procedure': [],
-            'procedure_settings': {
-                'reactionConditions': {
-                    'temperature': '',
-                    'time': '',
-                    'pressure': '',
-                    'wavelength': '',
-                    'remarks': ''
-                },
-                'analyticalDetails': {
-                    'uplcNumber': '',
-                    'method': '',
-                    'duration': '',
-                    'remarks': ''
-                }
-            },
-            'analytical_data': {
-                'selectedCompounds': [],
-                'uploadedFiles': []
-            },
-            'results': [],
-            'plating_protocol': None
-        }
+    user_id = getattr(g, 'current_user_id', None)
+    if user_id is None:
+        g._experiment_data = _default_experiment()
+        g._experiment_id = None
+        g._experiment_dirty = False
+        return g._experiment_data
 
-# For backward compatibility, provide direct access to the state
-# This will be removed in future phases when all code uses the functions above
+    from models import Experiment
+    exp = Experiment.query.filter_by(user_id=user_id, is_active=True).first()
+    if exp:
+        g._experiment_data = exp.get_data()
+        g._experiment_id = exp.id
+    else:
+        g._experiment_data = _default_experiment()
+        g._experiment_id = None
+
+    g._experiment_dirty = False
+    return g._experiment_data
+
+
+def _mark_dirty():
+    from flask import g
+    g._experiment_dirty = True
+
+
+def save_experiment_if_dirty():
+    """Persist experiment to DB if modified. Called by after_request hook."""
+    from flask import g
+    if not getattr(g, '_experiment_dirty', False):
+        return
+    if not hasattr(g, '_experiment_data'):
+        return
+
+    user_id = getattr(g, 'current_user_id', None)
+    if user_id is None:
+        return
+
+    from models import Experiment, db
+    exp_id = getattr(g, '_experiment_id', None)
+
+    if exp_id:
+        exp = db.session.get(Experiment, exp_id)
+        if exp:
+            exp.set_data(g._experiment_data)
+            db.session.commit()
+    else:
+        exp = Experiment(user_id=user_id)
+        exp.set_data(g._experiment_data)
+        db.session.add(exp)
+        db.session.commit()
+        g._experiment_id = exp.id
+
+    g._experiment_dirty = False
+
+
+def reset_experiment():
+    """Reset the current user's experiment to initial state."""
+    from flask import g
+    from models import Experiment, db
+
+    user_id = getattr(g, 'current_user_id', None)
+    fresh = _default_experiment()
+
+    if user_id is None:
+        g._experiment_data = fresh
+        g._experiment_id = None
+        g._experiment_dirty = False
+        return
+
+    exp_id = getattr(g, '_experiment_id', None)
+    if exp_id:
+        exp = db.session.get(Experiment, exp_id)
+        if exp:
+            exp.set_data(fresh)
+            db.session.commit()
+    else:
+        exp = Experiment(user_id=user_id)
+        exp.set_data(fresh)
+        db.session.add(exp)
+        db.session.commit()
+        g._experiment_id = exp.id
+
+    g._experiment_data = fresh
+    g._experiment_dirty = False
+
+
+# ── Backward-compatible named update functions ──────────────────────────────
+
+def get_current_experiment():
+    return copy.deepcopy(_get_experiment_data())
+
+def update_experiment_context(context):
+    _get_experiment_data()['context'] = context
+    _mark_dirty()
+
+def update_experiment_materials(materials):
+    _get_experiment_data()['materials'] = materials
+    _mark_dirty()
+
+def update_experiment_procedure(procedure):
+    _get_experiment_data()['procedure'] = procedure
+    _mark_dirty()
+
+def update_experiment_procedure_settings(settings):
+    _get_experiment_data()['procedure_settings'] = settings
+    _mark_dirty()
+
+def update_experiment_analytical_data(analytical_data):
+    _get_experiment_data()['analytical_data'] = analytical_data
+    _mark_dirty()
+
+def update_experiment_results(results):
+    _get_experiment_data()['results'] = results
+    _mark_dirty()
+
+def update_experiment_heatmap_data(heatmap_data):
+    _get_experiment_data()['heatmap_data'] = heatmap_data
+    _mark_dirty()
+
+def update_experiment_plating_protocol(protocol):
+    _get_experiment_data()['plating_protocol'] = protocol
+    _mark_dirty()
+
+
+# ── Backward-compatible dict-like wrapper ────────────────────────────────────
+
 class ExperimentState:
-    """Backward compatibility wrapper for experiment state."""
-    
-    def __getitem__(self, key):
-        with _experiment_lock:
-            return _current_experiment[key]
-    
-    def __contains__(self, key):
-        with _experiment_lock:
-            return key in _current_experiment
-    
-    def __setitem__(self, key, value):
-        with _experiment_lock:
-            _current_experiment[key] = value
-    
-    def get(self, key, default=None):
-        with _experiment_lock:
-            return _current_experiment.get(key, default)
-    
-    def keys(self):
-        with _experiment_lock:
-            return _current_experiment.keys()
-    
-    def values(self):
-        with _experiment_lock:
-            return _current_experiment.values()
-    
-    def items(self):
-        with _experiment_lock:
-            return _current_experiment.items()
+    """Dict-like wrapper giving routes transparent access to per-user DB state."""
 
-# Global instance for backward compatibility
+    def __getitem__(self, key):
+        return _get_experiment_data()[key]
+
+    def __contains__(self, key):
+        return key in _get_experiment_data()
+
+    def __setitem__(self, key, value):
+        _get_experiment_data()[key] = value
+        _mark_dirty()
+
+    def get(self, key, default=None):
+        return _get_experiment_data().get(key, default)
+
+    def keys(self):
+        return _get_experiment_data().keys()
+
+    def values(self):
+        return _get_experiment_data().values()
+
+    def items(self):
+        return _get_experiment_data().items()
+
+
+# Module-level singleton — all routes use `from state import current_experiment`
 current_experiment = ExperimentState()

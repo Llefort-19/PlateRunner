@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router } from "react-router-dom";
 import axios from "axios";
 import Header from "./components/Header";
+import Login from "./components/Login";
 import ExperimentContext from "./components/ExperimentContext";
 import Materials from "./components/Materials";
 import Procedure from "./components/Procedure";
@@ -14,43 +15,43 @@ import { ToastProvider } from "./components/ToastContext";
 import ToastContainer from "./components/Toast";
 import "./App.css";
 
+// Global axios interceptor: redirect to login on 401
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Avoid infinite loops on auth endpoints
+      if (!error.config?.url?.startsWith("/api/auth/")) {
+        window.location.reload();
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("context");
   const [showHelp, setShowHelp] = useState(false);
   const [helpTabId, setHelpTabId] = useState(null);
-  const [plateType, setPlateType] = useState("96"); // Lifted state to persist across tab switches
-  const [refreshKey, setRefreshKey] = useState(0); // State for avoiding window.location.reload
+  const [plateType, setPlateType] = useState("96");
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const tabs = [
-    {
-      id: "context",
-      label: "Experiment Context",
-      component: ExperimentContext,
-    },
-    { id: "materials", label: "Materials", component: Materials },
-    { id: "design", label: "Design", component: Procedure },
-    { id: "procedure", label: "Procedure", component: ProcedureSettings },
-    { id: "analytical", label: "Analytical Data", component: AnalyticalData },
-    { id: "results", label: "Results", component: Results },
-    { id: "heatmap", label: "Heatmap", component: Heatmap },
-  ];
+  // Check session on mount
+  useEffect(() => {
+    axios.get("/api/auth/me")
+      .then(() => setIsAuthenticated(true))
+      .catch(() => setIsAuthenticated(false))
+      .finally(() => setIsLoading(false));
+  }, []);
 
   const handleReset = async () => {
     try {
-      // Call backend reset endpoint
       await axios.post("/api/experiment/reset");
-
-      // Clear localStorage for SDF data
       localStorage.removeItem("experimentSdfData");
-
-      // Clear session flag so next start is treated as fresh
-      sessionStorage.removeItem("experimentSessionActive");
-
-      // Use React state to trigger component re-fetches
       setActiveTab("context");
       setRefreshKey(prev => prev + 1);
-
-      // Dispatch events to update independent components like Header
       window.dispatchEvent(new CustomEvent('experimentContextUpdated'));
       window.dispatchEvent(new CustomEvent('materialsCleared'));
     } catch (error) {
@@ -73,6 +74,23 @@ function App() {
     setHelpTabId(null);
   };
 
+  if (isLoading) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ color: "var(--color-text-secondary, #64748b)" }}>Loading…</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <ToastProvider>
+        <Login onLogin={() => setIsAuthenticated(true)} />
+        <ToastContainer />
+      </ToastProvider>
+    );
+  }
+
   return (
     <ToastProvider>
       <Router>
@@ -83,6 +101,7 @@ function App() {
             onReset={handleReset}
             onShowHelp={handleShowHelp}
             onImportComplete={handleImportComplete}
+            onLogout={() => setIsAuthenticated(false)}
           />
 
           <div className="container">

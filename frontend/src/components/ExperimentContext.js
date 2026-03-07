@@ -45,19 +45,7 @@ const ExperimentContext = () => {
   useEffect(() => {
     loadContext();
     loadCurrentMaterials();
-
-    // Check if this is a fresh app start (not a page refresh)
-    // If there's no session flag, clear any existing SDF data for a clean start
-    const hasActiveSession = sessionStorage.getItem('experimentSessionActive');
-    if (!hasActiveSession) {
-      // Clear any persisted SDF data for a clean start
-      localStorage.removeItem('experimentSdfData');
-      // Set session flag to indicate an active session
-      sessionStorage.setItem('experimentSessionActive', 'true');
-    } else {
-      // Load existing SDF data if session is active
-      loadSdfData();
-    }
+    loadSdfData();
   }, []);
 
   const loadCurrentMaterials = async () => {
