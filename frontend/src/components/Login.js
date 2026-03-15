@@ -688,7 +688,7 @@ export default function Login({ onLogin }) {
           &nbsp;&middot;&nbsp;
           <a onClick={() => setShowAbout(true)}>About</a>
           &nbsp;&middot;&nbsp;
-          <a href="mailto:platerunner@outlook.com">Contact</a>
+          <a href="mailto:Platerunner.app@outlook.com">Contact</a>
         </footer>
 
         {/* ── About overlay ──────────────────────────────────────── */}
@@ -708,7 +708,7 @@ export default function Login({ onLogin }) {
               </p>
               <p>
                 If you'd like to try it or share feedback, please{" "}
-                <a href="mailto:platerunner@outlook.com" style={{ color: "#2563eb" }}>get in touch</a>.
+                <a href="mailto:Platerunner.app@outlook.com" style={{ color: "#2563eb" }}>get in touch</a>.
               </p>
             </div>
           </div>
