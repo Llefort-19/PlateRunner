@@ -20,7 +20,9 @@ const MaterialForm = ({
     smiles: "",
     barcode: "",
     role: "",
-    role_id: "", // Renamed from sub_role
+    role_id: "",
+    supplier: "",
+    catalog_number: "",
   });
 
   const [fieldErrors, setFieldErrors] = useState({});
@@ -41,7 +43,9 @@ const MaterialForm = ({
         smiles: "",
         barcode: "",
         role: "",
-        role_id: "", // Renamed from sub_role
+        role_id: "",
+        supplier: "",
+        catalog_number: "",
       });
     }
   }, [material, visible]); // Added visible to dependencies to trigger when modal opens
@@ -247,6 +251,30 @@ const MaterialForm = ({
               </div>
 
               <div className="form-group">
+                <label htmlFor="supplier">Supplier</label>
+                <input
+                  type="text"
+                  id="supplier"
+                  className="form-control"
+                  value={formData.supplier || ""}
+                  onChange={(e) => handleInputChange("supplier", e.target.value)}
+                  placeholder="Enter supplier"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="catalog_number">Cat #</label>
+                <input
+                  type="text"
+                  id="catalog_number"
+                  className="form-control"
+                  value={formData.catalog_number || ""}
+                  onChange={(e) => handleInputChange("catalog_number", e.target.value)}
+                  placeholder="Enter catalog number"
+                />
+              </div>
+
+              <div className="form-group">
                 <label htmlFor="role">Role</label>
                 <select
                   id="role"
@@ -265,7 +293,7 @@ const MaterialForm = ({
 
               {/* Role_ID Input - Optional free text field */}
               <div className="form-group">
-                <label htmlFor="role_id">Role_ID (optional)</label>
+                <label htmlFor="role_id">Role_ID</label>
                 <input
                   type="text"
                   id="role_id"
@@ -275,9 +303,6 @@ const MaterialForm = ({
                   placeholder="e.g. kit1, Lig"
                   style={{ width: "150px" }}
                 />
-                <small style={{ color: "var(--color-text-secondary)", fontSize: "11px" }}>
-                  Use to tag materials from kits or custom identifiers
-                </small>
               </div>
 
             </div>

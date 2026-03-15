@@ -73,6 +73,7 @@ class MaterialSchema(Schema):
     ]), missing='manual')
     inventory_location = fields.Str(validate=validate.Length(max=100), allow_none=True)
     supplier = fields.Str(validate=validate.Length(max=100), allow_none=True)
+    catalog_number = fields.Str(validate=validate.Length(max=100), allow_none=True)
 
 class MaterialsListSchema(Schema):
     """Schema for list of materials (when materials are sent as root array)."""

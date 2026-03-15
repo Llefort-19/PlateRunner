@@ -111,8 +111,39 @@ def export_to_excel(protocol):
     ws_summary['A6'] = 'Plate Type:'
     ws_summary['B6'] = f'{plate_type}-well'
 
-    # Materials summary table
+    # Materials List section
     row = 8
+    ws_summary.cell(row=row, column=1, value='Materials List').font = Font(bold=True, size=12)
+    row += 1
+    mat_list_headers = ['#', 'Alias', 'MW (g/mol)', 'CAS Number', 'Barcode', 'Supplier', 'Cat #']
+    for col, header in enumerate(mat_list_headers, 1):
+        cell = ws_summary.cell(row=row, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.border = thin_border
+        cell.alignment = Alignment(horizontal='center')
+
+    experiment_materials = current_experiment.get('materials', [])
+    for i, mat in enumerate(experiment_materials):
+        row += 1
+        mat_row = [
+            i + 1,
+            mat.get('alias', ''),
+            mat.get('molecular_weight', ''),
+            mat.get('cas', ''),
+            mat.get('barcode', ''),
+            mat.get('supplier', ''),
+            mat.get('catalog_number', ''),
+        ]
+        for col, value in enumerate(mat_row, 1):
+            cell = ws_summary.cell(row=row, column=col, value=value if value else '')
+            cell.border = thin_border
+
+    row += 2
+
+    # Materials summary table (dispensing)
+    ws_summary.cell(row=row, column=1, value='Dispensing Summary').font = Font(bold=True, size=12)
+    row += 1
     headers = ['#', 'Material', 'Alias', 'MW', 'Method', 'Solvent', 'Vol/Well', 'Excess', 'Conc.', 'Mass (mg)', 'Total Vol.']
     for col, header in enumerate(headers, 1):
         cell = ws_summary.cell(row=row, column=col, value=header)

@@ -449,17 +449,10 @@ a:hover {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  background: white;
-  padding: 6px 14px;
-  /* Increased padding */
-  border-radius: 10px;
-  /* Slightly larger radius */
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .brand-logo {
-  height: 36px;
-  /* Increased from 32px */
+  height: 64px;
   width: auto;
   object-fit: contain;
 }
@@ -554,6 +547,43 @@ a:hover {
 .action-btn-icon.action-btn-danger:hover:not(:disabled) {
   background: #fef2f2;
   color: #b91c1c;
+}
+
+/* Export Dropdown */
+.export-dropdown-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.export-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+  min-width: 160px;
+  padding: 4px 0;
+}
+
+.export-dropdown-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: 0.875rem;
+  color: #1e293b;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.export-dropdown-menu button:hover {
+  background: #f1f5f9;
+  color: var(--color-primary);
 }
 
 /* Navigation Pills - Modern Design */
@@ -705,7 +735,7 @@ a:hover {
   }
 
   .brand-logo {
-    height: 46px;
+    height: 64px;
   }
 
   .nav-pill {

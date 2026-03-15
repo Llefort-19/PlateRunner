@@ -82,6 +82,174 @@ def export_experiment():
         return jsonify({'error': f'Export failed: {str(e)}'}), 500
 
 
+@export_bp.route('/export/json', methods=['POST'])
+def export_experiment_json():
+    """Export experiment data as ML-ready JSON.
+
+    Returns a JSON file with three top-level keys:
+      - metadata: experiment context + procedure settings
+      - materials: reference list of all materials
+      - wells: flat per-well records with material amounts and analytical results
+    """
+    try:
+        context = current_experiment.get('context', {})
+        materials = current_experiment.get('materials', [])
+        procedure = current_experiment.get('procedure', [])
+        procedure_settings = current_experiment.get('procedure_settings', {})
+        analytical_data = current_experiment.get('analytical_data', {})
+
+        # --- metadata ---
+        reaction = (procedure_settings.get('reactionConditions') or {})
+        analytical_settings = (procedure_settings.get('analyticalDetails') or {})
+
+        def _to_float(v):
+            if v is None or v == '':
+                return None
+            try:
+                return float(str(v).replace(',', '.'))
+            except (ValueError, TypeError):
+                return None
+
+        metadata = {
+            'author': context.get('author', ''),
+            'date': context.get('date', ''),
+            'project': context.get('project', ''),
+            'eln': context.get('eln', ''),
+            'objective': context.get('objective', ''),
+            'procedure_settings': {
+                'temperature': _to_float(reaction.get('temperature')),
+                'time': _to_float(reaction.get('time')),
+                'pressure': _to_float(reaction.get('pressure')),
+                'wavelength': _to_float(reaction.get('wavelength')),
+                'remarks': reaction.get('remarks', ''),
+            },
+            'analytical_settings': {
+                'uplc_number': analytical_settings.get('uplcNumber', ''),
+                'method': analytical_settings.get('method', ''),
+                'duration': _to_float(analytical_settings.get('duration')),
+                'remarks': analytical_settings.get('remarks', ''),
+            },
+            'export_version': '1.0',
+            'exported_at': datetime.now().isoformat(),
+        }
+
+        # --- materials ---
+        materials_list = []
+        for i, mat in enumerate(materials):
+            materials_list.append({
+                'nr': i + 1,
+                'name': mat.get('name', ''),
+                'alias': mat.get('alias', ''),
+                'cas': mat.get('cas', ''),
+                'molecular_weight': _to_float(mat.get('molecular_weight')),
+                'smiles': mat.get('smiles', ''),
+                'role': mat.get('role', ''),
+                'role_id': mat.get('role_id', ''),
+                'barcode': mat.get('barcode', ''),
+                'supplier': mat.get('supplier', ''),
+                'catalog_number': mat.get('catalog_number', ''),
+            })
+
+        # --- wells ---
+        # Build analytical lookup: well → { compound_name: area }
+        analytical_by_well = {}
+        uploaded_files = analytical_data.get('uploadedFiles', [])
+        if uploaded_files:
+            most_recent = uploaded_files[-1]
+            data_rows = most_recent.get('data', []) if isinstance(most_recent, dict) else []
+            for row in data_rows:
+                well = row.get('Well', '')
+                if not well:
+                    continue
+                compounds = {}
+                name_keys = sorted([k for k in row if str(k).startswith('Name_')],
+                                   key=lambda k: int(k.split('_')[1]))
+                area_keys = sorted([k for k in row if str(k).startswith('Area_')],
+                                   key=lambda k: int(k.split('_')[1]))
+                for nk, ak in zip(name_keys, area_keys):
+                    cname = row.get(nk, '')
+                    carea = row.get(ak, '')
+                    if cname:
+                        compounds[cname] = _to_float(carea)
+                analytical_by_well[well] = compounds
+
+        wells_list = []
+        for well_data in procedure:
+            well = well_data.get('well', '')
+            if not well:
+                continue
+            well_materials = well_data.get('materials', [])
+            if not well_materials:
+                continue
+
+            mat_entries = []
+            for mat_entry in well_materials:
+                alias = mat_entry.get('alias') or mat_entry.get('name', '')
+                amount = mat_entry.get('amount', '')
+                unit = (mat_entry.get('unit') or '').strip()
+
+                amount_umol = None
+                amount_uL = None
+                if unit in ('\u03bcL', '\u00b5L', 'uL'):
+                    amount_uL = _to_float(amount)
+                elif unit == 'mL':
+                    v = _to_float(amount)
+                    amount_uL = v * 1000 if v is not None else None
+                else:
+                    amount_umol = _to_float(amount)
+
+                mat_entries.append({
+                    'alias': alias,
+                    'role': mat_entry.get('role', ''),
+                    'amount_umol': amount_umol,
+                    'amount_uL': amount_uL,
+                })
+
+            wells_list.append({
+                'well': well,
+                'materials': mat_entries,
+                'analytical': analytical_by_well.get(well, {}),
+            })
+
+        # Sort wells naturally (A1, A2, ..., B1, ...)
+        def _well_sort(w):
+            wn = w['well']
+            try:
+                return (wn[0], int(wn[1:]))
+            except (IndexError, ValueError):
+                return (wn, 0)
+        wells_list.sort(key=_well_sort)
+
+        result = {
+            'metadata': metadata,
+            'materials': materials_list,
+            'wells': wells_list,
+        }
+
+        import json
+        json_str = json.dumps(result, indent=2, ensure_ascii=False)
+        buf = io.BytesIO(json_str.encode('utf-8'))
+
+        eln = (context.get('eln') or '').strip()
+        date_str = datetime.now().strftime('%Y-%m-%d')
+        if eln:
+            filename = f"{eln}_{date_str}.json"
+        else:
+            filename = f"HTE_Experiment_{date_str}.json"
+
+        return send_file(
+            buf,
+            mimetype='application/json',
+            as_attachment=True,
+            download_name=filename,
+        )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'JSON export failed: {str(e)}'}), 500
+
+
 # ---------------------------------------------------------------------------
 # Sheet builders
 # ---------------------------------------------------------------------------
@@ -123,7 +291,7 @@ def _build_materials_sheet(wb, materials):
     headers = [
         'Nr', 'chemical_name', 'alias', 'cas_number',
         'molecular_weight', 'smiles', 'barcode',
-        'role', 'role_id', 'source', 'supplier',
+        'role', 'role_id', 'source', 'supplier', 'catalog_number',
     ]
     ws.append(headers)
 
@@ -140,6 +308,7 @@ def _build_materials_sheet(wb, materials):
             mat.get('role_id', ''),
             mat.get('source', ''),
             mat.get('supplier', ''),
+            mat.get('catalog_number', ''),
         ])
 
 

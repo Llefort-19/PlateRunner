@@ -45,6 +45,13 @@ def export_to_pdf(protocol):
     story.extend(_build_header(context, plate_type))
     story.append(Spacer(1, 2*mm))
 
+    # Section 0: Materials List
+    from state import current_experiment
+    experiment_materials = current_experiment.get('materials', [])
+    if experiment_materials:
+        story.extend(_build_materials_list(experiment_materials))
+        story.append(Spacer(1, 2*mm))
+
     # Section 1: Stock Solution Preparation
     # Non-kit stock materials + kit-level stock entries
     kit_stock_entries = protocol.get('kit_stock_entries', [])
@@ -117,6 +124,57 @@ def _build_header(context, plate_type):
     elements.append(Paragraph(' &nbsp;|&nbsp; '.join(meta_parts), meta_style))
     elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#cccccc'), spaceBefore=1*mm, spaceAfter=2*mm))
 
+    return elements
+
+
+def _build_materials_list(experiment_materials):
+    """Build materials list table for the protocol export."""
+    elements = []
+    styles = getSampleStyleSheet()
+    heading_style = ParagraphStyle(
+        'MatListHeading',
+        parent=styles['Heading2'],
+        fontSize=12,
+        textColor=colors.HexColor('#1a1a1a'),
+        spaceAfter=1.5*mm,
+    )
+    elements.append(Paragraph('\u25a0 Materials List', heading_style))
+
+    cell_style = ParagraphStyle(
+        'MatListCell',
+        parent=styles['Normal'],
+        fontSize=8,
+        leading=10,
+    )
+
+    header_row = ['#', 'Alias', 'MW (g/mol)', 'CAS Number', 'Barcode', 'Supplier', 'Cat #']
+    data = [header_row]
+    for i, mat in enumerate(experiment_materials):
+        data.append([
+            str(i + 1),
+            Paragraph(mat.get('alias', '') or '', cell_style),
+            str(mat.get('molecular_weight', '')) if mat.get('molecular_weight') else '',
+            Paragraph(mat.get('cas', '') or '', cell_style),
+            Paragraph(mat.get('barcode', '') or '', cell_style),
+            Paragraph(mat.get('supplier', '') or '', cell_style),
+            Paragraph(mat.get('catalog_number', '') or '', cell_style),
+        ])
+
+    col_widths = [20, 90, 55, 70, 60, 75, 90]
+    t = Table(data, colWidths=col_widths)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e2e8f0')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
+        ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+        ('ALIGN', (2, 0), (2, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]))
+    elements.append(t)
     return elements
 
 

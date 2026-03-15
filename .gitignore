@@ -67,3 +67,21 @@ Inventory.xlsx
 backend/test_output.pdf
 
 backend/app.db
+backend/instance/
+
+# PyInstaller / standalone desktop build
+*.spec
+hte_launcher.py
+run_app.py
+
+# Temporary/utility scripts
+tmp_*.py
+test_*.py
+rm_*.py
+
+# Local dev config
+.claude/launch.json
+.claude/settings.local.json
+
+# Legacy images at root (keep only frontend/public assets)
+/*.png

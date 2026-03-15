@@ -298,6 +298,8 @@ def import_materials_sheet(ws):
                     material['source'] = str(value).strip()
                 elif header == 'supplier':
                     material['supplier'] = str(value).strip()
+                elif header == 'catalog_number':
+                    material['catalog_number'] = str(value).strip()
         
         # Only add material if it has a name
         if material.get('name'):

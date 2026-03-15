@@ -425,6 +425,9 @@ def upload_materials_from_excel():
                 'molecular_weight': clean_field(row.get('molecular_weight', row.get('Molecular_Weight', row.get('Molecular Weight', '')))),
                 'barcode': clean_field(row.get('barcode', row.get('Barcode', row.get('Lot number', '')))),
                 'role': clean_field(row.get('role', row.get('Role', ''))),
+                'role_id': clean_field(row.get('role_id', row.get('Role_ID', ''))),
+                'supplier': clean_field(row.get('supplier', row.get('Supplier', ''))),
+                'catalog_number': clean_field(row.get('catalog_number', row.get('Catalog_Number', row.get('Cat #', '')))),
                 'source': 'excel_upload'
             }
             
@@ -510,9 +513,11 @@ def upload_materials_from_excel():
                         'molecular_weight': inventory_material.get('molecular_weight', material.get('molecular_weight', '')),
                         'barcode': material.get('barcode', inventory_material.get('barcode', '')),
                         'role': material.get('role', ''),
+                        'role_id': material.get('role_id', ''),
                         'source': 'inventory_match',
                         'inventory_location': inventory_material.get('location', ''),
-                        'supplier': inventory_material.get('supplier', '')
+                        'supplier': material.get('supplier', inventory_material.get('supplier', '')),
+                        'catalog_number': material.get('catalog_number', ''),
                     }
                 else:
                     logger.debug(f"  -> Using uploaded data for {material.get('name', 'Unknown')}")

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useToast } from "./ToastContext";
 import axios from 'axios';
 
@@ -7,6 +7,8 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp, onImportComplete,
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef(null);
   const [selectedImportFile, setSelectedImportFile] = useState(null);
   const [experimentContext, setExperimentContext] = useState({ eln: '', project: '' });
 
@@ -189,6 +191,53 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp, onImportComplete,
     }
   };
 
+  const exportToJson = async () => {
+    setIsExporting(true);
+    setShowExportMenu(false);
+    try {
+      const response = await axios.post(
+        '/api/experiment/export/json',
+        {},
+        { responseType: 'blob' }
+      );
+
+      const disposition = response.headers['content-disposition'] || '';
+      const filenameMatch = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      const filename = filenameMatch
+        ? filenameMatch[1].replace(/['"]/g, '')
+        : `HTE_Experiment_${new Date().toISOString().split('T')[0]}.json`;
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      showSuccess('JSON file exported successfully! Check your downloads folder.');
+    } catch (error) {
+      console.error('JSON export error:', error);
+      showError('Failed to export JSON file: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Close export menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
+        setShowExportMenu(false);
+      }
+    };
+    if (showExportMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showExportMenu]);
+
   return (
     <>
       <header className="clean-header">
@@ -196,8 +245,8 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp, onImportComplete,
           {/* Brand Section - Left */}
           <div className="header-brand">
             <img
-              src="/logo-hte-d2d.png"
-              alt="HTE D2D"
+              src="/Unicorn_navbar.png?v=2"
+              alt="PlateRunner"
               className="brand-logo"
             />
           </div>
@@ -228,18 +277,30 @@ const Header = ({ activeTab, onTabChange, onReset, onShowHelp, onImportComplete,
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
             </button>
-            <button
-              className="action-btn-icon"
-              onClick={exportToExcel}
-              disabled={isExporting}
-              title="Export all experiment data to Excel"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
-            </button>
+            <div className="export-dropdown-wrapper" ref={exportMenuRef}>
+              <button
+                className="action-btn-icon"
+                onClick={() => setShowExportMenu((v) => !v)}
+                disabled={isExporting}
+                title="Export experiment data"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+              </button>
+              {showExportMenu && (
+                <div className="export-dropdown-menu">
+                  <button onClick={() => { setShowExportMenu(false); exportToExcel(); }}>
+                    Export Excel
+                  </button>
+                  <button onClick={exportToJson}>
+                    Export JSON (ML)
+                  </button>
+                </div>
+              )}
+            </div>
             <button
               className="action-btn-icon"
               onClick={handleHelp}
