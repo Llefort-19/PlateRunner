@@ -154,28 +154,8 @@ const Help = ({ tabId, visible, onClose }) => {
             </div>
           )
         };
-      case 'procedure':
-        return {
-          title: 'Procedure Settings Help',
-          content: (
-            <div>
-              <h4>Reaction Conditions:</h4>
-              <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
-                <li><strong>Temperature:</strong> Enter reaction temperature</li>
-                <li><strong>Time:</strong> Enter reaction time</li>
-                <li><strong>Pressure:</strong> For reaction under pressure</li>
-                <li><strong>Wavelength:</strong> For photochemical reactions</li>
-              </ul>
-              <h4>Analytical Details:</h4>
-              <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
-                <li><strong>UPLC:</strong> Enter UPLC number</li>
-                <li><strong>Method:</strong> Select method from dropdown menu</li>
-                <li><strong>Duration:</strong> Enter duration of the analysis</li>
-                <li><strong>Wavelength:</strong> Enter wavelength of the analysis</li>
-              </ul>
-            </div>
-          )
-        };
+      // 'procedure' and 'heatmap' help modals are handled by their own components
+      // (ProcedureSettings.js and Heatmap.js respectively)
       case 'analytical':
         return {
           title: 'Analytical Data Help',
@@ -250,22 +230,6 @@ const Help = ({ tabId, visible, onClose }) => {
                 <li>2. View results in this tab</li>
                 <li>3. Export complete experiment to Excel</li>
                 <li>4. Use exported data for analysis and ML training</li>
-              </ul>
-            </div>
-          )
-        };
-      case 'heatmap':
-        return {
-          title: 'Heatmap Help',
-          content: (
-            <div>
-              <h4>Creating Heatmaps:</h4>
-              <ul style={{ paddingLeft: "20px", lineHeight: "1.6" }}>
-                <li><strong>Data Selection:</strong> Choose which data to visualize</li>
-                <li><strong>Color Schemes:</strong> Select appropriate color scales for your data</li>
-                <li><strong>Plate Layout:</strong> Visualize data in plate format</li>
-                <li><strong>Customization:</strong> Adjust scale, labels, and appearance</li>
-                <li><strong>Export Options:</strong> Save heatmaps as images or data</li>
               </ul>
             </div>
           )
