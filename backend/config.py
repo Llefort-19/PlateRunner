@@ -153,7 +153,7 @@ class ProductionConfig(Config):
     DEBUG = False
     CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'https://yourdomain.com').split(',')
     LOG_LEVEL = 'WARNING'
-    VALIDATION_STRICT = True
+    VALIDATION_STRICT = False  # Allow partial saves (auto-save sends incomplete forms)
     SESSION_COOKIE_SECURE = True
     REMEMBER_COOKIE_SECURE = True
     DATA_FOLDER_PATH = os.environ.get('DATA_FOLDER_PATH', '/app/data')
