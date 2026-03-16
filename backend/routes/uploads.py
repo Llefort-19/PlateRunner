@@ -331,7 +331,9 @@ def upload_analytical_data():
             current_experiment['analytical_data']['uploadedFiles'] = []
         
         current_experiment['analytical_data']['uploadedFiles'].append(uploaded_data)
-        
+        # Re-assign to trigger dirty flag (in-place mutation doesn't mark state dirty)
+        current_experiment['analytical_data'] = current_experiment['analytical_data']
+
         logger.debug(f"Upload successful. Current experiment keys: {list(current_experiment.keys())}")
         
         return jsonify({

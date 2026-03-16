@@ -167,8 +167,8 @@ def apply_security_measures(app):
         try:
             from state.experiment import save_experiment_if_dirty
             save_experiment_if_dirty()
-        except Exception:
-            pass  # Never let state save failure break a response
+        except Exception as e:
+            app.logger.error(f"Failed to save experiment state: {e}")
         return response
 
     # Apply rate limiting to all requests

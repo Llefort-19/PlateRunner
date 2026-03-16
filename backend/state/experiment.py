@@ -111,6 +111,8 @@ def reset_experiment():
         g._experiment_dirty = False
         return
 
+    # Ensure we've loaded the experiment so g._experiment_id is set
+    _get_experiment_data()
     exp_id = getattr(g, '_experiment_id', None)
     if exp_id:
         exp = db.session.get(Experiment, exp_id)
