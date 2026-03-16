@@ -4,10 +4,10 @@
 # then starts gunicorn.
 
 DATA_DIR="${DATA_FOLDER_PATH:-/data}"
-BUNDLED_DATA="/app/data"
+BUNDLED_DATA="/app/bundled_data"
 
 # Seed reference data files to the persistent volume if not already there
-for f in Inventory.xlsx Solvent.xlsx; do
+for f in Inventory.xlsx Solvent.xlsx Private_Inventory.xlsx; do
     if [ ! -f "$DATA_DIR/$f" ] && [ -f "$BUNDLED_DATA/$f" ]; then
         echo "Copying $f to $DATA_DIR/"
         cp "$BUNDLED_DATA/$f" "$DATA_DIR/$f"

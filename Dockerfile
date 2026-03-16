@@ -32,9 +32,9 @@ RUN cd frontend && npm run build
 # Copy backend application
 COPY backend/ ./backend/
 
-# Copy reference data files (Inventory.xlsx, Solvent.xlsx)
-# These will be overridden by the persistent volume in production
-COPY data/ ./data/
+# Copy reference data files to a bundled location (not /app/data, which
+# gets overlaid by the persistent disk mount at runtime)
+COPY data/ ./bundled_data/
 
 # Pre-create instance directory for SQLite database
 RUN mkdir -p /data backend/instance
@@ -44,7 +44,7 @@ WORKDIR /app/backend
 EXPOSE 5000
 
 ENV FLASK_ENV=production
-ENV DATA_FOLDER_PATH=/data
+ENV DATA_FOLDER_PATH=/app/data
 
 # Make startup script executable (seeds reference data then launches gunicorn)
 RUN chmod +x start.sh
