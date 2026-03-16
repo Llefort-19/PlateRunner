@@ -269,11 +269,11 @@ const AnalyticalData = () => {
         filename: selectedFile.name,
         uploadDate: new Date().toISOString(),
         status: 'error',
-        message: error.response?.data?.message || 'Upload failed'
+        message: error.response?.data?.error || error.response?.data?.message || 'Upload failed'
       };
 
       setUploadHistory(prev => [failedUpload, ...prev]);
-      showError("Error uploading file: " + (error.response?.data?.message || error.message));
+      showError("Error uploading file: " + (error.response?.data?.error || error.response?.data?.message || error.message));
     } finally {
       setUploading(false);
     }

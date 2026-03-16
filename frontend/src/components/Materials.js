@@ -104,6 +104,14 @@ const Materials = () => {
 
   useEffect(() => {
     loadMaterials();
+
+    const handleReset = () => {
+      setMaterials([]);
+      materialsHashRef.current = '';
+      loadMaterials();
+    };
+    window.addEventListener('materialsCleared', handleReset);
+    return () => window.removeEventListener('materialsCleared', handleReset);
   }, []);
 
   useEffect(() => {
