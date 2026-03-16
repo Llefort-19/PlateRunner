@@ -53,12 +53,12 @@ coverage/
 tmp/
 temp/
 
-# Excel files (keep only the template)
+# Excel files (keep only the template and required data files)
 *.xlsx
 !HTE_reaction_data_template_96_v3.2.xlsx
-
-# Inventory file (contains sensitive data)
-Inventory.xlsx
+!data/Inventory.xlsx
+!data/Solvent.xlsx
+!data/Private_Inventory.xlsx
 
 # Virtual Environment
 .venv/
