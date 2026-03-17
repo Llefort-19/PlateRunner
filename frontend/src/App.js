@@ -37,6 +37,15 @@ function App() {
   const [helpTabId, setHelpTabId] = useState(null);
   const [plateType, setPlateType] = useState("96");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [dismissedMobileWarning, setDismissedMobileWarning] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize(); // Re-check on mount in case viewport changed since initial render
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Check session on mount
   useEffect(() => {
@@ -88,6 +97,27 @@ function App() {
         <Login onLogin={() => setIsAuthenticated(true)} />
         <ToastContainer />
       </ToastProvider>
+    );
+  }
+
+  if (isMobile && !dismissedMobileWarning) {
+    return (
+      <div className="mobile-warning">
+        <div className="mobile-warning-card">
+          <h2>Desktop Recommended</h2>
+          <p>
+            PlateRunner is designed for desktop browsers. For the best experience
+            with plate designs, data tables, and heatmaps, please use a laptop or
+            desktop computer.
+          </p>
+          <button
+            className="btn btn-primary"
+            onClick={() => setDismissedMobileWarning(true)}
+          >
+            Continue anyway
+          </button>
+        </div>
+      </div>
     );
   }
 

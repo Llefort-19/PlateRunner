@@ -85,3 +85,4 @@ rm_*.py
 
 # Legacy images at root (keep only frontend/public assets)
 /*.png
+.claude/launch.json
