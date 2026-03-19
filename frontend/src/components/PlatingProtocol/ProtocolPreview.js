@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { QRCodeSVG } from 'qrcode.react';
 import PlateGridView from './PlateGridView';
 import { OPERATION_TYPES, formatOperation } from './constants';
 import {
@@ -28,6 +29,7 @@ const ProtocolPreview = ({
   onExportPDF
 }) => {
   const [exportError, setExportError] = useState(null);
+  const [showQR, setShowQR] = useState(false);
   const [expandedStockKits, setExpandedStockKits] = useState(new Set());
 
   // Get all materials that will be dispensed (including from kits)
@@ -653,6 +655,44 @@ const ProtocolPreview = ({
           ))}
         </div>
       </div>
+
+      {/* ─── Mobile Lab Guide ─── */}
+      <div className="plating-preview-section" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <h4 style={{ margin: 0 }}>📱 Lab Guide</h4>
+        <button
+          className="btn btn-secondary"
+          style={{ marginLeft: 'auto' }}
+          onClick={() => setShowQR(true)}
+        >
+          Open PlateRunner Lab on your phone
+        </button>
+      </div>
+
+      {/* QR Modal */}
+      {showQR && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onClick={() => setShowQR(false)}
+        >
+          <div
+            style={{ background: 'var(--color-bg-secondary, #fff)', borderRadius: 16, padding: 32, maxWidth: 340, width: '100%', textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <h4 style={{ margin: '0 0 4px', fontSize: 17 }}>Open PlateRunner Lab on your phone</h4>
+            <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', margin: '0 0 16px' }}>Scan the QR code with your phone camera</p>
+            <QRCodeSVG value={window.location.origin + '/lab'} size={220} style={{ display: 'block', margin: '0 auto 16px' }} />
+            <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', wordBreak: 'break-all', margin: '0 0 16px' }}>
+              {window.location.origin}/lab
+            </p>
+            <ol style={{ textAlign: 'left', fontSize: 13, color: 'var(--color-text-primary)', margin: '0 0 20px', paddingLeft: 20, lineHeight: 1.7 }}>
+              <li>Scan the QR code with your phone</li>
+              <li>Log in with your PlateRunner account</li>
+              <li><strong>iOS:</strong> tap Share → Add to Home Screen &nbsp;<strong>Android:</strong> tap Install</li>
+            </ol>
+            <button className="btn btn-secondary" style={{ width: '100%' }} onClick={() => setShowQR(false)}>Close</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

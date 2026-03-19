@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import LabGuide from "./components/LabGuide/LabGuide";
 import axios from "axios";
 import Header from "./components/Header";
 import Login from "./components/Login";
@@ -100,6 +101,17 @@ function App() {
     );
   }
 
+  // /lab route: skip mobile warning, render lab guide directly
+  if (window.location.pathname === '/lab') {
+    return (
+      <Router>
+        <Routes>
+          <Route path="/lab" element={<LabGuide />} />
+        </Routes>
+      </Router>
+    );
+  }
+
   if (isMobile && !dismissedMobileWarning) {
     return (
       <div className="mobile-warning">
@@ -110,12 +122,20 @@ function App() {
             with plate designs, data tables, and heatmaps, please use a laptop or
             desktop computer.
           </p>
-          <button
-            className="btn btn-primary"
-            onClick={() => setDismissedMobileWarning(true)}
-          >
-            Continue anyway
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <button
+              className="btn btn-primary"
+              onClick={() => window.location.href = '/lab'}
+            >
+              Open Lab Guide
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => setDismissedMobileWarning(true)}
+            >
+              Continue to desktop app
+            </button>
+          </div>
         </div>
       </div>
     );

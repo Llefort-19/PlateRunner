@@ -1,8 +1,15 @@
 {
-  "short_name": "PlateRunner",
-  "name": "PlateRunner",
-  "start_url": ".",
+  "name": "PlateRunner Lab",
+  "short_name": "PR Lab",
+  "description": "Step-by-step lab guide for PlateRunner experiments",
+  "start_url": "/lab",
+  "scope": "/lab",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "orientation": "portrait",
+  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "icons": [
+    { "src": "platerunner-logo.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "platerunner-logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
 } 

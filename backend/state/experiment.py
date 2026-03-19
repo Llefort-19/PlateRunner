@@ -28,7 +28,8 @@ _DEFAULT_EXPERIMENT = {
         'uploadedFiles': []
     },
     'results': [],
-    'plating_protocol': None
+    'plating_protocol': None,
+    'lab_deviations': []
 }
 
 
@@ -165,6 +166,10 @@ def update_experiment_heatmap_data(heatmap_data):
 
 def update_experiment_plating_protocol(protocol):
     _get_experiment_data()['plating_protocol'] = protocol
+    _mark_dirty()
+
+def update_experiment_lab_deviations(deviations):
+    _get_experiment_data()['lab_deviations'] = deviations
     _mark_dirty()
 
 

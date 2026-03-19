@@ -43,8 +43,8 @@ def get_data_folder_path():
         # Frozen mode: data folder sits next to the executable
         return os.path.join(exe_path, 'data')
     else:
-        # Development mode: use project root directly (no 'data' subfolder)
-        return exe_path
+        # Development mode: data folder is project_root/data
+        return os.path.join(exe_path, 'data')
 
 def ensure_data_folder_exists():
     """Ensure the data folder exists and contains template files if needed."""
