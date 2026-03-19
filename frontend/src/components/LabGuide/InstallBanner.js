@@ -1,30 +1,23 @@
 import React, { useState, useEffect } from 'react';
 
-const DISMISSED_KEY = 'lab_install_banner_dismissed';
-
 const InstallBanner = () => {
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isIOS, setIsIOS] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [dismissed, setDismissed] = useState(false); // session-only
 
   useEffect(() => {
-    // Already installed as PWA — don't show banner
-    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+    if (
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.navigator.standalone
+    ) {
       setIsStandalone(true);
       return;
     }
 
-    if (localStorage.getItem(DISMISSED_KEY)) {
-      setDismissed(true);
-      return;
-    }
-
-    // Detect iOS Safari
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
     setIsIOS(ios);
 
-    // Listen for Chrome/Android install prompt
     const handler = (e) => {
       e.preventDefault();
       setInstallPrompt(e);
@@ -43,64 +36,117 @@ const InstallBanner = () => {
     setInstallPrompt(null);
   };
 
-  const handleDismiss = () => {
-    localStorage.setItem(DISMISSED_KEY, '1');
-    setDismissed(true);
-  };
-
-  // Don't show if: already installed, dismissed, or neither iOS nor Android prompt
+  // Don't show if: already installed, dismissed for session, or neither iOS nor Android prompt
   if (isStandalone || dismissed || (!installPrompt && !isIOS)) return null;
 
   return (
     <div style={{
-      background: '#2563eb',
-      color: '#fff',
-      padding: '10px 16px',
+      position: 'fixed',
+      inset: 0,
+      zIndex: 1000,
+      background: 'rgba(0,0,0,0.55)',
       display: 'flex',
       alignItems: 'center',
-      gap: 10,
-      fontSize: 13,
-      flexShrink: 0,
+      justifyContent: 'center',
+      padding: '24px 16px',
     }}>
-      <span style={{ flex: 1 }}>
-        {isIOS
-          ? <>Tap <strong>Share</strong> → <strong>Add to Home Screen</strong> to install PlateRunner Lab</>
-          : <>Install <strong>PlateRunner Lab</strong> on your home screen for the best experience</>
-        }
-      </span>
-      {!isIOS && installPrompt && (
+      <div style={{
+        background: '#fff',
+        borderRadius: 20,
+        padding: '32px 24px 24px',
+        maxWidth: 360,
+        width: '100%',
+        textAlign: 'center',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+      }}>
+        {/* Logo */}
+        <div style={{
+          width: 72,
+          height: 72,
+          borderRadius: 16,
+          background: '#2563eb',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          margin: '0 auto 20px',
+          fontSize: 36,
+        }}>
+          ⚗️
+        </div>
+
+        <h2 style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 700, color: '#0f172a' }}>
+          Install PlateRunner Lab
+        </h2>
+        <p style={{ margin: '0 0 24px', fontSize: 14, color: '#64748b', lineHeight: 1.5 }}>
+          Add to your home screen for the best lab experience
+        </p>
+
+        {isIOS ? (
+          <div style={{
+            background: '#f1f5f9',
+            borderRadius: 12,
+            padding: '16px',
+            textAlign: 'left',
+            marginBottom: 20,
+          }}>
+            <p style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 600, color: '#0f172a' }}>
+              To install on iOS:
+            </p>
+            <ol style={{ margin: 0, paddingLeft: 18, fontSize: 14, color: '#334155', lineHeight: 1.8 }}>
+              <li>Tap the <strong>Share</strong> button <span style={{ fontSize: 16 }}>⬆</span> in Safari</li>
+              <li>Scroll down and tap <strong>Add to Home Screen</strong></li>
+              <li>Tap <strong>Add</strong> to confirm</li>
+            </ol>
+          </div>
+        ) : installPrompt ? (
+          <button
+            onClick={handleInstall}
+            style={{
+              width: '100%',
+              background: '#2563eb',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 12,
+              padding: '14px',
+              fontSize: 16,
+              fontWeight: 600,
+              cursor: 'pointer',
+              marginBottom: 12,
+            }}
+          >
+            Install app
+          </button>
+        ) : null}
+
         <button
-          onClick={handleInstall}
+          onClick={() => setDismissed(true)}
           style={{
-            background: '#fff',
-            color: '#2563eb',
+            background: 'none',
             border: 'none',
-            borderRadius: 6,
-            padding: '4px 12px',
-            fontWeight: 600,
-            fontSize: 13,
+            color: '#64748b',
+            fontSize: 14,
             cursor: 'pointer',
-            whiteSpace: 'nowrap',
+            padding: '8px',
+            display: 'block',
+            width: '100%',
           }}
         >
-          Install
+          Not now
         </button>
-      )}
-      <button
-        onClick={handleDismiss}
-        style={{
-          background: 'none',
-          border: 'none',
-          color: 'rgba(255,255,255,0.8)',
-          fontSize: 18,
-          cursor: 'pointer',
-          lineHeight: 1,
-          padding: '0 2px',
-        }}
-        aria-label="Dismiss"
-      >
-        ×
-      </button>
+
+        <a
+          href="/"
+          style={{
+            display: 'block',
+            marginTop: 8,
+            fontSize: 12,
+            color: '#94a3b8',
+            textDecoration: 'none',
+          }}
+        >
+          Switch to desktop app
+        </a>
+      </div>
     </div>
   );
 };

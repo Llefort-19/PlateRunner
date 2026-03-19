@@ -39,7 +39,6 @@ function App() {
   const [plateType, setPlateType] = useState("96");
   const [refreshKey, setRefreshKey] = useState(0);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [dismissedMobileWarning, setDismissedMobileWarning] = useState(false);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -112,33 +111,10 @@ function App() {
     );
   }
 
-  if (isMobile && !dismissedMobileWarning) {
-    return (
-      <div className="mobile-warning">
-        <div className="mobile-warning-card">
-          <h2>Desktop Recommended</h2>
-          <p>
-            PlateRunner is designed for desktop browsers. For the best experience
-            with plate designs, data tables, and heatmaps, please use a laptop or
-            desktop computer.
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <button
-              className="btn btn-primary"
-              onClick={() => window.location.href = '/lab'}
-            >
-              Open Lab Guide
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={() => setDismissedMobileWarning(true)}
-            >
-              Continue to desktop app
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+  // On mobile, go straight to the lab guide — no warning screen
+  if (isMobile && window.location.pathname !== '/lab') {
+    window.location.replace('/lab');
+    return null;
   }
 
   return (
