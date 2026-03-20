@@ -39,6 +39,7 @@ function App() {
   const [plateType, setPlateType] = useState("96");
   const [refreshKey, setRefreshKey] = useState(0);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -94,7 +95,7 @@ function App() {
   if (!isAuthenticated) {
     return (
       <ToastProvider>
-        <Login onLogin={() => setIsAuthenticated(true)} />
+        <Login onLogin={() => setIsAuthenticated(true)} minimal={isStandalone} />
         <ToastContainer />
       </ToastProvider>
     );

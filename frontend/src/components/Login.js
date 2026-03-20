@@ -93,7 +93,7 @@ const FEATURES = [
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, minimal = false }) {
   const [mode, setMode] = useState("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -138,6 +138,101 @@ export default function Login({ onLogin }) {
       setTimeout(() => setShowTutorialTooltip(false), 2500);
     }
   };
+
+  // ── Minimal login for standalone PWA ──────────────────────────────────────
+  if (minimal) {
+    return (
+      <div style={{
+        minHeight: '100dvh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '32px 20px',
+        background: '#f8fafc',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      }}>
+        <div style={{ width: '100%', maxWidth: 360 }}>
+          {/* Logo */}
+          <div style={{ textAlign: 'center', marginBottom: 28 }}>
+            <div style={{
+              width: 64, height: 64, borderRadius: 16, background: '#2563eb',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 32, marginBottom: 12,
+            }}>⚗️</div>
+            <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 700, color: '#0f172a' }}>
+              PlateRunner Lab
+            </h1>
+            <p style={{ margin: 0, fontSize: 14, color: '#64748b' }}>
+              Sign in to continue
+            </p>
+          </div>
+
+          {/* Tabs */}
+          <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderRadius: 10, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+            {['login', 'register'].map(m => (
+              <button
+                key={m}
+                onClick={() => switchMode(m)}
+                style={{
+                  flex: 1, padding: '10px', border: 'none', cursor: 'pointer',
+                  fontSize: 14, fontWeight: 600,
+                  background: mode === m ? '#2563eb' : '#fff',
+                  color: mode === m ? '#fff' : '#64748b',
+                }}
+              >
+                {m === 'login' ? 'Sign In' : 'Register'}
+              </button>
+            ))}
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit}>
+            {error && (
+              <div style={{ marginBottom: 12, padding: '10px 12px', background: '#fef2f2', color: '#dc2626', borderRadius: 8, fontSize: 13 }}>
+                {error}
+              </div>
+            )}
+
+            <label style={{ display: 'block', marginBottom: 4, fontSize: 13, fontWeight: 600, color: '#334155' }}>Username</label>
+            <input
+              type="text" autoComplete="username" value={username}
+              onChange={(e) => setUsername(e.target.value)} required disabled={loading}
+              style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 15, marginBottom: 14, boxSizing: 'border-box' }}
+            />
+
+            <label style={{ display: 'block', marginBottom: 4, fontSize: 13, fontWeight: 600, color: '#334155' }}>Password</label>
+            <input
+              type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading}
+              style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 15, marginBottom: 14, boxSizing: 'border-box' }}
+            />
+
+            {mode === 'register' && (
+              <>
+                <label style={{ display: 'block', marginBottom: 4, fontSize: 13, fontWeight: 600, color: '#334155' }}>Invite Code</label>
+                <input
+                  type="text" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)}
+                  required disabled={loading} placeholder="Contact admin for an invite code"
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 15, marginBottom: 14, boxSizing: 'border-box' }}
+                />
+              </>
+            )}
+
+            <button
+              type="submit" disabled={loading}
+              style={{
+                width: '100%', padding: '13px', background: '#2563eb', color: '#fff',
+                border: 'none', borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: 'pointer',
+                marginTop: 4,
+              }}
+            >
+              {loading ? 'Please wait\u2026' : mode === 'login' ? 'Sign In' : 'Create Account'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

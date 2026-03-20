@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 const InstallBanner = () => {
-  const [installPrompt, setInstallPrompt] = useState(null);
+  const [installPrompt, setInstallPrompt] = useState(window.__pwaInstallPrompt || null);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [dismissed, setDismissed] = useState(false); // session-only
@@ -43,8 +43,8 @@ const InstallBanner = () => {
     setInstallPrompt(null);
   };
 
-  // Don't show if already installed as PWA or dismissed this session
-  if (isStandalone || dismissed) return null;
+  // Don't show if: already standalone, dismissed, or nothing actionable (app already installed)
+  if (isStandalone || dismissed || (!isIOS && !installPrompt)) return null;
 
   return (
     <div style={{
@@ -125,24 +125,7 @@ const InstallBanner = () => {
           >
             Install app
           </button>
-        ) : (
-          /* Android fallback: manual instructions when beforeinstallprompt hasn't fired */
-          <div style={{
-            background: '#f1f5f9',
-            borderRadius: 12,
-            padding: '16px',
-            textAlign: 'left',
-            marginBottom: 20,
-          }}>
-            <p style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 600, color: '#0f172a' }}>
-              To install:
-            </p>
-            <ol style={{ margin: 0, paddingLeft: 18, fontSize: 14, color: '#334155', lineHeight: 1.8 }}>
-              <li>Open your browser menu <strong>⋮</strong></li>
-              <li>Tap <strong>Install app</strong> or <strong>Add to Home Screen</strong></li>
-            </ol>
-          </div>
-        )}
+        ) : null}
 
         <button
           onClick={() => setDismissed(true)}
