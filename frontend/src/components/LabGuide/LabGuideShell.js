@@ -1,6 +1,19 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 
 const LabGuideShell = ({ steps, currentIndex, onNavigate, children }) => {
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+  const handleLogout = async () => {
+    try {
+      await axios.post('/api/auth/logout');
+    } catch { /* ignore */ }
+    if (isStandalone) {
+      window.location.href = '/lab'; // reload → 401 → LabLogin
+    } else {
+      window.location.href = '/'; // landing page
+    }
+  };
   const [showJump, setShowJump] = useState(false);
   const total = steps.length;
   const canPrev = currentIndex > 0;
@@ -10,7 +23,7 @@ const LabGuideShell = ({ steps, currentIndex, onNavigate, children }) => {
     <div className="lab-root">
       {/* Top bar */}
       <div className="lab-topbar">
-        <a href="/" className="lab-back-link">← Desktop</a>
+        <button onClick={handleLogout} className="lab-back-link" style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', color: 'inherit', padding: 0 }}>Log out</button>
         <span className="lab-progress-text">
           Step {currentIndex + 1} of {total}
         </span>

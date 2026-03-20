@@ -5,6 +5,7 @@ import { buildSteps } from './buildSteps';
 import LabGuideShell from './LabGuideShell';
 import StepCard from './StepCard';
 import InstallBanner from './InstallBanner';
+import LabLogin from './LabLogin';
 
 function debounce(fn, delay) {
   let timer;
@@ -20,6 +21,8 @@ const LabGuide = () => {
   const [deviations, setDeviations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [needsLogin, setNeedsLogin] = useState(false);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 
   // Debounced save
   const saveRef = useRef(null);
@@ -45,7 +48,12 @@ const LabGuide = () => {
         setDeviations(devRes.data.deviations || []);
       } catch (e) {
         if (e.response?.status === 401) {
-          window.location.href = '/';
+          const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+          if (standalone) {
+            setNeedsLogin(true);
+          } else {
+            window.location.href = '/';
+          }
         } else {
           setError('Failed to load lab guide. Please return to desktop and try again.');
         }
@@ -72,6 +80,10 @@ const LabGuide = () => {
   const handleNavigate = useCallback((idx) => {
     setCurrentIndex(Math.max(0, Math.min(steps.length - 1, idx)));
   }, [steps.length]);
+
+  if (needsLogin) {
+    return <LabLogin onLogin={() => { setNeedsLogin(false); setLoading(true); window.location.reload(); }} />;
+  }
 
   if (loading) {
     return (

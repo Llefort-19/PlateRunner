@@ -12,7 +12,6 @@ import AnalyticalData from "./components/AnalyticalData";
 import Results from "./components/Results";
 import Heatmap from "./components/Heatmap";
 import Help from "./components/Help";
-import MobileBridge from "./components/MobileBridge";
 import { ToastProvider } from "./components/ToastContext";
 import ToastContainer from "./components/Toast";
 import "./App.css";
@@ -40,7 +39,6 @@ function App() {
   const [plateType, setPlateType] = useState("96");
   const [refreshKey, setRefreshKey] = useState(0);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [mobileBypass, setMobileBypass] = useState(false);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -113,16 +111,10 @@ function App() {
     );
   }
 
-  // On mobile, show bridge screen unless user chose to continue to desktop app
-  if (isMobile && !mobileBypass) {
-    return (
-      <ToastProvider>
-        <MobileBridge
-          onDesktop={() => setMobileBypass(true)}
-          onLogout={() => setIsAuthenticated(false)}
-        />
-      </ToastProvider>
-    );
+  // On mobile, go straight to the lab guide
+  if (isMobile && window.location.pathname !== '/lab') {
+    window.location.replace('/lab');
+    return null;
   }
 
   return (
