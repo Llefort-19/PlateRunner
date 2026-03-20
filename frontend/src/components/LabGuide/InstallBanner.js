@@ -36,8 +36,8 @@ const InstallBanner = () => {
     setInstallPrompt(null);
   };
 
-  // Don't show if: already installed, dismissed for session, or neither iOS nor Android prompt
-  if (isStandalone || dismissed || (!installPrompt && !isIOS)) return null;
+  // Don't show if already installed as PWA or dismissed this session
+  if (isStandalone || dismissed) return null;
 
   return (
     <div style={{
@@ -82,6 +82,7 @@ const InstallBanner = () => {
         </p>
 
         {isIOS ? (
+          /* iOS: Safari share instructions */
           <div style={{
             background: '#f1f5f9',
             borderRadius: 12,
@@ -99,6 +100,7 @@ const InstallBanner = () => {
             </ol>
           </div>
         ) : installPrompt ? (
+          /* Android: native install prompt available */
           <button
             onClick={handleInstall}
             style={{
@@ -116,7 +118,24 @@ const InstallBanner = () => {
           >
             Install app
           </button>
-        ) : null}
+        ) : (
+          /* Android fallback: manual instructions when beforeinstallprompt hasn't fired */
+          <div style={{
+            background: '#f1f5f9',
+            borderRadius: 12,
+            padding: '16px',
+            textAlign: 'left',
+            marginBottom: 20,
+          }}>
+            <p style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 600, color: '#0f172a' }}>
+              To install:
+            </p>
+            <ol style={{ margin: 0, paddingLeft: 18, fontSize: 14, color: '#334155', lineHeight: 1.8 }}>
+              <li>Open your browser menu <strong>⋮</strong></li>
+              <li>Tap <strong>Install app</strong> or <strong>Add to Home Screen</strong></li>
+            </ol>
+          </div>
+        )}
 
         <button
           onClick={() => setDismissed(true)}
@@ -133,19 +152,6 @@ const InstallBanner = () => {
         >
           Not now
         </button>
-
-        <a
-          href="/"
-          style={{
-            display: 'block',
-            marginTop: 8,
-            fontSize: 12,
-            color: '#94a3b8',
-            textDecoration: 'none',
-          }}
-        >
-          Switch to desktop app
-        </a>
       </div>
     </div>
   );

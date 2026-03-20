@@ -678,6 +678,20 @@ export default function Login({ onLogin }) {
               <button className="lp-submit" type="submit" disabled={loading}>
                 {loading ? "Please wait\u2026" : mode === "login" ? "Sign In" : "Create Account"}
               </button>
+
+              {mode === "login" && window.innerWidth < 768 && (
+                <div style={{
+                  marginTop: 16,
+                  padding: '12px 14px',
+                  background: '#eff6ff',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  color: '#1e40af',
+                  lineHeight: 1.5,
+                }}>
+                  <strong>On mobile?</strong> Signing in will open PlateRunner Lab — a step-by-step companion for your lab work based on your experiment design as set in the desktop version of the app.
+                </div>
+              )}
             </form>
           </div>
         </section>
