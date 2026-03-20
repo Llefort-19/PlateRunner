@@ -18,8 +18,15 @@ const InstallBanner = () => {
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
     setIsIOS(ios);
 
+    // Check if already captured globally (before React mounted)
+    if (window.__pwaInstallPrompt) {
+      setInstallPrompt(window.__pwaInstallPrompt);
+    }
+
+    // Also listen for late-arriving events
     const handler = (e) => {
       e.preventDefault();
+      window.__pwaInstallPrompt = e;
       setInstallPrompt(e);
     };
     window.addEventListener('beforeinstallprompt', handler);
