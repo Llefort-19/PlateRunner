@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import HeaderStep from './HeaderStep';
 import MaterialsOverviewStep from './MaterialsOverviewStep';
 import StockSolutionStep from './StockSolutionStep';
@@ -25,9 +25,17 @@ const STEP_COMPONENTS = {
 // Step types that show the deviation button
 const DEVIATION_TYPES = new Set(['dispense', 'kit', 'wait', 'stir', 'evaporate', 'note']);
 
-const StepCard = ({ step, deviation, deviations, onSaveDeviation }) => {
+// Step types whose component receives labInput/onSaveInput directly (they manage their own inputs)
+const SELF_PERSISTED = new Set(['stock']);
+
+const StepCard = ({ step, labInput, labInputs, onSaveInput }) => {
   const [showInput, setShowInput] = useState(false);
-  const [text, setText] = useState(deviation?.notes || '');
+  const [text, setText] = useState(labInput?.deviation || '');
+
+  // Sync text when navigating back to a step with a saved deviation
+  useEffect(() => {
+    setText(labInput?.deviation || '');
+  }, [labInput?.deviation]);
 
   const StepComponent = STEP_COMPONENTS[step.type];
   const isDone = step.type === 'done';
@@ -35,32 +43,44 @@ const StepCard = ({ step, deviation, deviations, onSaveDeviation }) => {
 
   const handleSave = () => {
     if (text.trim()) {
-      onSaveDeviation({ stepIndex: step.index, stepTitle: step.title, notes: text.trim() });
+      onSaveInput(step.index, {
+        step_type: step.type,
+        step_title: step.title,
+        deviation: text.trim(),
+        timestamp: new Date().toISOString(),
+      });
     }
     setShowInput(false);
   };
 
   const handleToggle = () => {
-    setText(deviation?.notes || '');
+    setText(labInput?.deviation || '');
     setShowInput(v => !v);
   };
+
+  // Build props for the step component
+  const stepProps = { data: step.data };
+  if (SELF_PERSISTED.has(step.type)) {
+    stepProps.labInput = labInput;
+    stepProps.onSaveInput = (data) => onSaveInput(step.index, { step_type: step.type, step_title: step.title, ...data });
+  }
 
   return (
     <div>
       {StepComponent && !isDone && (
-        <StepComponent data={step.data} />
+        <StepComponent {...stepProps} />
       )}
       {isDone && (
-        <DoneStep deviations={deviations} />
+        <DoneStep labInputs={labInputs} />
       )}
 
       {showDeviation && (
         <div className="lab-deviation-toggle">
           <button
-            className={`lab-deviation-btn${deviation ? ' has-deviation' : ''}`}
+            className={`lab-deviation-btn${labInput?.deviation ? ' has-deviation' : ''}`}
             onClick={handleToggle}
           >
-            {deviation ? '⚠ Deviation recorded' : '+ Record deviation'}
+            {labInput?.deviation ? '⚠ Deviation recorded' : '+ Record deviation'}
           </button>
 
           {showInput && (

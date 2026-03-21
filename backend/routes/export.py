@@ -55,6 +55,11 @@ def export_experiment():
         _build_heatmap_sheets(wb, heatmap_data)
         _build_summary_sheet(wb, context, materials, procedure, analytical_data, heatmap_data, plating_protocol)
 
+        # Lab notes (from mobile PR Lab)
+        lab_inputs = current_experiment.get('lab_inputs', {})
+        if lab_inputs:
+            _build_lab_notes_sheet(wb, lab_inputs)
+
         # Generate filename
         eln = (context.get('eln') or '').strip()
         if eln:
@@ -225,6 +230,7 @@ def export_experiment_json():
             'metadata': metadata,
             'materials': materials_list,
             'wells': wells_list,
+            'lab_inputs': current_experiment.get('lab_inputs', {}),
         }
 
         import json
@@ -1258,6 +1264,46 @@ def _build_heatmap_sheets(wb, heatmap_data):
         ws.append(['Heatmap Data'])
         ws.append([''])
         ws.append(['No heatmaps generated yet.'])
+
+
+def _build_lab_notes_sheet(wb, lab_inputs):
+    """Lab Notes sheet — data recorded from the mobile PR Lab companion."""
+    ws = wb.create_sheet('Lab Notes')
+    header_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+    header_font = Font(color='FFFFFF', bold=True, size=11)
+
+    headers = ['Step #', 'Type', 'Title', 'Exact Mass (mg)', 'Exact Volume (µL)',
+               'Actual Conc. (M)', 'Deviation', 'Note', 'Timestamp']
+    for col_idx, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_idx, value=h)
+        cell.fill = header_fill
+        cell.font = header_font
+
+    row = 2
+    for step_idx in sorted(lab_inputs.keys(), key=lambda x: int(x)):
+        d = lab_inputs[step_idx]
+        if not any(d.get(k) for k in ('exact_mass', 'exact_volume', 'deviation', 'note', 'actual_concentration')):
+            continue
+        ws.cell(row=row, column=1, value=int(step_idx) + 1)
+        ws.cell(row=row, column=2, value=d.get('step_type', ''))
+        ws.cell(row=row, column=3, value=d.get('step_title', ''))
+        ws.cell(row=row, column=4, value=float(d['exact_mass']) if d.get('exact_mass') else None)
+        ws.cell(row=row, column=5, value=float(d['exact_volume']) if d.get('exact_volume') else None)
+        ws.cell(row=row, column=6, value=float(d['actual_concentration']) if d.get('actual_concentration') else None)
+        ws.cell(row=row, column=7, value=d.get('deviation', ''))
+        ws.cell(row=row, column=8, value=d.get('note', ''))
+        ws.cell(row=row, column=9, value=d.get('timestamp', ''))
+        row += 1
+
+    # Auto-width
+    for col_idx in range(1, len(headers) + 1):
+        col_letter = get_column_letter(col_idx)
+        max_len = len(headers[col_idx - 1])
+        for r in range(2, row):
+            val = ws.cell(row=r, column=col_idx).value
+            if val:
+                max_len = max(max_len, len(str(val)))
+        ws.column_dimensions[col_letter].width = min(max_len + 3, 40)
 
 
 def _build_summary_sheet(wb, context, materials, procedure, analytical_data, heatmap_data, plating_protocol=None):

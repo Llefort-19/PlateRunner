@@ -29,7 +29,8 @@ _DEFAULT_EXPERIMENT = {
     },
     'results': [],
     'plating_protocol': None,
-    'lab_deviations': []
+    'lab_deviations': [],
+    'lab_inputs': {}
 }
 
 
@@ -170,6 +171,10 @@ def update_experiment_plating_protocol(protocol):
 
 def update_experiment_lab_deviations(deviations):
     _get_experiment_data()['lab_deviations'] = deviations
+    _mark_dirty()
+
+def update_experiment_lab_inputs(inputs):
+    _get_experiment_data()['lab_inputs'] = inputs
     _mark_dirty()
 
 

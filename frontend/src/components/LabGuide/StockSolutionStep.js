@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 
-/** Format mass: 1 decimal in mg; switch to g (3 decimals) if ≥ 1000 mg */
+/** Format mass: 1 decimal in mg; switch to g (3 decimals) if >= 1000 mg */
 const fmtMass = (value) => {
   if (value == null || value === '') return '—';
   const mg = typeof value === 'object' ? value.value : parseFloat(value);
@@ -9,13 +9,13 @@ const fmtMass = (value) => {
   return `${mg.toFixed(1)} mg`;
 };
 
-/** Format volume: display in µL; switch to mL (3 decimals) if ≥ 1000 µL.
- *  Input value may be in mL (from protocol) or µL — detect by unit field. */
+/** Format volume: display in uL; switch to mL (3 decimals) if >= 1000 uL.
+ *  Input value may be in mL (from protocol) or uL -- detect by unit field. */
 const fmtVolume = (volObj) => {
   if (!volObj || volObj.value == null) return '—';
   let uL = parseFloat(volObj.value);
   if (isNaN(uL)) return '—';
-  // Protocol stores total volume in mL — convert to µL for display
+  // Protocol stores total volume in mL -- convert to uL for display
   if (!volObj.unit || volObj.unit.toLowerCase() === 'ml' || volObj.unit.toLowerCase() === 'ml') {
     uL = uL * 1000;
   }
@@ -23,15 +23,23 @@ const fmtVolume = (volObj) => {
   return `${uL.toFixed(1)} µL`;
 };
 
-const StockSolutionStep = ({ data }) => {
+const StockSolutionStep = ({ data, labInput, onSaveInput }) => {
   const {
     name, alias, barcode, molecular_weight,
     solvent, concentration, totalVolume, calculatedMass, excess,
   } = data;
 
-  const [exactMass, setExactMass] = useState('');   // user input in mg
-  const [exactVolume, setExactVolume] = useState(''); // user input in µL
-  const [note, setNote] = useState('');
+  // Initialize from persisted labInput or empty
+  const [exactMass, setExactMass] = useState(labInput?.exact_mass || '');
+  const [exactVolume, setExactVolume] = useState(labInput?.exact_volume || '');
+  const [note, setNote] = useState(labInput?.note || '');
+
+  // Sync if labInput changes (e.g. navigating back)
+  useEffect(() => {
+    setExactMass(labInput?.exact_mass || '');
+    setExactVolume(labInput?.exact_volume || '');
+    setNote(labInput?.note || '');
+  }, [labInput?.exact_mass, labInput?.exact_volume, labInput?.note]);
 
   // Target mass in mg (from protocol calculatedMass)
   const targetMassMg = useMemo(() => {
@@ -40,7 +48,7 @@ const StockSolutionStep = ({ data }) => {
     return isNaN(v) ? null : v;
   }, [calculatedMass]);
 
-  // Target volume in µL (protocol stores in mL)
+  // Target volume in uL (protocol stores in mL)
   const targetVolumeUL = useMemo(() => {
     if (!totalVolume?.value) return null;
     const unit = (totalVolume.unit || 'ml').toLowerCase();
@@ -49,15 +57,12 @@ const StockSolutionStep = ({ data }) => {
   }, [totalVolume]);
 
   // Recalculate: C (M) = (mass_mg / MW) / vol_mL
-  // Falls back to target value for whichever field the user hasn't filled yet,
-  // so the result appears as soon as either field is entered.
   const actualConcentration = useMemo(() => {
     const mw = parseFloat(molecular_weight);
     if (!mw) return null;
     const m = exactMass !== '' ? parseFloat(exactMass) : targetMassMg;
     const uL = exactVolume !== '' ? parseFloat(exactVolume) : targetVolumeUL;
     if (!m || !uL || uL === 0) return null;
-    // Show only when at least one field has been touched by the user
     if (exactMass === '' && exactVolume === '') return null;
     return (m / mw) / (uL / 1000); // mol/L = M
   }, [exactMass, exactVolume, molecular_weight, targetMassMg, targetVolumeUL]);
@@ -71,10 +76,48 @@ const StockSolutionStep = ({ data }) => {
 
   const fmtConc = (c) => {
     if (c == null) return null;
-    if (c < 0.001) return `${(c * 1e6).toPrecision(3)} μM`;
+    if (c < 0.001) return `${(c * 1e6).toPrecision(3)} µM`;
     if (c < 1)     return `${(c * 1000).toPrecision(3)} mM`;
     return `${c.toPrecision(4)} M`;
   };
+
+  // Persist inputs on change
+  const persistInputs = useCallback((mass, vol, n, conc) => {
+    if (!onSaveInput) return;
+    const payload = {
+      exact_mass: mass || undefined,
+      exact_volume: vol || undefined,
+      note: n || undefined,
+      timestamp: new Date().toISOString(),
+    };
+    if (conc != null) payload.actual_concentration = String(conc);
+    onSaveInput(payload);
+  }, [onSaveInput]);
+
+  const handleMassChange = (e) => {
+    const v = e.target.value;
+    setExactMass(v);
+    persistInputs(v, exactVolume, note, null);
+  };
+
+  const handleVolumeChange = (e) => {
+    const v = e.target.value;
+    setExactVolume(v);
+    persistInputs(exactMass, v, note, null);
+  };
+
+  const handleNoteChange = (e) => {
+    const v = e.target.value;
+    setNote(v);
+    persistInputs(exactMass, exactVolume, v, null);
+  };
+
+  // Also persist actual concentration when it updates
+  useEffect(() => {
+    if (actualConcentration != null && onSaveInput) {
+      onSaveInput({ actual_concentration: String(actualConcentration) });
+    }
+  }, [actualConcentration]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="lab-card">
@@ -127,7 +170,7 @@ const StockSolutionStep = ({ data }) => {
               className="lab-stock-input"
               placeholder="0.0"
               value={exactMass}
-              onChange={e => setExactMass(e.target.value)}
+              onChange={handleMassChange}
               inputMode="decimal"
             />
             <span className="lab-stock-input-unit">mg</span>
@@ -142,7 +185,7 @@ const StockSolutionStep = ({ data }) => {
               className="lab-stock-input"
               placeholder="0.0"
               value={exactVolume}
-              onChange={e => setExactVolume(e.target.value)}
+              onChange={handleVolumeChange}
               inputMode="decimal"
             />
             <span className="lab-stock-input-unit">µL</span>
@@ -155,7 +198,7 @@ const StockSolutionStep = ({ data }) => {
             className="lab-stock-textarea"
             placeholder="e.g. partially dissolved, turbid solution…"
             value={note}
-            onChange={e => setNote(e.target.value)}
+            onChange={handleNoteChange}
             rows={2}
           />
         </div>

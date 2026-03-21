@@ -18,20 +18,20 @@ function debounce(fn, delay) {
 const LabGuide = () => {
   const [steps, setSteps] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [deviations, setDeviations] = useState([]);
+  const [labInputs, setLabInputs] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [needsLogin, setNeedsLogin] = useState(false);
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 
-  // Debounced save
-  const saveRef = useRef(null);
+  // Debounced save for lab inputs
+  const saveInputsRef = useRef(null);
   useEffect(() => {
-    saveRef.current = debounce(async (devs) => {
+    saveInputsRef.current = debounce(async (inputs) => {
       try {
-        await axios.post('/api/lab/deviations', { deviations: devs });
+        await axios.post('/api/lab/inputs', { inputs });
       } catch {
-        // Silent fail — deviations are advisory
+        // Silent fail — inputs are advisory
       }
     }, 800);
   }, []);
@@ -39,9 +39,9 @@ const LabGuide = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const [protoRes, devRes, ctxRes] = await Promise.all([
+        const [protoRes, inputsRes, ctxRes] = await Promise.all([
           axios.get('/api/lab/protocol'),
-          axios.get('/api/lab/deviations'),
+          axios.get('/api/lab/inputs'),
           axios.get('/api/experiment/context'),
         ]);
         const liveCtx = ctxRes.data || {};
@@ -59,7 +59,7 @@ const LabGuide = () => {
           return step;
         });
         setSteps(patched);
-        setDeviations(devRes.data.deviations || []);
+        setLabInputs(inputsRes.data.inputs || {});
       } catch (e) {
         if (e.response?.status === 401) {
           const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
@@ -78,15 +78,10 @@ const LabGuide = () => {
     load();
   }, []);
 
-  const handleSaveDeviation = useCallback((newDev) => {
-    setDeviations(prev => {
-      const idx = prev.findIndex(
-        d => d.step_index === newDev.step_index && d.field === newDev.field
-      );
-      const updated = idx >= 0
-        ? prev.map((d, i) => i === idx ? newDev : d)
-        : [...prev, newDev];
-      saveRef.current?.(updated);
+  const handleSaveInput = useCallback((stepIndex, data) => {
+    setLabInputs(prev => {
+      const updated = { ...prev, [String(stepIndex)]: { ...prev[String(stepIndex)], ...data } };
+      saveInputsRef.current?.(updated);
       return updated;
     });
   }, []);
@@ -138,9 +133,7 @@ const LabGuide = () => {
   }
 
   const step = steps[currentIndex];
-  const deviation = deviations.find(
-    d => d.step_index === step.index && d.step_type === step.type
-  );
+  const labInput = labInputs[String(step.index)] || null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh' }}>
@@ -149,9 +142,9 @@ const LabGuide = () => {
         <StepCard
           key={currentIndex}
           step={step}
-          deviation={deviation || null}
-          deviations={deviations}
-          onSaveDeviation={handleSaveDeviation}
+          labInput={labInput}
+          labInputs={labInputs}
+          onSaveInput={handleSaveInput}
         />
       </LabGuideShell>
     </div>
