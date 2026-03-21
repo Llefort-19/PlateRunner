@@ -9,6 +9,7 @@ import {
   Thermometer,
   FileSpreadsheet,
   BrainCircuit,
+  Smartphone,
 } from "lucide-react";
 
 const TUTORIAL_URL = ""; // Set to YouTube URL when video is ready
@@ -34,7 +35,7 @@ const STEPS = [
   {
     n: 4,
     title: "Generate protocol",
-    desc: "Create a lab-ready plating protocol.",
+    desc: "Create a lab-ready plating protocol and send it to PR Lab.",
   },
   {
     n: 5,
@@ -154,11 +155,11 @@ export default function Login({ onLogin, minimal = false }) {
         <div style={{ width: '100%', maxWidth: 360 }}>
           {/* Logo */}
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <div style={{
-              width: 64, height: 64, borderRadius: 16, background: '#2563eb',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 32, marginBottom: 12,
-            }}>⚗️</div>
+            <img
+              src="/Unicorn_lab_no_bg.png"
+              alt="PlateRunner"
+              style={{ width: 80, height: 80, objectFit: 'contain', marginBottom: 12 }}
+            />
             <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 700, color: '#0f172a' }}>
               PlateRunner Lab
             </h1>
@@ -425,6 +426,49 @@ export default function Login({ onLogin, minimal = false }) {
           font-size: 13px;
           color: #64748b;
           line-height: 1.5;
+        }
+
+        /* ── PR Lab section ─────────────────────────────────────── */
+        .lp-prlab-layout {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 48px;
+          max-width: 860px;
+          width: 100%;
+          align-items: center;
+          padding-top: 24px;
+        }
+        .lp-prlab-text p {
+          font-size: 15px;
+          color: #475569;
+          line-height: 1.7;
+          margin: 0 0 16px;
+        }
+        .lp-prlab-list {
+          margin: 0;
+          padding-left: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          font-size: 14px;
+          color: #475569;
+          line-height: 1.5;
+        }
+        .lp-prlab-phone {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 120px;
+          height: 120px;
+          border-radius: 24px;
+          background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+          border: 1px solid #bfdbfe;
+          flex-shrink: 0;
+        }
+        .lp-prlab-icon { color: #2563eb; }
+        @media (max-width: 768px) {
+          .lp-prlab-layout { grid-template-columns: 1fr; }
+          .lp-prlab-phone { display: none; }
         }
 
         /* ── Beta Access ───────────────────────────────────────────── */
@@ -699,6 +743,30 @@ export default function Login({ onLogin, minimal = false }) {
                 <div className="lp-feat-desc">{f.desc}</div>
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* ── PR Lab ─────────────────────────────────────────────── */}
+        <section className="lp-section lp-section--gray">
+          <p className="lp-section-label">IN THE LAB</p>
+          <h2 className="lp-section-title">PR Lab — Your Mobile Companion</h2>
+          <div className="lp-prlab-layout">
+            <div className="lp-prlab-text">
+              <p>
+                Take your experiment from the desktop to the bench. PR Lab is a
+                mobile-optimised companion that turns your plating protocol into a
+                guided, step-by-step workflow — right on your phone.
+              </p>
+              <ul className="lp-prlab-list">
+                <li>Stock solution preparation with live concentration check</li>
+                <li>Full plate map for every dispense step, portrait &amp; landscape</li>
+                <li>Record deviations directly from the bench</li>
+                <li>Installable PWA — works from your phone browser, no app store needed</li>
+              </ul>
+            </div>
+            <div className="lp-prlab-phone">
+              <Smartphone size={64} className="lp-prlab-icon" />
+            </div>
           </div>
         </section>
 
