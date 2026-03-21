@@ -474,19 +474,20 @@ export default function Login({ onLogin, minimal = false }) {
         /* ── Beta Access ───────────────────────────────────────────── */
         .lp-access {
           padding: 72px 24px 88px;
-          background: #ffffff;
+          background: #f5f7fa;
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: 10px;
         }
         .lp-access-label {
-          font-size: 12px;
+          font-size: 24px;
           font-weight: 700;
           letter-spacing: 1.5px;
           text-transform: uppercase;
           color: #2563eb;
           margin: 0;
+          font-family: 'Inter', sans-serif;
         }
         .lp-access-title {
           font-family: 'Space Grotesk', sans-serif;
@@ -748,7 +749,7 @@ export default function Login({ onLogin, minimal = false }) {
 
         {/* ── PR Lab ─────────────────────────────────────────────── */}
         <section className="lp-section lp-section--white">
-          <p className="lp-section-label" style={{ border: '1px solid #2563eb', borderRadius: 4, padding: '2px 10px', display: 'inline-block' }}>
+          <p className="lp-section-label">
             IN THE LAB
           </p>
           <h2 className="lp-section-title">Plate Runner Lab — Your Mobile Companion</h2>
@@ -767,25 +768,7 @@ export default function Login({ onLogin, minimal = false }) {
               </ul>
             </div>
             <div className="lp-prlab-logo">
-              {/* Phone outline as background, unicorn overlaid on top */}
-              <div style={{ position: 'relative', width: 120, height: 160 }}>
-                <Smartphone
-                  size={160}
-                  strokeWidth={1}
-                  style={{ position: 'absolute', top: 0, left: 0, color: '#cbd5e1' }}
-                />
-                <img
-                  src="/Unicorn_lab_no_bg.png"
-                  alt="PR Lab"
-                  style={{
-                    position: 'absolute',
-                    top: '50%', left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    width: 90, height: 90,
-                    objectFit: 'contain',
-                  }}
-                />
-              </div>
+              <img src="/PR_lab_smartphone.png" alt="PR Lab mobile companion" style={{ width: 320, objectFit: 'contain' }} />
             </div>
           </div>
         </section>
