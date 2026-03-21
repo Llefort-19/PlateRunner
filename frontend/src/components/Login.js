@@ -468,7 +468,7 @@ export default function Login({ onLogin, minimal = false }) {
         }
         @media (max-width: 768px) {
           .lp-prlab-layout { grid-template-columns: 1fr; }
-          .lp-prlab-logo { display: none; }
+          .lp-prlab-logo { order: -1; }
         }
 
         /* ── Beta Access ───────────────────────────────────────────── */
