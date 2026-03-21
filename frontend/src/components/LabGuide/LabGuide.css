@@ -229,6 +229,146 @@
   margin: 16px 0;
 }
 
+/* ─── Stock Solution Step ─── */
+.lab-stock-info-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+.lab-stock-mw {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary, #64748b);
+}
+.lab-stock-targets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.lab-stock-target-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.lab-stock-solvent {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--color-primary, #2563eb);
+  margin-top: 4px;
+}
+.lab-stock-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+.lab-stock-meta-pill {
+  font-size: 12px;
+  background: #f1f5f9;
+  border-radius: 20px;
+  padding: 3px 10px;
+  color: var(--color-text-secondary, #64748b);
+}
+.lab-stock-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.lab-stock-input-card {
+  background: #f8fafc;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.lab-stock-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.lab-stock-input {
+  flex: 1;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text-primary, #1a1a2e);
+  background: none;
+  border: none;
+  border-bottom: 2px solid var(--color-primary, #2563eb);
+  outline: none;
+  padding: 2px 0;
+  width: 0;
+  min-width: 0;
+}
+.lab-stock-input::placeholder {
+  color: #cbd5e1;
+  font-weight: 400;
+}
+.lab-stock-input-unit {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-secondary, #64748b);
+  flex-shrink: 0;
+}
+.lab-stock-note-card textarea.lab-stock-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 14px;
+  color: var(--color-text-primary, #1a1a2e);
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  outline: none;
+  resize: none;
+  padding: 6px 0 2px;
+  font-family: inherit;
+  margin-top: 4px;
+}
+.lab-stock-textarea::placeholder {
+  color: #94a3b8;
+}
+.lab-stock-conc-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 10px;
+  padding: 12px 16px;
+  flex-wrap: wrap;
+}
+.lab-stock-conc-ok {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+.lab-stock-conc-warn {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+}
+.lab-stock-conc-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary, #64748b);
+  flex-shrink: 0;
+}
+.lab-stock-conc-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text-primary, #1a1a2e);
+  flex: 1;
+}
+.lab-stock-conc-delta {
+  font-size: 13px;
+  font-weight: 600;
+  color: #d97706;
+}
+.lab-stock-conc-ok .lab-stock-conc-delta {
+  color: #16a34a;
+}
+
 /* ─── Materials table ─── */
 .lab-materials-table {
   width: 100%;
@@ -263,7 +403,112 @@
   color: var(--color-text-primary, #1a1a2e);
 }
 
-/* ─── Well amounts grid ─── */
+/* ─── Material cards ─── */
+.lab-material-card {
+  background: #fff;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+.lab-material-alias {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--color-text-primary, #1a1a2e);
+  margin-bottom: 3px;
+}
+.lab-material-meta {
+  font-size: 13px;
+  color: var(--color-text-secondary, #64748b);
+}
+.lab-material-kit {
+  background: #f0f7ff;
+  border-color: #bfdbfe;
+  padding: 0;
+  overflow: hidden;
+}
+.lab-material-kit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 12px 14px;
+  cursor: pointer;
+  text-align: left;
+  gap: 8px;
+}
+.lab-material-kit-toggle {
+  font-size: 12px;
+  color: var(--color-text-secondary, #64748b);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.lab-kit-members {
+  border-top: 1px solid #bfdbfe;
+  padding: 6px 0;
+}
+.lab-kit-member-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 14px;
+  font-size: 13px;
+  border-bottom: 1px solid #e0eeff;
+}
+.lab-kit-member-row:last-child {
+  border-bottom: none;
+}
+.lab-kit-member-pos {
+  font-weight: 600;
+  font-size: 12px;
+  color: #2563eb;
+  width: 28px;
+  flex-shrink: 0;
+  font-family: monospace;
+}
+.lab-kit-member-name {
+  flex: 1;
+  color: var(--color-text-primary, #1a1a2e);
+}
+.lab-kit-member-cas {
+  font-size: 11px;
+  color: var(--color-text-secondary, #64748b);
+  white-space: nowrap;
+}
+
+/* ─── Plate map ─── */
+
+/* Tooltip shown below plate when a well is tapped */
+.lab-plate-tooltip {
+  display: inline-block;
+  margin-top: 4px;
+  background: #1e293b;
+  color: #fff;
+  border-radius: 8px;
+  padding: 6px 16px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.lab-plate-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--color-text-secondary, #64748b);
+}
+.lab-plate-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #2563eb;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+/* ─── Well amounts grid (legacy) ─── */
 .lab-wells-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
@@ -294,7 +539,7 @@
 .lab-deviation-toggle {
   margin-top: 20px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 8px;
 }
 
@@ -312,6 +557,65 @@
   border-color: #f59e0b;
   color: #92400e;
   background: #fffbeb;
+}
+
+/* Inline free-text deviation input */
+.lab-deviation-inline {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.lab-deviation-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #fcd34d;
+  border-radius: 7px;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+  resize: vertical;
+  min-height: 64px;
+  outline: none;
+}
+
+.lab-deviation-textarea:focus {
+  border-color: #f59e0b;
+}
+
+.lab-deviation-inline-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.lab-deviation-save-btn {
+  flex: 1;
+  padding: 9px;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lab-deviation-save-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.lab-deviation-cancel-btn {
+  padding: 9px 16px;
+  background: none;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 7px;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--color-text-secondary, #64748b);
 }
 
 .lab-deviation-form {

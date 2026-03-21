@@ -39,12 +39,26 @@ const LabGuide = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const [protoRes, devRes] = await Promise.all([
+        const [protoRes, devRes, ctxRes] = await Promise.all([
           axios.get('/api/lab/protocol'),
           axios.get('/api/lab/deviations'),
+          axios.get('/api/experiment/context'),
         ]);
+        const liveCtx = ctxRes.data || {};
+        const liveMaterials = protoRes.data.materials || [];
         const built = buildSteps(protoRes.data.protocol);
-        setSteps(built);
+        // Patch the header step with live context so title/eln are always current
+        // Patch the materials step with live materials so newly added/edited materials always appear
+        const patched = built.map(step => {
+          if (step.type === 'header') {
+            return { ...step, data: { ...step.data, title: liveCtx.title || step.data.title || '', eln: liveCtx.eln || step.data.eln || '' } };
+          }
+          if (step.type === 'materials' && liveMaterials.length > 0) {
+            return { ...step, data: { ...step.data, materials: liveMaterials } };
+          }
+          return step;
+        });
+        setSteps(patched);
         setDeviations(devRes.data.deviations || []);
       } catch (e) {
         if (e.response?.status === 401) {

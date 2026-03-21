@@ -2,15 +2,45 @@
  * buildSteps.js
  * Pure function: protocol blob (from plating_protocol DB field) → Step[]
  *
- * The protocol blob is saved by PlatingProtocolModal in this shape:
- *   { materialConfigs: [...], dispenseOrder: [...], plateType, context, saved_at }
+ * Two save formats exist:
+ *  - Modal-close format (raw): { materialConfigs, dispenseOrder, plateType, context, saved_at }
+ *    Fields are camelCase: dispensingMethod, stockSolution, isCocktail, calculatedMass
+ *  - Export / Send-to-Lab format (processed): { materials, operations, plate_type, context }
+ *    Fields are snake_case: dispensing_method, stock_solution, is_cocktail, calculated_mass_value
+ *
+ * normalizeMaterial() maps both to a consistent camelCase shape for buildSteps logic.
  */
+
+function normalizeMaterial(m) {
+  // Normalize stockSolution from snake_case processed format if needed
+  const ss = m.stockSolution || (m.stock_solution ? {
+    solvent: {
+      name: m.stock_solution.solvent_name,
+      cas: m.stock_solution.solvent_cas,
+      density: m.stock_solution.solvent_density,
+    },
+    amountPerWell: { value: m.stock_solution.amount_per_well_value, unit: m.stock_solution.amount_per_well_unit },
+    excess: m.stock_solution.excess,
+    concentration: { value: m.stock_solution.concentration_value, unit: m.stock_solution.concentration_unit },
+    totalVolume: { value: m.stock_solution.total_volume_value, unit: m.stock_solution.total_volume_unit },
+  } : null);
+
+  return {
+    ...m,
+    dispensingMethod: m.dispensingMethod || m.dispensing_method || 'neat',
+    stockSolution: ss,
+    isCocktail: m.isCocktail || m.is_cocktail || false,
+    calculatedMass: m.calculatedMass ?? m.calculated_mass_value ?? null,
+    wellAmounts: m.wellAmounts || m.well_amounts || {},
+  };
+}
 
 export function buildSteps(protocol) {
   if (!protocol) return [];
 
-  // Normalize: modal-save format uses materialConfigs/dispenseOrder
-  const materials = protocol.materialConfigs || protocol.materials || [];
+  // Normalize: modal-save format uses materialConfigs/dispenseOrder; export format uses materials/operations
+  const rawMaterials = protocol.materialConfigs || protocol.materials || [];
+  const materials = rawMaterials.map(normalizeMaterial);
   const operations = protocol.dispenseOrder || protocol.operations || [];
   const context = protocol.context || {};
   const plateType = protocol.plateType || protocol.plate_type || '';
@@ -94,7 +124,7 @@ export function buildSteps(protocol) {
         index: idx++,
         type: 'dispense',
         title: `Dispense: ${m.alias || m.name}`,
-        data: { material: m, op },
+        data: { material: m, op, plateType },
       });
     } else if (op.type === 'kit') {
       const members = (op.materialIndices || []).map((i) => materials[i]).filter(Boolean);
@@ -102,7 +132,7 @@ export function buildSteps(protocol) {
         index: idx++,
         type: 'kit',
         title: `Dispense kit: ${op.kitId || 'Kit'}`,
-        data: { members, op },
+        data: { members, op, plateType },
       });
     } else if (op.type === 'wait') {
       steps.push({

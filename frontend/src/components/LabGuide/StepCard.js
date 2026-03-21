@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import DeviationForm from './DeviationForm';
 import HeaderStep from './HeaderStep';
 import MaterialsOverviewStep from './MaterialsOverviewStep';
 import StockSolutionStep from './StockSolutionStep';
@@ -23,15 +22,27 @@ const STEP_COMPONENTS = {
   note: NoteStep,
 };
 
+// Step types that show the deviation button
+const DEVIATION_TYPES = new Set(['dispense', 'kit', 'wait', 'stir', 'evaporate', 'note']);
+
 const StepCard = ({ step, deviation, deviations, onSaveDeviation }) => {
-  const [showForm, setShowForm] = useState(false);
+  const [showInput, setShowInput] = useState(false);
+  const [text, setText] = useState(deviation?.notes || '');
 
   const StepComponent = STEP_COMPONENTS[step.type];
   const isDone = step.type === 'done';
+  const showDeviation = !isDone && DEVIATION_TYPES.has(step.type);
 
-  const handleSave = (d) => {
-    onSaveDeviation(d);
-    setShowForm(false);
+  const handleSave = () => {
+    if (text.trim()) {
+      onSaveDeviation({ stepIndex: step.index, stepTitle: step.title, notes: text.trim() });
+    }
+    setShowInput(false);
+  };
+
+  const handleToggle = () => {
+    setText(deviation?.notes || '');
+    setShowInput(v => !v);
   };
 
   return (
@@ -43,24 +54,43 @@ const StepCard = ({ step, deviation, deviations, onSaveDeviation }) => {
         <DoneStep deviations={deviations} />
       )}
 
-      {!isDone && (
+      {showDeviation && (
         <div className="lab-deviation-toggle">
           <button
             className={`lab-deviation-btn${deviation ? ' has-deviation' : ''}`}
-            onClick={() => setShowForm(v => !v)}
+            onClick={handleToggle}
           >
             {deviation ? '⚠ Deviation recorded' : '+ Record deviation'}
           </button>
-        </div>
-      )}
 
-      {showForm && (
-        <DeviationForm
-          step={step}
-          existing={deviation}
-          onSave={handleSave}
-          onCancel={() => setShowForm(false)}
-        />
+          {showInput && (
+            <div className="lab-deviation-inline">
+              <textarea
+                className="lab-deviation-textarea"
+                placeholder="Describe the deviation…"
+                value={text}
+                onChange={e => setText(e.target.value)}
+                rows={3}
+                autoFocus
+              />
+              <div className="lab-deviation-inline-actions">
+                <button
+                  className="lab-deviation-save-btn"
+                  onClick={handleSave}
+                  disabled={!text.trim()}
+                >
+                  Save
+                </button>
+                <button
+                  className="lab-deviation-cancel-btn"
+                  onClick={() => setShowInput(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

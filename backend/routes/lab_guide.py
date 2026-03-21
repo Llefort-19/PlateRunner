@@ -12,7 +12,8 @@ def get_lab_protocol():
     """Return the saved plating protocol and experiment context for the lab guide."""
     protocol = current_experiment.get('plating_protocol', None)
     context = current_experiment.get('context', {})
-    return jsonify({'protocol': protocol, 'context': context})
+    materials = current_experiment.get('materials', [])
+    return jsonify({'protocol': protocol, 'context': context, 'materials': materials})
 
 
 @lab_guide_bp.route('/deviations', methods=['GET'])

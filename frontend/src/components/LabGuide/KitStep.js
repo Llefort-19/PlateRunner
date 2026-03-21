@@ -1,33 +1,54 @@
 import React from 'react';
+import PlateMap from './PlateMap';
 
 const KitStep = ({ data }) => {
-  const { members = [], op } = data;
+  const { members = [], op, plateType } = data;
+
+  // Build a merged wellAmounts: union of all members' active wells.
+  // Value shown is from the first member that has an amount in that well.
+  const mergedWellAmounts = {};
+  members.forEach((m) => {
+    const wa = m.wellAmounts || {};
+    Object.entries(wa).forEach(([wellId, w]) => {
+      if (w && parseFloat(w.value) > 0 && !mergedWellAmounts[wellId]) {
+        mergedWellAmounts[wellId] = w;
+      }
+    });
+  });
+
+  const activeCount = Object.keys(mergedWellAmounts).length;
 
   return (
     <div className="lab-card">
       <div className="lab-card-type">Dispense — Kit</div>
-      <h2 className="lab-card-title">{op.kitId || 'Kit'}</h2>
+      <h2 className="lab-card-title" style={{ marginBottom: 2 }}>{op.kitId || 'Kit'}</h2>
+
+      <div className="lab-stock-meta-row" style={{ justifyContent: 'flex-start', gap: 8, marginBottom: 10 }}>
+        <span className="lab-stock-meta-pill">{members.length} materials</span>
+        {activeCount > 0 && (
+          <span className="lab-stock-meta-pill">{activeCount} wells</span>
+        )}
+      </div>
 
       {op.note && (
-        <div className="lab-field">
-          <span className="lab-field-label">Note</span>
-          <span className="lab-field-value">{op.note}</span>
+        <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 10 }}>
+          {op.note}
         </div>
       )}
 
       <hr className="lab-divider" />
 
-      <div className="lab-field-label" style={{ marginBottom: 8 }}>
-        Kit members ({members.length})
-      </div>
-
-      {members.map((m, i) => (
-        <div key={i} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: i < members.length - 1 ? '1px solid var(--color-border-light)' : 'none' }}>
-          <div style={{ fontWeight: 600, fontSize: 15 }}>{m.alias || m.name}</div>
-          {m.barcode && <span className="lab-barcode-chip" style={{ marginTop: 4, display: 'inline-block' }}>{m.barcode}</span>}
-          {m.role && <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>{m.role}{m.role_id ? ` · ${m.role_id}` : ''}</div>}
-        </div>
-      ))}
+      {activeCount > 0 ? (
+        <>
+          <PlateMap wellAmounts={mergedWellAmounts} plateType={plateType} showLabel={false} />
+          <div className="lab-plate-legend">
+            <span className="lab-plate-legend-dot" />
+            kit well
+          </div>
+        </>
+      ) : (
+        <p style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}>No well positions configured.</p>
+      )}
     </div>
   );
 };
