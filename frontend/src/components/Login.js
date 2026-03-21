@@ -158,7 +158,7 @@ export default function Login({ onLogin, minimal = false }) {
             <img
               src="/Unicorn_lab_no_bg.png"
               alt="PlateRunner"
-              style={{ width: 80, height: 80, objectFit: 'contain', marginBottom: 12 }}
+              style={{ width: 240, height: 240, objectFit: 'contain', marginBottom: 12 }}
             />
             <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 700, color: '#0f172a' }}>
               PlateRunner Lab

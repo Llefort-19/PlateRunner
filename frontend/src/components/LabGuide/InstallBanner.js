@@ -70,7 +70,7 @@ const InstallBanner = () => {
         <img
           src="/Unicorn_lab_no_bg.png"
           alt="PlateRunner"
-          style={{ width: 80, height: 80, objectFit: 'contain', margin: '0 auto 16px', display: 'block' }}
+          style={{ width: 240, height: 240, objectFit: 'contain', margin: '0 auto 16px', display: 'block' }}
         />
 
         <h2 style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 700, color: '#0f172a' }}>
