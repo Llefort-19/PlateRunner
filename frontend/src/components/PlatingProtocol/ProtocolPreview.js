@@ -26,7 +26,9 @@ const ProtocolPreview = ({
   setIsExporting,
   onClose,
   onExportExcel,
-  onExportPDF
+  onExportPDF,
+  onSendToLab,
+  onSendToLabSuccess,
 }) => {
   const [exportError, setExportError] = useState(null);
   const [showQR, setShowQR] = useState(false);
@@ -340,10 +342,12 @@ const ProtocolPreview = ({
       operations: remappedOperations,
       plate_type: plateType,
       context: {
+        title: context?.title || '',
         eln: context?.eln || '',
         author: context?.author || '',
         project: context?.project || '',
-        date: context?.date || new Date().toISOString().split('T')[0]
+        date: context?.date || new Date().toISOString().split('T')[0],
+        objective: context?.objective || '',
       },
       created_at: new Date().toISOString(),
       exported_at: null
@@ -403,9 +407,28 @@ const ProtocolPreview = ({
   const exportHandlerRef = useRef(handleExport);
   exportHandlerRef.current = handleExport;
 
+  const handleSendToLab = useCallback(async () => {
+    setIsExporting(true);
+    setExportError(null);
+    try {
+      const protocolData = buildProtocolData();
+      await axios.post('/api/experiment/plating-protocol', protocolData);
+      if (onSendToLabSuccess) onSendToLabSuccess();
+    } catch (err) {
+      console.error('Error sending protocol to PR Lab:', err);
+      setExportError('Failed to send protocol to PR Lab. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [buildProtocolData, onSendToLabSuccess]);
+
+  const sendToLabHandlerRef = useRef(handleSendToLab);
+  sendToLabHandlerRef.current = handleSendToLab;
+
   useEffect(() => {
     if (onExportExcel) onExportExcel(() => exportHandlerRef.current('excel'));
     if (onExportPDF) onExportPDF(() => exportHandlerRef.current('pdf'));
+    if (onSendToLab) onSendToLab(() => sendToLabHandlerRef.current());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

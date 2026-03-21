@@ -23,7 +23,7 @@ const PlatingProtocolModal = ({
   plateType = '96',
   context = {}
 }) => {
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
   const [materialConfigs, setMaterialConfigs] = useState([]);
   const [dispenseOrder, setDispenseOrder] = useState([]);
@@ -31,7 +31,8 @@ const PlatingProtocolModal = ({
   const [exportHandlers, setExportHandlers] = useState({
     excel: null,
     pdf: null,
-    save: null
+    save: null,
+    sendToLab: null,
   });
 
   const modalRef = useRef(null);
@@ -707,6 +708,8 @@ const PlatingProtocolModal = ({
               onClose={onClose}
               onExportExcel={(handler) => setExportHandlers(prev => ({ ...prev, excel: handler }))}
               onExportPDF={(handler) => setExportHandlers(prev => ({ ...prev, pdf: handler }))}
+              onSendToLab={(handler) => setExportHandlers(prev => ({ ...prev, sendToLab: handler }))}
+              onSendToLabSuccess={() => showSuccess('Protocol sent to PR Lab')}
             />
           )}
         </div>
@@ -739,6 +742,14 @@ const PlatingProtocolModal = ({
                 disabled={isExporting || !exportHandlers.pdf}
               >
                 {isExporting ? 'Exporting...' : '📄 Export PDF'}
+              </button>
+
+              <button
+                className={`btn btn-primary ${isExporting ? 'plating-loading' : ''}`}
+                onClick={() => exportHandlers.sendToLab && exportHandlers.sendToLab()}
+                disabled={isExporting || !exportHandlers.sendToLab}
+              >
+                {isExporting ? 'Sending...' : '🧪 Send to PR Lab'}
               </button>
 
               <div className="plating-footer-spacer" />

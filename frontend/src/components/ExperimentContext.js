@@ -4,6 +4,7 @@ import { useToast } from "./ToastContext";
 
 const ExperimentContext = () => {
   const [context, setContext] = useState({
+    title: "",
     author: "",
     date: new Date().toISOString().split("T")[0],
     project: "",
@@ -159,6 +160,7 @@ const ExperimentContext = () => {
       if (response.data && Object.keys(response.data).length > 0) {
         // Ensure all fields have defined values to prevent controlled/uncontrolled input switching
         const loadedContext = {
+          title: response.data.title || "",
           author: response.data.author || "",
           date: response.data.date && response.data.date !== "" ? response.data.date : new Date().toISOString().split("T")[0],
           project: response.data.project || "",
@@ -279,6 +281,21 @@ const ExperimentContext = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="experiment-context-form">
+          <div className="form-group" style={{ marginBottom: 16 }}>
+            <label htmlFor="title" className="form-label">
+              Experiment Title
+            </label>
+            <input
+              type="text"
+              id="title"
+              name="title"
+              className="form-control"
+              value={context.title}
+              onChange={handleChange}
+              placeholder="Give your experiment a descriptive title"
+            />
+          </div>
+
           <div className="form-grid">
             <div className="form-group">
               <label htmlFor="author" className="form-label">

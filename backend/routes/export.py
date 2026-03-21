@@ -111,6 +111,7 @@ def export_experiment_json():
                 return None
 
         metadata = {
+            'title': context.get('title', ''),
             'author': context.get('author', ''),
             'date': context.get('date', ''),
             'project': context.get('project', ''),
@@ -261,6 +262,7 @@ def _build_context_sheet(wb, context, sdf_data):
     rows = [
         ['Experiment Context'],
         [''],
+        ['Title', context.get('title', '')],
         ['Author', context.get('author', '')],
         ['Date', context.get('date', '')],
         ['Project', context.get('project', '')],
@@ -1270,6 +1272,7 @@ def _build_summary_sheet(wb, context, materials, procedure, analytical_data, hea
         ['HTE Experiment Summary'],
         [''],
         ['Experiment Information'],
+        ['Title:', context.get('title', 'Not specified')],
         ['Author:', context.get('author', 'Not specified')],
         ['Date:', context.get('date', 'Not specified')],
         ['Project:', context.get('project', 'Not specified')],

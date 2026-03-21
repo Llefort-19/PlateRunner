@@ -67,19 +67,11 @@ const InstallBanner = () => {
         boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
       }}>
         {/* Logo */}
-        <div style={{
-          width: 72,
-          height: 72,
-          borderRadius: 16,
-          background: '#2563eb',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: '0 auto 20px',
-          fontSize: 36,
-        }}>
-          ⚗️
-        </div>
+        <img
+          src="/Unicorn_lab_no_bg.png"
+          alt="PlateRunner"
+          style={{ width: 80, height: 80, objectFit: 'contain', margin: '0 auto 16px', display: 'block' }}
+        />
 
         <h2 style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 700, color: '#0f172a' }}>
           Install PlateRunner Lab

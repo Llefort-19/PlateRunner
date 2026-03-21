@@ -3,7 +3,7 @@ import React from 'react';
 const HeaderStep = ({ data }) => (
   <div className="lab-card">
     <div className="lab-card-type">Experiment</div>
-    <h2 className="lab-card-title">{data.eln || 'Untitled Experiment'}</h2>
+    <h2 className="lab-card-title">{data.title || data.eln || 'Untitled Experiment'}</h2>
 
     {data.author && (
       <div className="lab-field">
@@ -15,6 +15,12 @@ const HeaderStep = ({ data }) => (
       <div className="lab-field">
         <span className="lab-field-label">Date</span>
         <span className="lab-field-value">{data.date}</span>
+      </div>
+    )}
+    {data.eln && (
+      <div className="lab-field">
+        <span className="lab-field-label">ELN Number</span>
+        <span className="lab-field-value">{data.eln}</span>
       </div>
     )}
     {data.project && (
