@@ -767,7 +767,25 @@ export default function Login({ onLogin, minimal = false }) {
               </ul>
             </div>
             <div className="lp-prlab-logo">
-              <img src="/Unicorn_lab_no_bg.png" alt="PR Lab" style={{ width: 140, height: 140, objectFit: 'contain' }} />
+              {/* Phone outline as background, unicorn overlaid on top */}
+              <div style={{ position: 'relative', width: 120, height: 160 }}>
+                <Smartphone
+                  size={160}
+                  strokeWidth={1}
+                  style={{ position: 'absolute', top: 0, left: 0, color: '#cbd5e1' }}
+                />
+                <img
+                  src="/Unicorn_lab_no_bg.png"
+                  alt="PR Lab"
+                  style={{
+                    position: 'absolute',
+                    top: '50%', left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: 90, height: 90,
+                    objectFit: 'contain',
+                  }}
+                />
+              </div>
             </div>
           </div>
         </section>
