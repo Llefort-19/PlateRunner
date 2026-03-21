@@ -438,15 +438,16 @@ export default function Login({ onLogin, minimal = false }) {
           align-items: center;
           padding-top: 24px;
         }
-        .lp-prlab-text p {
+        .lp-prlab-desc {
           font-size: 15px;
           color: #475569;
           line-height: 1.7;
           margin: 0 0 16px;
         }
         .lp-prlab-list {
+          list-style: none;
           margin: 0;
-          padding-left: 20px;
+          padding: 0;
           display: flex;
           flex-direction: column;
           gap: 8px;
@@ -454,21 +455,20 @@ export default function Login({ onLogin, minimal = false }) {
           color: #475569;
           line-height: 1.5;
         }
-        .lp-prlab-phone {
+        .lp-prlab-list li::before {
+          content: "✓  ";
+          color: #2563eb;
+          font-weight: 700;
+        }
+        .lp-prlab-logo {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 120px;
-          height: 120px;
-          border-radius: 24px;
-          background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-          border: 1px solid #bfdbfe;
           flex-shrink: 0;
         }
-        .lp-prlab-icon { color: #2563eb; }
         @media (max-width: 768px) {
           .lp-prlab-layout { grid-template-columns: 1fr; }
-          .lp-prlab-phone { display: none; }
+          .lp-prlab-logo { display: none; }
         }
 
         /* ── Beta Access ───────────────────────────────────────────── */
@@ -747,12 +747,14 @@ export default function Login({ onLogin, minimal = false }) {
         </section>
 
         {/* ── PR Lab ─────────────────────────────────────────────── */}
-        <section className="lp-section lp-section--gray">
-          <p className="lp-section-label">IN THE LAB</p>
-          <h2 className="lp-section-title">PR Lab — Your Mobile Companion</h2>
+        <section className="lp-section lp-section--white">
+          <p className="lp-section-label" style={{ border: '1px solid #2563eb', borderRadius: 4, padding: '2px 10px', display: 'inline-block' }}>
+            IN THE LAB
+          </p>
+          <h2 className="lp-section-title">Plate Runner Lab — Your Mobile Companion</h2>
           <div className="lp-prlab-layout">
             <div className="lp-prlab-text">
-              <p>
+              <p className="lp-prlab-desc">
                 Take your experiment from the desktop to the bench. PR Lab is a
                 mobile-optimised companion that turns your plating protocol into a
                 guided, step-by-step workflow — right on your phone.
@@ -764,8 +766,8 @@ export default function Login({ onLogin, minimal = false }) {
                 <li>Installable PWA — works from your phone browser, no app store needed</li>
               </ul>
             </div>
-            <div className="lp-prlab-phone">
-              <Smartphone size={64} className="lp-prlab-icon" />
+            <div className="lp-prlab-logo">
+              <img src="/Unicorn_lab_no_bg.png" alt="PR Lab" style={{ width: 140, height: 140, objectFit: 'contain' }} />
             </div>
           </div>
         </section>
